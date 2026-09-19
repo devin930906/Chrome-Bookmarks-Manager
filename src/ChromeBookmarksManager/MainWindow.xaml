@@ -134,8 +134,11 @@
                           HorizontalAlignment="Stretch" />
 
             <GroupBox Grid.Column="2" Header="Bookmarks" Margin="8">
-                <ListView ItemsSource="{Binding DisplayedBookmarks}"
+                <ListView x:Name="BookmarksList"
+                          ItemsSource="{Binding DisplayedBookmarks}"
                           SelectedItem="{Binding SelectedBookmark, Mode=TwoWay}"
+                          MouseDoubleClick="BookmarksList_MouseDoubleClick"
+                          KeyDown="BookmarksList_KeyDown"
                           SelectionMode="Single"
                           IsEnabled="{Binding CanBrowseDocument}"
                           VirtualizingPanel.IsVirtualizing="True"

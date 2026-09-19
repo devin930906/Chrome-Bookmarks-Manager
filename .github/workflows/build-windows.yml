@@ -1,0 +1,66 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Show SDK
+        shell: pwsh
+        run: dotnet --info
+
+      - name: Verify repository safety
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-RepositorySafety.ps1
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore ChromeBookmarksManager.slnx
+
+      - name: Build
+        shell: pwsh
+        run: dotnet build ChromeBookmarksManager.slnx --configuration Release --no-restore
+
+      - name: Test
+        shell: pwsh
+        run: dotnet test ChromeBookmarksManager.slnx --configuration Release --no-build --logger "console;verbosity=normal"
+
+      - name: Publish Windows x64
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Publish-Windows.ps1
+
+      - name: Verify single-file output
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-SingleFilePublish.ps1 -PublishDirectory artifacts/win-x64
+
+      - name: Smoke test executable
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/SmokeTest-Windows.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v7
+        with:
+          name: ChromeBookmarksManager-win-x64
+          path: artifacts/win-x64/ChromeBookmarksManager.exe
+          if-no-files-found: error
+          retention-days: 14

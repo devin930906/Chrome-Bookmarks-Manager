@@ -26,6 +26,8 @@ public sealed class MainViewModel : ViewModelBase
     private string _statusText = "No Bookmarks file is open.";
     private IReadOnlyList<FolderTreeItemViewModel> _folderRoots =
         Array.Empty<FolderTreeItemViewModel>();
+    private readonly Dictionary<BookmarkFolder, FolderTreeItemViewModel>
+        _folderLookup = new();
     private FolderTreeItemViewModel? _selectedFolderItem;
     private BookmarkFolder? _selectedFolder;
     private IReadOnlyList<BookmarkUrl> _currentBookmarks =
@@ -219,6 +221,29 @@ public sealed class MainViewModel : ViewModelBase
         _loadCancellation?.Cancel();
     }
 
+    public void NavigateToSearchResult(BookmarkUrl? bookmark)
+    {
+        if (!IsSearchActive ||
+            bookmark is null ||
+            !SearchResults.Any(result => ReferenceEquals(result, bookmark)) ||
+            bookmark.Parent is null ||
+            !_folderLookup.TryGetValue(bookmark.Parent, out var targetFolder))
+        {
+            return;
+        }
+
+        var ancestor = targetFolder.Parent;
+        while (ancestor is not null)
+        {
+            ancestor.IsExpanded = true;
+            ancestor = ancestor.Parent;
+        }
+
+        SelectFolder(targetFolder);
+        SearchText = string.Empty;
+        SetSelectedBookmark(bookmark);
+    }
+
     public void SelectFolder(FolderTreeItemViewModel? item)
     {
         if (ReferenceEquals(_selectedFolderItem, item))
@@ -275,11 +300,34 @@ public sealed class MainViewModel : ViewModelBase
             new FolderTreeItemViewModel(document.Roots.Synced)
         };
 
+        BuildFolderLookup(roots);
         SetFolderRoots(roots);
         SetDocumentSummaryText(
             $"{document.UrlCount.ToString("N0", CultureInfo.InvariantCulture)} URLs | " +
             $"{document.FolderCount.ToString("N0", CultureInfo.InvariantCulture)} folders");
         SelectFolder(roots[0]);
+    }
+
+    private void BuildFolderLookup(
+        IReadOnlyList<FolderTreeItemViewModel> roots)
+    {
+        _folderLookup.Clear();
+
+        var stack = new Stack<FolderTreeItemViewModel>();
+        for (var index = roots.Count - 1; index >= 0; index--)
+        {
+            stack.Push(roots[index]);
+        }
+
+        while (stack.TryPop(out var item))
+        {
+            _folderLookup.Add(item.Folder, item);
+
+            for (var index = item.Children.Count - 1; index >= 0; index--)
+            {
+                stack.Push(item.Children[index]);
+            }
+        }
     }
 
     private void ClearBrowserState()
@@ -290,6 +338,7 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         _selectedFolderItem = null;
+        _folderLookup.Clear();
         SetFolderRoots(Array.Empty<FolderTreeItemViewModel>());
         SetSelectedFolder(null);
         SetSelectedBookmark(null);

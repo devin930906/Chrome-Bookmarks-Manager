@@ -24,7 +24,7 @@ public sealed class BookmarkEditingServiceTests
         Assert.Equal("Renamed Folder", folder.Name);
         Assert.Equal(id, folder.Id);
         Assert.Equal(guid, folder.Guid);
-        Assert.Same(metadata, folder.MetaInfo);
+        Assert.Equal(metadata, folder.MetaInfo);
         Assert.Same(extensionData, folder.ExtensionData);
         Assert.Same(parent, folder.Parent);
         Assert.Same(bookmark, folder.Children[0]);
@@ -50,6 +50,17 @@ public sealed class BookmarkEditingServiceTests
     }
 
     [Fact]
+    public void RenameNode_SanitizesAllChromiumInvalidTitleSeparators()
+    {
+        var (document, _, bookmark) = CreateDocument();
+
+        var changed = _service.RenameNode(document, bookmark, "A\rB\u2028C\u2029D");
+
+        Assert.True(changed);
+        Assert.Equal("A B C D", bookmark.Name);
+    }
+
+    [Fact]
     public void EditUrl_ChangesOnlyUrlAndPreservesNodeIdentityAndMetadata()
     {
         var (document, _, bookmark) = CreateDocument();
@@ -67,7 +78,7 @@ public sealed class BookmarkEditingServiceTests
         Assert.Equal(name, bookmark.Name);
         Assert.Equal(id, bookmark.Id);
         Assert.Equal(guid, bookmark.Guid);
-        Assert.Same(metadata, bookmark.MetaInfo);
+        Assert.Equal(metadata, bookmark.MetaInfo);
         Assert.Same(extensionData, bookmark.ExtensionData);
         Assert.Same(parent, bookmark.Parent);
     }
@@ -80,6 +91,18 @@ public sealed class BookmarkEditingServiceTests
         var changed = _service.RenameNode(document, folder, folder.Name);
 
         Assert.False(changed);
+    }
+
+    [Fact]
+    public void RenameNode_SanitizedNoOpReturnsFalse()
+    {
+        var (document, _, bookmark) = CreateDocument();
+        _service.RenameNode(document, bookmark, "A B");
+
+        var changed = _service.RenameNode(document, bookmark, "A\nB");
+
+        Assert.False(changed);
+        Assert.Equal("A B", bookmark.Name);
     }
 
     [Fact]
@@ -99,6 +122,17 @@ public sealed class BookmarkEditingServiceTests
 
         var exception = Assert.Throws<BookmarkEditException>(
             () => _service.EditUrl(document, bookmark, string.Empty));
+
+        Assert.Equal(BookmarkEditError.InvalidValue, exception.Error);
+    }
+
+    [Fact]
+    public void EditUrl_RejectsWhitespaceOnlyValue()
+    {
+        var (document, _, bookmark) = CreateDocument();
+
+        var exception = Assert.Throws<BookmarkEditException>(
+            () => _service.EditUrl(document, bookmark, "   "));
 
         Assert.Equal(BookmarkEditError.InvalidValue, exception.Error);
     }
@@ -168,7 +202,7 @@ public sealed class BookmarkEditingServiceTests
             "13300000000000000",
             null,
             "0",
-            Json("{" + "\"source\":\"test\"" + "}"),
+            Json("{\"source\":\"test\"}"),
             Properties(("future_url", "\"kept\"")));
 
         var folder = new BookmarkFolder(
@@ -178,7 +212,7 @@ public sealed class BookmarkEditingServiceTests
             "13300000000000000",
             "13300000000000000",
             null,
-            Json("{" + "\"folder\":true" + "}"),
+            Json("{\"folder\":true}"),
             Properties(("future_folder", "123")),
             new BookmarkNode[] { bookmark });
 

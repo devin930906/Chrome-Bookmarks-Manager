@@ -28,7 +28,7 @@ public abstract class BookmarkNode
 
     public string Id { get; }
     public Guid Guid { get; }
-    public string Name { get; }
+    public string Name { get; private set; }
     public BookmarkNodeKind Kind { get; }
     public string? DateAddedRaw { get; }
     public string? DateModifiedRaw { get; }
@@ -36,4 +36,26 @@ public abstract class BookmarkNode
     public JsonElement? MetaInfo { get; }
     public IReadOnlyDictionary<string, JsonElement> ExtensionData { get; }
     public BookmarkFolder? Parent { get; internal set; }
+
+    internal bool SetName(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var sanitized = SanitizeTitle(value);
+        if (string.Equals(Name, sanitized, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        Name = sanitized;
+        return true;
+    }
+
+    private static string SanitizeTitle(string value) =>
+        value
+            .Replace('\n', ' ')
+            .Replace('\r', ' ')
+            .Replace('\t', ' ')
+            .Replace('\u2028', ' ')
+            .Replace('\u2029', ' ');
 }

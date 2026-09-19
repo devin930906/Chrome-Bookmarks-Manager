@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ChromeBookmarksManager.Application;
 using ChromeBookmarksManager.Application.Search;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
@@ -135,7 +136,7 @@ public sealed class MainViewModelSearchTests
         var fixture = CreateFixture();
         var service = new StubSearchService();
         var viewModel = CreateViewModel(
-            fixture.Document,
+            fixture,
             service,
             TimeSpan.FromMilliseconds(40));
 

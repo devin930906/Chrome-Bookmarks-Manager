@@ -64,8 +64,8 @@ public sealed class EditingProjectionRefreshTests
         Assert.Same(
             fixture.BarFirst,
             Assert.Single(
-                viewModel.CurrentBookmarks.Where(
-                    bookmark => ReferenceEquals(bookmark, fixture.BarFirst))));
+                viewModel.CurrentBookmarks,
+                bookmark => ReferenceEquals(bookmark, fixture.BarFirst)));
 
         viewModel.SearchText = "fresh-url";
         await viewModel.WaitForPendingSearchAsync();

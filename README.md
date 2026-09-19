@@ -4,7 +4,7 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.4 Search / Index**
+**Pre-release — V0.4 Search / Index (owner acceptance passed; pending merge)**
 
 V0.4 adds fast, read-only in-memory search and result navigation on top of the completed V0.3 browser.
 
@@ -199,7 +199,7 @@ Windows 10 owner acceptance completed successfully on 2026-09-19.
 
 ## V0.4 verification status
 
-V0.4 automated engineering verification is in progress and Windows 10 owner acceptance is still required before V0.4 may be marked complete or merged.
+V0.4 automated engineering verification and Windows 10 owner acceptance are complete. The feature branch remains pre-release until PR #4 is merged to `main` and post-merge CI is verified.
 
 Automated evidence currently includes:
 
@@ -215,12 +215,32 @@ Automated evidence currently includes:
 
 The explicit 250,000-URL SearchScale measurement on the GitHub Windows runner completed with 250,000 exact results while retaining original bookmark references and stable order. Observed timing and memory figures are diagnostic only; they are not a performance guarantee for the owner's Windows 10 system.
 
+## V0.4 owner acceptance
+
+Windows 10 owner acceptance completed successfully on 2026-09-19 using the owner's private Chrome Bookmarks file.
+
+- application launched normally on Windows 10
+- real Chrome Bookmarks loaded successfully: 209,382 URLs and 3,404 folders
+- observed load time: approximately 1.7 seconds
+- folder tree and direct-bookmark list rendered correctly
+- Name search passed
+- URL / domain-text search passed
+- Chinese / Unicode substring search passed
+- case-insensitive matching passed
+- `All bookmarks` and direct-child `Current folder` scopes passed
+- rapid successive queries preserved latest-query-wins behavior
+- clearing search restored normal folder browsing
+- search-result activation navigated back to the existing parent folder/bookmark
+- broad-result scrolling remained usable
+- source-file SHA-256, length, and last-write timestamp remained unchanged before/after acceptance
+- no private bookmark titles, URLs, raw file contents, private queries, or screenshots were committed or uploaded to the repository
+
 ## Roadmap
 
 - **V0.1 — Bootstrap: completed** — project shell, tests, privacy guardrails, CI, single EXE
 - **V0.2 — Chrome Bookmarks Reader: completed** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.3 — Browser UI: completed** — folder tree, selected-folder bookmark list, status summaries, virtualization/recycling; Windows 10 owner acceptance passed with the private source file unchanged
-- **V0.4 — Search / Index: pre-release** — in-memory indexing, read-only search, result navigation; automated release gates running, Windows 10 owner acceptance still required
+- **V0.4 — Search / Index: owner acceptance passed; pending merge** — in-memory indexing, read-only search, result navigation; automated release gates and Windows 10 owner acceptance complete
 - **V0.5 — Editing:** add, rename, edit URL, dirty-state tracking
 - **V0.6 — Move / Drag & Drop:** movement, reordering, hierarchy protection
 - **V0.7 — Delete / Batch:** multi-select and batch operations

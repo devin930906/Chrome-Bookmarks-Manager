@@ -4,9 +4,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.3 Browser UI**
+**Pre-release — V0.4 Search / Index (owner acceptance passed; pending merge)**
 
-V0.3 adds a real read-only bookmark browser on top of the completed V0.2 reader.
+V0.4 adds fast, read-only in-memory search and result navigation on top of the completed V0.3 browser.
 
 The current application supports:
 
@@ -21,16 +21,22 @@ The current application supports:
 - typed validation failures for malformed or structurally unsafe data
 - asynchronous file loading and cancellation
 - a three-root folder tree backed by the parsed Chrome document
-- folder-only tree presentation wrappers
 - direct bookmark URLs for the currently selected folder
-- read-only bookmark selection
-- status summaries for document counts, selected-folder counts, load state, and source path
-- explicit WPF UI virtualization and recycling for the folder tree and bookmark list
-- synthetic large-browser-state verification up to 250,000 URLs
+- explicit WPF virtualization and recycling for tree and bookmark results
+- one in-memory search index built from the already loaded document
+- Name and URL substring search, including domain text
+- ordinal case-insensitive matching
+- Chinese / Unicode substring matching
+- `All bookmarks` and direct-child `Current folder` scopes
+- 250 ms production debounce
+- cancellable latest-query-wins behavior so stale results cannot overwrite newer searches
+- result navigation back to the existing parent folder and original bookmark instance
+- synthetic SearchScale verification at 10,000 URLs in normal CI
+- explicit SearchScale release measurement at 250,000 synthetic URLs
 
-V0.3 still does **not** provide search, add, rename, edit, delete, move, reorder, drag/drop, Undo/Redo, checksum generation, save, overwrite, repair, or production Chrome write-back.
+V0.4 is still strictly read-only. It does **not** provide add, rename, edit URL, delete, move, reorder, drag/drop, Undo/Redo, save, overwrite, repair, or production Chrome write-back.
 
-Search/index remains scheduled for V0.4. Editing begins in V0.5. Direct Chrome profile write-back remains disabled until the V0.9 Safe Chrome Write milestone passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
+Editing begins in V0.5. Direct Chrome profile write-back remains disabled until the V0.9 Safe Chrome Write milestone passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
 
 ## Target
 
@@ -45,11 +51,9 @@ Search/index remains scheduled for V0.4. Editing begins in V0.5. Direct Chrome p
 
 Real Chrome `Bookmarks` files are private user data and must never be committed to this repository.
 
-Only synthetic fixtures under `samples/` are permitted in Git.
+Only synthetic fixtures under `samples/` are permitted in Git. Generated scale data use reserved example domains and do not contain the owner's real bookmark titles, URLs, queries, or raw file contents.
 
-The current sample and generated scale data use reserved example domains and do not contain the user's real bookmark titles or URLs.
-
-V0.3 remains strictly read-only. Production Chrome profile write-back is intentionally out of scope until V0.9.
+V0.4 remains strictly read-only. Search runs against the already loaded in-memory document/index and does not reread or modify the source Chrome `Bookmarks` file. Production Chrome profile write-back remains intentionally out of scope until V0.9.
 
 ## Build
 
@@ -78,10 +82,17 @@ Run the explicit V0.3 browser-state release measurement with 250,000 generated U
 pwsh -NoProfile -File scripts/Measure-BrowserState.ps1 -UrlCount 250000
 ```
 
-Verify the production WPF browser controls still enforce virtualization/recycling:
+Run the explicit V0.4 search release measurement with 250,000 generated URLs:
+
+```powershell
+pwsh -NoProfile -File scripts/Measure-Search.ps1 -UrlCount 250000
+```
+
+Verify the production WPF browser and search controls still enforce their UI contracts:
 
 ```powershell
 pwsh -NoProfile -File scripts/Verify-BrowserVirtualization.ps1
+pwsh -NoProfile -File scripts/Verify-SearchUi.ps1
 ```
 
 The generated workloads use synthetic reserved-domain data only.
@@ -126,14 +137,16 @@ The workflow at `.github/workflows/build-windows.yml` runs on Windows and perfor
 3. Release build
 4. named Chrome Bookmarks ReaderScale gate
 5. browser virtualization/recycling contract verification
-6. named BrowserScale gate with the normal synthetic workload
-7. full xUnit test suite
-8. self-contained Windows x64 publish
-9. single-file output verification
-10. executable startup smoke test
-11. artifact upload
+6. search UI contract verification
+7. named BrowserScale gate with the normal synthetic workload
+8. named SearchScale gate with the normal 10,000-URL synthetic workload
+9. full xUnit test suite
+10. self-contained Windows x64 publish
+11. single-file output verification
+12. executable startup smoke test
+13. artifact upload
 
-The normal CI browser gate uses a synthetic 10,000-URL workload. The explicit 250,000-URL browser-state measurement remains a release command rather than a permanent heavy CI step.
+The normal CI BrowserScale and SearchScale gates use synthetic 10,000-URL workloads. The 250,000-URL browser-state and search measurements remain explicit release commands rather than permanent heavy normal CI steps.
 
 The downloadable workflow artifact is named:
 
@@ -184,12 +197,50 @@ Windows 10 owner acceptance completed successfully on 2026-09-19.
 - source-file last-write timestamp unchanged before/after
 - no private bookmark titles, URLs, or raw file contents were committed or uploaded
 
+## V0.4 verification status
+
+V0.4 automated engineering verification and Windows 10 owner acceptance are complete. The feature branch remains pre-release until PR #4 is merged to `main` and post-merge CI is verified.
+
+Automated evidence currently includes:
+
+- search-index identity/order/count tests
+- Name / URL / Unicode / scope search semantics tests
+- debounce, cancellation, latest-query-wins, and reset-state tests
+- result-navigation tests preserving original bookmark identity
+- browser virtualization and dedicated search-UI mechanical guards
+- SearchScale 10,000 synthetic URL normal CI gate
+- explicit SearchScale 250,000 synthetic URL release measurement
+- complete regression suite
+- self-contained single-EXE publish and startup smoke test
+
+The explicit 250,000-URL SearchScale measurement on the GitHub Windows runner completed with 250,000 exact results while retaining original bookmark references and stable order. Observed timing and memory figures are diagnostic only; they are not a performance guarantee for the owner's Windows 10 system.
+
+## V0.4 owner acceptance
+
+Windows 10 owner acceptance completed successfully on 2026-09-19 using the owner's private Chrome Bookmarks file.
+
+- application launched normally on Windows 10
+- real Chrome Bookmarks loaded successfully: 209,382 URLs and 3,404 folders
+- observed load time: approximately 1.7 seconds
+- folder tree and direct-bookmark list rendered correctly
+- Name search passed
+- URL / domain-text search passed
+- Chinese / Unicode substring search passed
+- case-insensitive matching passed
+- `All bookmarks` and direct-child `Current folder` scopes passed
+- rapid successive queries preserved latest-query-wins behavior
+- clearing search restored normal folder browsing
+- search-result activation navigated back to the existing parent folder/bookmark
+- broad-result scrolling remained usable
+- source-file SHA-256, length, and last-write timestamp remained unchanged before/after acceptance
+- no private bookmark titles, URLs, raw file contents, private queries, or screenshots were committed or uploaded to the repository
+
 ## Roadmap
 
 - **V0.1 — Bootstrap: completed** — project shell, tests, privacy guardrails, CI, single EXE
 - **V0.2 — Chrome Bookmarks Reader: completed** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.3 — Browser UI: completed** — folder tree, selected-folder bookmark list, status summaries, virtualization/recycling; Windows 10 owner acceptance passed with the private source file unchanged
-- **V0.4 — Search / Index:** in-memory indexing and fast search
+- **V0.4 — Search / Index: owner acceptance passed; pending merge** — in-memory indexing, read-only search, result navigation; automated release gates and Windows 10 owner acceptance complete
 - **V0.5 — Editing:** add, rename, edit URL, dirty-state tracking
 - **V0.6 — Move / Drag & Drop:** movement, reordering, hierarchy protection
 - **V0.7 — Delete / Batch:** multi-select and batch operations
@@ -203,6 +254,7 @@ Windows 10 owner acceptance completed successfully on 2026-09-19.
 - [V0.1 implementation plan](docs/superpowers/plans/2026-09-19-v0.1-bootstrap.md)
 - [V0.2 implementation plan](docs/superpowers/plans/2026-09-19-v0.2-chrome-bookmarks-reader.md)
 - [V0.3 implementation plan](docs/superpowers/plans/2026-09-19-v0.3-browser-ui.md)
+- [V0.4 implementation plan](docs/superpowers/plans/2026-09-19-v0.4-search-index.md)
 
 ## Development principles
 

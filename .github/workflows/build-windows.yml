@@ -49,9 +49,17 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-BrowserVirtualization.ps1
 
+      - name: Verify search UI contract
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-SearchUi.ps1
+
       - name: Verify browser scale
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=BrowserScale" --logger "console;verbosity=normal"
+
+      - name: Verify search scale
+        shell: pwsh
+        run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=SearchScale" --logger "console;verbosity=normal"
 
       - name: Test
         shell: pwsh

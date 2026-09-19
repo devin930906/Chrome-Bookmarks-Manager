@@ -59,10 +59,32 @@ function Assert-VirtualizationContract {
     }
 }
 
+function Assert-XamlContains {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Token,
+
+        [Parameter(Mandatory)]
+        [string]$Description
+    )
+
+    if (-not $content.Contains($Token, [System.StringComparison]::Ordinal)) {
+        throw "Search UI contract is missing: $Description"
+    }
+}
+
 $treeAttributes = Get-BoundControlTag -ControlName "TreeView" -ItemsSourceBinding '{Binding FolderRoots}'
-$listAttributes = Get-BoundControlTag -ControlName "ListView" -ItemsSourceBinding '{Binding CurrentBookmarks}'
+$listAttributes = Get-BoundControlTag -ControlName "ListView" -ItemsSourceBinding '{Binding DisplayedBookmarks}'
 
 Assert-VirtualizationContract -ControlName "Folder TreeView" -Attributes $treeAttributes
 Assert-VirtualizationContract -ControlName "Bookmark ListView" -Attributes $listAttributes
 
-Write-Host "Browser virtualization verification passed."
+Assert-XamlContains -Token 'x:Name="SearchBox"' -Description "named search TextBox"
+Assert-XamlContains -Token 'Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"' -Description "two-way SearchText binding"
+Assert-XamlContains -Token 'IsEnabled="{Binding CanSearchDocument}"' -Description "CanSearchDocument enablement"
+Assert-XamlContains -Token 'SelectedValue="{Binding SearchScope, Mode=TwoWay}"' -Description "two-way SearchScope binding"
+Assert-XamlContains -Token 'Content="All bookmarks"' -Description "All bookmarks scope option"
+Assert-XamlContains -Token 'Content="Current folder"' -Description "Current folder scope option"
+Assert-XamlContains -Token 'Text="{Binding SearchSummaryText}"' -Description "search summary status binding"
+
+Write-Host "Browser virtualization and V0.4 search UI contract verification passed."

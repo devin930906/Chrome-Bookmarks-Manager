@@ -8,18 +8,23 @@ public sealed class FolderTreeItemViewModel : ViewModelBase
     private bool _isExpanded;
     private bool _isSelected;
 
-    public FolderTreeItemViewModel(BookmarkFolder folder)
+    public FolderTreeItemViewModel(
+        BookmarkFolder folder,
+        FolderTreeItemViewModel? parent = null)
     {
         Folder = folder ?? throw new ArgumentNullException(nameof(folder));
+        Parent = parent;
 
         Children = new ReadOnlyCollection<FolderTreeItemViewModel>(
             folder.Children
                 .OfType<BookmarkFolder>()
-                .Select(child => new FolderTreeItemViewModel(child))
+                .Select(child => new FolderTreeItemViewModel(child, this))
                 .ToList());
     }
 
     public BookmarkFolder Folder { get; }
+
+    public FolderTreeItemViewModel? Parent { get; }
 
     public string Name => Folder.Name;
 

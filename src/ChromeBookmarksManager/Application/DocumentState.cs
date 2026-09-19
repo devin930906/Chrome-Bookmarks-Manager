@@ -7,5 +7,6 @@ public enum DocumentState
     LoadedClean,
     LoadedDirty,
     Saving,
-    SaveFailed
+    SaveFailed,
+    LoadFailed
 }

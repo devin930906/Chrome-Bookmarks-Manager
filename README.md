@@ -4,13 +4,27 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.1 bootstrap**
+**Pre-release — V0.2 Chrome Bookmarks Reader**
 
-V0.1 establishes the WPF application shell, automated tests, repository privacy guardrails, reproducible Windows publishing, executable smoke testing, and GitHub Actions artifact delivery.
+V0.2 adds a read-only Chrome Bookmarks reader on top of the V0.1 WPF/bootstrap baseline.
 
-V0.1 does not read, edit, or overwrite production Chrome Bookmarks files.
+The reader currently supports:
 
-Direct Chrome profile write-back remains disabled until the Safe Chrome Write milestone passes its compatibility and recovery gates.
+- Chrome native bookmark file version `1`
+- `bookmark_bar`, `other`, and `synced` roots
+- nested folders and URL nodes while preserving child order and parent links
+- exact bookmark and folder counts
+- raw Chrome timestamp strings
+- `meta_info` in object or legacy serialized-string form
+- `checksum` and `checksum_sha256` as read-only metadata
+- retention of unsupported/unknown JSON properties in memory
+- typed validation failures for malformed or structurally unsafe data
+- asynchronous file loading and cancellation
+- read-only loading from the WPF shell
+
+V0.2 does **not** edit, save, overwrite, repair, reorder, delete, move, regenerate checksums, or write back to a Chrome profile.
+
+Direct Chrome profile write-back remains disabled until the Safe Chrome Write milestone (V0.9) passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
 
 ## Target
 
@@ -29,7 +43,7 @@ Only synthetic fixtures under `samples/` are permitted in Git.
 
 The current sample data uses reserved example domains and does not contain the user's real bookmark titles or URLs.
 
-Production Chrome profile write-back is intentionally out of scope until V0.9.
+V0.2 remains strictly read-only. Production Chrome profile write-back is intentionally out of scope until V0.9.
 
 ## Build
 
@@ -40,9 +54,19 @@ dotnet build ChromeBookmarksManager.slnx --configuration Release --no-restore
 
 ## Test
 
+Run the full test suite:
+
 ```powershell
 dotnet test ChromeBookmarksManager.slnx --configuration Release
 ```
+
+Run the explicit large-reader release measurement with 250,000 generated URLs:
+
+```powershell
+pwsh -NoProfile -File scripts/Measure-Reader.ps1 -UrlCount 250000
+```
+
+The generated workload uses synthetic reserved-domain data only, is written directly as UTF-8 JSON, and is deleted after the measurement.
 
 ## Publish
 
@@ -82,11 +106,14 @@ The workflow at `.github/workflows/build-windows.yml` runs on Windows and perfor
 1. repository privacy verification
 2. restore
 3. Release build
-4. xUnit tests
-5. self-contained Windows x64 publish
-6. single-file output verification
-7. executable startup smoke test
-8. artifact upload
+4. named Chrome Bookmarks reader scale/cancellation gate
+5. full xUnit test suite
+6. self-contained Windows x64 publish
+7. single-file output verification
+8. executable startup smoke test
+9. artifact upload
+
+The named reader gate uses the ordinary synthetic 10,000-URL workload. The explicit 250,000-URL measurement remains a release command rather than a normal CI requirement.
 
 The downloadable workflow artifact is named:
 
@@ -94,10 +121,21 @@ The downloadable workflow artifact is named:
 ChromeBookmarksManager-win-x64
 ```
 
+## V0.2 owner acceptance
+
+Windows 10 owner acceptance completed successfully on 2026-09-19.
+
+- real Chrome Bookmarks load: 209,382 URLs and 3,404 folders
+- observed load time on the owner's Windows 10 machine: 1.8 seconds
+- source-file SHA-256 unchanged before/after
+- source-file length unchanged before/after
+- source-file last-write timestamp unchanged before/after
+- no private bookmark titles, URLs, raw file contents, or private logs were committed or uploaded
+
 ## Roadmap
 
-- **V0.1 — Bootstrap:** project shell, tests, privacy guardrails, CI, single EXE
-- **V0.2 — Chrome Bookmarks Reader:** native bookmark parsing and validation
+- **V0.1 — Bootstrap: completed** — project shell, tests, privacy guardrails, CI, single EXE
+- **V0.2 — Chrome Bookmarks Reader: completed** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.3 — Browser UI:** folder tree, bookmark list, virtualization
 - **V0.4 — Search / Index:** in-memory indexing and fast search
 - **V0.5 — Editing:** add, rename, edit URL, dirty-state tracking
@@ -111,6 +149,7 @@ ChromeBookmarksManager-win-x64
 
 - [Approved design spec](docs/superpowers/specs/2026-09-19-chrome-bookmarks-manager-design.md)
 - [V0.1 implementation plan](docs/superpowers/plans/2026-09-19-v0.1-bootstrap.md)
+- [V0.2 implementation plan](docs/superpowers/plans/2026-09-19-v0.2-chrome-bookmarks-reader.md)
 
 ## Development principles
 

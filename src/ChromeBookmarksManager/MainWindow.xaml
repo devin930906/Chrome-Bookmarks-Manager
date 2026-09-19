@@ -26,6 +26,7 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="320" />
                 </Grid.ColumnDefinitions>
@@ -33,10 +34,19 @@
                 <Button Grid.Column="0"
                         Content="Open Bookmarks"
                         Padding="16,6"
-                        IsEnabled="False"
-                        ToolTip="Bookmark reading is implemented in V0.2." />
+                        IsEnabled="{Binding CanOpenBookmarks}"
+                        Click="OpenBookmarks_Click"
+                        ToolTip="Open a Chrome Bookmarks file in read-only mode." />
 
-                <TextBox Grid.Column="2"
+                <Button Grid.Column="1"
+                        Margin="8,0,0,0"
+                        Content="Cancel"
+                        Padding="16,6"
+                        IsEnabled="{Binding CanCancelLoad}"
+                        Click="CancelLoad_Click"
+                        ToolTip="Cancel the current Bookmarks load." />
+
+                <TextBox Grid.Column="3"
                          Margin="12,0,0,0"
                          Height="30"
                          IsEnabled="False"

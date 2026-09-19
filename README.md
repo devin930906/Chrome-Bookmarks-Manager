@@ -121,10 +121,21 @@ The downloadable workflow artifact is named:
 ChromeBookmarksManager-win-x64
 ```
 
+## V0.2 owner acceptance
+
+Windows 10 owner acceptance completed successfully on 2026-09-19.
+
+- real Chrome Bookmarks load: 209,382 URLs and 3,404 folders
+- observed load time on the owner's Windows 10 machine: 1.8 seconds
+- source-file SHA-256 unchanged before/after
+- source-file length unchanged before/after
+- source-file last-write timestamp unchanged before/after
+- no private bookmark titles, URLs, raw file contents, or private logs were committed or uploaded
+
 ## Roadmap
 
 - **V0.1 — Bootstrap: completed** — project shell, tests, privacy guardrails, CI, single EXE
-- **V0.2 — Chrome Bookmarks Reader: implementation complete / release validation in progress** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading
+- **V0.2 — Chrome Bookmarks Reader: completed** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.3 — Browser UI:** folder tree, bookmark list, virtualization
 - **V0.4 — Search / Index:** in-memory indexing and fast search
 - **V0.5 — Editing:** add, rename, edit URL, dirty-state tracking

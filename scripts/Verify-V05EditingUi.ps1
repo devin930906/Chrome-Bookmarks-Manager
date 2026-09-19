@@ -29,7 +29,7 @@ function Require-Text {
         [string]$Message
     )
 
-    if ($Content -notmatch $Pattern) {
+    if (-not $Content.Contains($Pattern, [System.StringComparison]::Ordinal)) {
         $errors.Add($Message)
     }
 }

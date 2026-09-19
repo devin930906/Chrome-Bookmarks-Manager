@@ -1,9 +1,30 @@
+using System.Collections.ObjectModel;
+using System.Text.Json;
+using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
 
 namespace ChromeBookmarksManager.Application.Editing;
 
 public sealed class BookmarkEditingService : IBookmarkEditingService
 {
+    private static readonly IReadOnlyDictionary<string, JsonElement>
+        EmptyExtensionData =
+            new ReadOnlyDictionary<string, JsonElement>(
+                new Dictionary<string, JsonElement>(StringComparer.Ordinal));
+
+    private readonly TimeProvider _timeProvider;
+
+    public BookmarkEditingService()
+        : this(TimeProvider.System)
+    {
+    }
+
+    public BookmarkEditingService(TimeProvider timeProvider)
+    {
+        _timeProvider = timeProvider
+            ?? throw new ArgumentNullException(nameof(timeProvider));
+    }
+
     public bool RenameNode(BookmarkDocument document, BookmarkNode node, string newName)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -39,6 +60,76 @@ public sealed class BookmarkEditingService : IBookmarkEditingService
         }
 
         return bookmark.SetUrl(newUrl);
+    }
+
+    public BookmarkUrl AddBookmark(
+        BookmarkDocument document,
+        BookmarkFolder parent,
+        string name,
+        string url)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(parent);
+
+        EnsureBelongsToDocument(document, parent);
+
+        if (name is null)
+        {
+            throw InvalidValue("Bookmark name cannot be null.");
+        }
+
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            throw InvalidValue("Bookmark URL cannot be empty or whitespace.");
+        }
+
+        var nowRaw = ChromeBookmarkTime.ToRaw(_timeProvider.GetUtcNow());
+        var bookmark = new BookmarkUrl(
+            document.AllocateNextNodeId(),
+            document.AllocateUniqueGuid(),
+            BookmarkNode.SanitizeTitleForChromium(name),
+            url,
+            nowRaw,
+            null,
+            "0",
+            null,
+            EmptyExtensionData);
+
+        parent.AddChild(bookmark);
+        document.RecordAddedNode(bookmark);
+        return bookmark;
+    }
+
+    public BookmarkFolder AddFolder(
+        BookmarkDocument document,
+        BookmarkFolder parent,
+        string name)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(parent);
+
+        EnsureBelongsToDocument(document, parent);
+
+        if (name is null)
+        {
+            throw InvalidValue("Folder name cannot be null.");
+        }
+
+        var nowRaw = ChromeBookmarkTime.ToRaw(_timeProvider.GetUtcNow());
+        var folder = new BookmarkFolder(
+            document.AllocateNextNodeId(),
+            document.AllocateUniqueGuid(),
+            BookmarkNode.SanitizeTitleForChromium(name),
+            nowRaw,
+            nowRaw,
+            "0",
+            null,
+            EmptyExtensionData,
+            Array.Empty<BookmarkNode>());
+
+        parent.AddChild(folder);
+        document.RecordAddedNode(folder);
+        return folder;
     }
 
     private static BookmarkEditException InvalidValue(string message) =>

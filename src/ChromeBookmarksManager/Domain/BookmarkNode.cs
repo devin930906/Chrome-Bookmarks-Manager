@@ -41,7 +41,7 @@ public abstract class BookmarkNode
     {
         ArgumentNullException.ThrowIfNull(value);
 
-        var sanitized = SanitizeTitle(value);
+        var sanitized = SanitizeTitleForChromium(value);
         if (string.Equals(Name, sanitized, StringComparison.Ordinal))
         {
             return false;
@@ -51,11 +51,15 @@ public abstract class BookmarkNode
         return true;
     }
 
-    private static string SanitizeTitle(string value) =>
-        value
+    internal static string SanitizeTitleForChromium(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value
             .Replace('\n', ' ')
             .Replace('\r', ' ')
             .Replace('\t', ' ')
             .Replace('\u2028', ' ')
             .Replace('\u2029', ' ');
+    }
 }

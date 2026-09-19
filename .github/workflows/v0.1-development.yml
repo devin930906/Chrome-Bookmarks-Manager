@@ -1,0 +1,91 @@
+name: V0.1 Development Validation
+
+on:
+  push:
+    branches:
+      - feature/v0.1-bootstrap
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.401'
+
+      - name: Show SDK
+        shell: pwsh
+        run: dotnet --info
+
+      - name: Generate bootstrap snapshot when solution is absent
+        if: ${{ hashFiles('ChromeBookmarksManager.slnx') == '' }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force generated | Out-Null
+          Push-Location generated
+
+          dotnet new sln --name ChromeBookmarksManager
+          dotnet new wpf --name ChromeBookmarksManager --framework net10.0 --output src/ChromeBookmarksManager
+          dotnet new xunit --name ChromeBookmarksManager.Tests --framework net10.0 --output tests/ChromeBookmarksManager.Tests
+
+          $testProject = 'tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj'
+          (Get-Content $testProject -Raw).Replace('<TargetFramework>net10.0</TargetFramework>', '<TargetFramework>net10.0-windows</TargetFramework>') |
+            Set-Content $testProject -NoNewline
+
+          dotnet sln ChromeBookmarksManager.slnx add src/ChromeBookmarksManager/ChromeBookmarksManager.csproj
+          dotnet sln ChromeBookmarksManager.slnx add tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj
+          dotnet add tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj reference src/ChromeBookmarksManager/ChromeBookmarksManager.csproj
+
+          Pop-Location
+
+      - name: Upload bootstrap snapshot
+        if: ${{ hashFiles('ChromeBookmarksManager.slnx') == '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: v0.1-bootstrap-template
+          path: generated
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Verify repository safety
+        if: ${{ hashFiles('scripts/Verify-RepositorySafety.ps1') != '' }}
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-RepositorySafety.ps1
+
+      - name: Restore
+        if: ${{ hashFiles('ChromeBookmarksManager.slnx') != '' }}
+        shell: pwsh
+        run: dotnet restore ChromeBookmarksManager.slnx
+
+      - name: Build
+        if: ${{ hashFiles('ChromeBookmarksManager.slnx') != '' }}
+        shell: pwsh
+        run: dotnet build ChromeBookmarksManager.slnx --configuration Release --no-restore
+
+      - name: Test
+        if: ${{ hashFiles('ChromeBookmarksManager.slnx') != '' }}
+        shell: pwsh
+        run: dotnet test ChromeBookmarksManager.slnx --configuration Release --no-build --logger "console;verbosity=normal"
+
+      - name: Publish
+        if: ${{ hashFiles('scripts/Publish-Windows.ps1') != '' }}
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Publish-Windows.ps1
+
+      - name: Verify single-file output
+        if: ${{ hashFiles('scripts/Verify-SingleFilePublish.ps1') != '' }}
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-SingleFilePublish.ps1 -PublishDirectory artifacts/win-x64
+
+      - name: Smoke test
+        if: ${{ hashFiles('scripts/SmokeTest-Windows.ps1') != '' }}
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/SmokeTest-Windows.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe

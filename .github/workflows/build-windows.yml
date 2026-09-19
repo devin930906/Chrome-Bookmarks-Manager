@@ -57,9 +57,9 @@ jobs:
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=BrowserScale" --logger "console;verbosity=normal"
 
-      - name: Verify search scale — explicit 250k release measurement
+      - name: Verify search scale
         shell: pwsh
-        run: pwsh -NoProfile -File scripts/Measure-Search.ps1 -UrlCount 250000
+        run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=SearchScale" --logger "console;verbosity=normal"
 
       - name: Test
         shell: pwsh

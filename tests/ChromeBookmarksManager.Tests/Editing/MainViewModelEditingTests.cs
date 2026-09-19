@@ -166,12 +166,12 @@ public sealed class MainViewModelEditingTests
         Assert.Same(fixture.OtherUrl, result);
         viewModel.SelectedBookmark = result;
 
-        var changed = await viewModel.RenameSelectedBookmarkAsync("Other renamed target");
+        var changed = await viewModel.RenameSelectedBookmarkAsync("Other target renamed");
 
         Assert.True(changed);
         Assert.Same(fixture.OtherUrl, viewModel.SelectedBookmark);
         Assert.Same(fixture.OtherUrl, Assert.Single(viewModel.SearchResults));
-        Assert.Equal("Other renamed target", fixture.OtherUrl.Name);
+        Assert.Equal("Other target renamed", fixture.OtherUrl.Name);
     }
 
     [Fact]

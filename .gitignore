@@ -1,0 +1,26 @@
+# .NET / Visual Studio
+bin/
+obj/
+.vs/
+TestResults/
+artifacts/
+publish/
+
+# User-local settings
+*.user
+*.suo
+
+# Real Chrome bookmark data and backups
+Bookmarks
+Bookmarks.bak
+Bookmarks.backup-*
+Bookmarks.tmp
+Bookmarks.*
+
+# Private/local test material
+UserData/
+PrivateData/
+TestData/Private/
+
+# Allow the repository-owned anonymized fixture explicitly
+!samples/Bookmarks.sample.json

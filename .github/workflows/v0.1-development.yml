@@ -113,11 +113,17 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/SmokeTest-Windows.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe
 
-      - name: Prove smoke test rejects a missing executable
+      - name: Exercise missing executable rejection
+        id: missing-executable
         if: ${{ hashFiles('scripts/SmokeTest-Windows.ps1') != '' }}
+        continue-on-error: true
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/SmokeTest-Windows.ps1 -ExecutablePath artifacts/win-x64/DoesNotExist.exe
+
+      - name: Assert missing executable was rejected
+        if: ${{ always() && hashFiles('scripts/SmokeTest-Windows.ps1') != '' }}
         shell: pwsh
         run: |
-          pwsh -NoProfile -File scripts/SmokeTest-Windows.ps1 -ExecutablePath artifacts/win-x64/DoesNotExist.exe
-          if ($LASTEXITCODE -eq 0) {
+          if ('${{ steps.missing-executable.outcome }}' -ne 'failure') {
             throw 'Smoke test unexpectedly accepted a missing executable.'
           }

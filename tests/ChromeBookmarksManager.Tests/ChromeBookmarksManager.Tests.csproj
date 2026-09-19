@@ -22,4 +22,10 @@
     <ProjectReference Include="..\..\src\ChromeBookmarksManager\ChromeBookmarksManager.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\samples\Bookmarks.sample.json"
+          Link="Fixtures\Bookmarks.sample.json"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

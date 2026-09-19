@@ -118,38 +118,79 @@ public sealed partial class ChromeBookmarksReader : IChromeBookmarksReader
     private static BookmarkNode MapNode(ChromeBookmarkNodeDto dto, string path, MappingContext context, int depth)
     {
         context.CancellationToken.ThrowIfCancellationRequested();
-
-        if (dto.Type != "folder")
+        if (depth > 63)
         {
             throw new ChromeBookmarksReadException(
-                ChromeBookmarksReadError.InvalidNodeType,
-                $"Expected folder at {path}.",
-                $"{path}.type");
+                ChromeBookmarksReadError.DepthLimitExceeded,
+                $"Bookmark nesting exceeds 64 levels at {path}.",
+                path);
         }
 
         var id = ValidateId(dto.Id, path, context);
         var guid = ValidateGuid(dto.Guid, path, context);
         var name = dto.Name ?? throw Missing($"{path}.name");
-        var children = dto.Children ?? throw Missing($"{path}.children");
+        var metaInfo = dto.MetaInfo?.Clone();
+        var extensionData = Freeze(dto.ExtensionData);
 
-        if (children.Count != 0)
+        if (dto.Type == "url")
         {
-            throw new ChromeBookmarksReadException(
-                ChromeBookmarksReadError.InvalidPropertyType,
-                $"Nested nodes are added in the next reader task at {path}.",
-                $"{path}.children");
+            if (string.IsNullOrEmpty(dto.Url))
+            {
+                throw new ChromeBookmarksReadException(
+                    ChromeBookmarksReadError.MissingProperty,
+                    $"URL node has no URL at {path}.",
+                    $"{path}.url");
+            }
+
+            if (dto.Children is not null)
+            {
+                throw new ChromeBookmarksReadException(
+                    ChromeBookmarksReadError.InvalidPropertyType,
+                    $"URL node cannot contain children at {path}.",
+                    $"{path}.children");
+            }
+
+            return new BookmarkUrl(
+                id,
+                guid,
+                name,
+                dto.Url,
+                dto.DateAdded,
+                dto.DateModified,
+                dto.DateLastUsed,
+                metaInfo,
+                extensionData);
         }
 
-        return new BookmarkFolder(
-            id,
-            guid,
-            name,
-            dto.DateAdded,
-            dto.DateModified,
-            dto.DateLastUsed,
-            dto.MetaInfo?.Clone(),
-            Freeze(dto.ExtensionData),
-            Array.Empty<BookmarkNode>());
+        if (dto.Type == "folder")
+        {
+            var sourceChildren = dto.Children ?? throw Missing($"{path}.children");
+            var children = new List<BookmarkNode>(sourceChildren.Count);
+            for (var index = 0; index < sourceChildren.Count; index++)
+            {
+                children.Add(MapNode(
+                    sourceChildren[index],
+                    $"{path}.children[{index}]",
+                    context,
+                    depth + 1));
+            }
+
+            return new BookmarkFolder(
+                id,
+                guid,
+                name,
+                dto.DateAdded,
+                dto.DateModified,
+                dto.DateLastUsed,
+                metaInfo,
+                extensionData,
+                children);
+        }
+
+        throw new ChromeBookmarksReadException(
+            ChromeBookmarksReadError.InvalidNodeType,
+            $"Unknown Chrome bookmark node type at {path}.",
+            $"{path}.type");
     }
 
     private static string ValidateId(string? raw, string path, MappingContext context)

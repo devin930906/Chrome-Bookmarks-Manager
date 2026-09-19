@@ -15,7 +15,7 @@ public sealed class ChromeBookmarksReaderNodeTests
     {
         var document = await ReadFixtureAsync();
 
-        Assert.Equal(3, document.FolderCount);
+        Assert.Equal(4, document.FolderCount);
         Assert.Equal(2, document.UrlCount);
         Assert.Equal("Examples", document.Roots.BookmarkBar.Children[0].Name);
         var examples = Assert.IsType<BookmarkFolder>(document.Roots.BookmarkBar.Children[0]);

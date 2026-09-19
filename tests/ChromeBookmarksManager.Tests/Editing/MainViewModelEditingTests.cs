@@ -194,7 +194,9 @@ public sealed class MainViewModelEditingTests
         await viewModel.AddFolderAsync("Temporary");
         Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
 
-        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks-2");
+        await viewModel.LoadBookmarksAsync(
+            @"C:\Synthetic\Bookmarks-2",
+            discardDirtyChanges: true);
 
         Assert.Equal(DocumentState.LoadedClean, viewModel.State);
         Assert.False(viewModel.IsDirty);

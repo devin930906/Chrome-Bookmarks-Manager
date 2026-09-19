@@ -58,6 +58,20 @@
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusText}" />
             </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding DocumentSummaryText}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding SelectionSummaryText}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem HorizontalContentAlignment="Stretch">
+                <TextBlock Text="{Binding SourcePath}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding SourcePath}" />
+            </StatusBarItem>
         </StatusBar>
 
         <Grid>

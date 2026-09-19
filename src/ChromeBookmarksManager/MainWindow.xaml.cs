@@ -43,6 +43,28 @@ public partial class MainWindow : Window
         ViewModel.SelectFolder(e.NewValue as FolderTreeItemViewModel);
     }
 
+    private void BookmarksList_MouseDoubleClick(
+        object sender,
+        MouseButtonEventArgs e)
+    {
+        if (ViewModel.IsSearchActive &&
+            ViewModel.SelectedBookmark is { } bookmark)
+        {
+            ViewModel.NavigateToSearchResult(bookmark);
+        }
+    }
+
+    private void BookmarksList_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter &&
+            ViewModel.IsSearchActive &&
+            ViewModel.SelectedBookmark is { } bookmark)
+        {
+            ViewModel.NavigateToSearchResult(bookmark);
+            e.Handled = true;
+        }
+    }
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.F &&

@@ -232,32 +232,18 @@ public sealed class BookmarkSearchServiceTests
 
         var searchIndex = Index(urls);
         using var cts = new CancellationTokenSource();
-        using var cancellationIssued = new ManualResetEventSlim();
 
-        var cancelThread = new Thread(
-            () =>
-            {
-                Thread.Sleep(1);
-                cts.Cancel();
-                cancellationIssued.Set();
-            })
-        {
-            IsBackground = true,
-            Name = "BookmarkSearchServiceTests cancellation"
-        };
+        var searchTask = _service.SearchAsync(
+            searchIndex,
+            "definitely-not-present",
+            BookmarkSearchScope.AllBookmarks,
+            null,
+            cts.Token);
 
-        cancelThread.Start();
+        cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => _service.SearchAsync(
-                searchIndex,
-                "definitely-not-present",
-                BookmarkSearchScope.AllBookmarks,
-                null,
-                cts.Token));
-
-        Assert.True(cancellationIssued.Wait(TimeSpan.FromSeconds(5)));
-        cancelThread.Join();
+            () => searchTask);
     }
 
     [Fact]

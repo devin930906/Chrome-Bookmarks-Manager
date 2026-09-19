@@ -70,7 +70,10 @@
             <GroupBox Grid.Column="0" Header="Folders" Margin="8">
                 <TreeView ItemsSource="{Binding FolderRoots}"
                           IsEnabled="{Binding CanBrowseDocument}"
-                          SelectedItemChanged="FolderTree_SelectedItemChanged">
+                          SelectedItemChanged="FolderTree_SelectedItemChanged"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          ScrollViewer.CanContentScroll="True">
                     <TreeView.ItemTemplate>
                         <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                             <TextBlock Text="{Binding Name}" />
@@ -95,7 +98,10 @@
                 <ListView ItemsSource="{Binding CurrentBookmarks}"
                           SelectedItem="{Binding SelectedBookmark, Mode=TwoWay}"
                           SelectionMode="Single"
-                          IsEnabled="{Binding CanBrowseDocument}">
+                          IsEnabled="{Binding CanBrowseDocument}"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          ScrollViewer.CanContentScroll="True">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Name"

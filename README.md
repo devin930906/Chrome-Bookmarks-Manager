@@ -4,7 +4,7 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.4 Search / Index (owner acceptance passed; pending merge)**
+**Pre-release — V0.4 Search / Index (completed)**
 
 V0.4 adds fast, read-only in-memory search and result navigation on top of the completed V0.3 browser.
 
@@ -199,7 +199,7 @@ Windows 10 owner acceptance completed successfully on 2026-09-19.
 
 ## V0.4 verification status
 
-V0.4 automated engineering verification and Windows 10 owner acceptance are complete. The feature branch remains pre-release until PR #4 is merged to `main` and post-merge CI is verified.
+V0.4 automated engineering verification, Windows 10 owner acceptance, PR #4 merge, and post-merge `main` verification are complete.
 
 Automated evidence currently includes:
 
@@ -214,6 +214,12 @@ Automated evidence currently includes:
 - self-contained single-EXE publish and startup smoke test
 
 The explicit 250,000-URL SearchScale measurement on the GitHub Windows runner completed with 250,000 exact results while retaining original bookmark references and stable order. Observed timing and memory figures are diagnostic only; they are not a performance guarantee for the owner's Windows 10 system.
+
+## V0.4 merge and post-merge verification
+
+PR #4 was merged to `main` on 2026-09-19 as merge commit `592c6c7b1a06c6499d50a5dcf19e5e0ee10c2402`.
+
+Post-merge `main` Actions run #94 completed successfully with repository safety, Release build, ReaderScale, browser virtualization, search UI contract, BrowserScale, SearchScale, the full xUnit suite, Windows x64 publish, strict single-file verification, executable startup smoke test, and artifact upload.
 
 ## V0.4 owner acceptance
 
@@ -240,7 +246,7 @@ Windows 10 owner acceptance completed successfully on 2026-09-19 using the owner
 - **V0.1 — Bootstrap: completed** — project shell, tests, privacy guardrails, CI, single EXE
 - **V0.2 — Chrome Bookmarks Reader: completed** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.3 — Browser UI: completed** — folder tree, selected-folder bookmark list, status summaries, virtualization/recycling; Windows 10 owner acceptance passed with the private source file unchanged
-- **V0.4 — Search / Index: owner acceptance passed; pending merge** — in-memory indexing, read-only search, result navigation; automated release gates and Windows 10 owner acceptance complete
+- **V0.4 — Search / Index: completed** — in-memory indexing, read-only search, result navigation; automated release gates, Windows 10 owner acceptance, merge, and post-merge verification complete
 - **V0.5 — Editing:** add, rename, edit URL, dirty-state tracking
 - **V0.6 — Move / Drag & Drop:** movement, reordering, hierarchy protection
 - **V0.7 — Delete / Batch:** multi-select and batch operations

@@ -1,0 +1,329 @@
+using System.Text.Json;
+using ChromeBookmarksManager.Application;
+using ChromeBookmarksManager.Chrome;
+using ChromeBookmarksManager.Domain;
+using ChromeBookmarksManager.ViewModels;
+
+namespace ChromeBookmarksManager.Tests.Browser;
+
+public sealed class MainViewModelBrowserTests
+{
+    [Fact]
+    public void Constructor_StartsWithEmptyBrowserState()
+    {
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(CreateFixture().Document)));
+
+        Assert.Empty(viewModel.FolderRoots);
+        Assert.Null(viewModel.SelectedFolder);
+        Assert.Empty(viewModel.CurrentBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+        Assert.False(viewModel.CanBrowseDocument);
+        Assert.Equal(string.Empty, viewModel.DocumentSummaryText);
+        Assert.Equal(string.Empty, viewModel.SelectionSummaryText);
+    }
+
+    [Fact]
+    public async Task LoadBookmarksAsync_Success_BuildsThreeRootsAndSelectsBookmarkBar()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.True(viewModel.CanBrowseDocument);
+        Assert.Equal(3, viewModel.FolderRoots.Count);
+        Assert.Same(fixture.BookmarkBar, viewModel.FolderRoots[0].Folder);
+        Assert.Same(fixture.Other, viewModel.FolderRoots[1].Folder);
+        Assert.Same(fixture.Synced, viewModel.FolderRoots[2].Folder);
+        Assert.True(viewModel.FolderRoots[0].IsSelected);
+        Assert.False(viewModel.FolderRoots[0].IsExpanded);
+        Assert.False(viewModel.FolderRoots[1].IsSelected);
+        Assert.False(viewModel.FolderRoots[2].IsSelected);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.Equal("4 URLs | 4 folders", viewModel.DocumentSummaryText);
+        Assert.Equal("Bookmarks bar | 2 bookmarks", viewModel.SelectionSummaryText);
+    }
+
+    [Fact]
+    public async Task LoadBookmarksAsync_Success_ExposesOnlyDirectUrlsInOriginalOrder()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        Assert.Equal(2, viewModel.CurrentBookmarks.Count);
+        Assert.Same(fixture.BarUrlFirst, viewModel.CurrentBookmarks[0]);
+        Assert.Same(fixture.BarUrlSecond, viewModel.CurrentBookmarks[1]);
+        Assert.DoesNotContain(
+            viewModel.CurrentBookmarks,
+            bookmark => ReferenceEquals(bookmark, fixture.NestedUrl));
+    }
+
+    [Fact]
+    public async Task SelectFolder_UsesOriginalFolderAndClearsBookmarkSelection()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        viewModel.SelectedBookmark = fixture.BarUrlFirst;
+        var childItem = Assert.Single(viewModel.FolderRoots[0].Children);
+
+        viewModel.SelectFolder(childItem);
+
+        Assert.False(viewModel.FolderRoots[0].IsSelected);
+        Assert.True(childItem.IsSelected);
+        Assert.Same(fixture.ChildFolder, viewModel.SelectedFolder);
+        var current = Assert.Single(viewModel.CurrentBookmarks);
+        Assert.Same(fixture.NestedUrl, current);
+        Assert.Null(viewModel.SelectedBookmark);
+        Assert.Equal("Child folder | 1 bookmarks", viewModel.SelectionSummaryText);
+    }
+
+    [Fact]
+    public async Task LoadBookmarksAsync_ReadFailure_ClearsPreviousBrowserState()
+    {
+        var fixture = CreateFixture();
+        var call = 0;
+        var reader = new StubReader((_, _) =>
+        {
+            call++;
+            if (call == 1)
+            {
+                return Task.FromResult(fixture.Document);
+            }
+
+            return Task.FromException<BookmarkDocument>(
+                new ChromeBookmarksReadException(
+                    ChromeBookmarksReadError.MalformedJson,
+                    "Invalid file."));
+        });
+        var viewModel = new MainViewModel(reader);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        Assert.NotEmpty(viewModel.FolderRoots);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Invalid");
+
+        Assert.Equal(DocumentState.LoadFailed, viewModel.State);
+        Assert.Null(viewModel.Document);
+        Assert.Empty(viewModel.FolderRoots);
+        Assert.Null(viewModel.SelectedFolder);
+        Assert.Empty(viewModel.CurrentBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+        Assert.False(viewModel.CanBrowseDocument);
+        Assert.Equal(string.Empty, viewModel.DocumentSummaryText);
+        Assert.Equal(string.Empty, viewModel.SelectionSummaryText);
+    }
+
+    [Fact]
+    public async Task CancelLoad_ClearsPreviousBrowserState()
+    {
+        var fixture = CreateFixture();
+        var entered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var call = 0;
+        var reader = new StubReader(async (_, token) =>
+        {
+            call++;
+            if (call == 1)
+            {
+                return fixture.Document;
+            }
+
+            entered.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return fixture.Document;
+        });
+        var viewModel = new MainViewModel(reader);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        var load = viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks-2");
+        await entered.Task;
+
+        viewModel.CancelLoad();
+        await load;
+
+        Assert.Equal(DocumentState.NoDocument, viewModel.State);
+        Assert.Null(viewModel.Document);
+        Assert.Empty(viewModel.FolderRoots);
+        Assert.Null(viewModel.SelectedFolder);
+        Assert.Empty(viewModel.CurrentBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+        Assert.False(viewModel.CanBrowseDocument);
+        Assert.Equal(string.Empty, viewModel.DocumentSummaryText);
+        Assert.Equal(string.Empty, viewModel.SelectionSummaryText);
+    }
+
+    [Fact]
+    public async Task LoadBookmarksAsync_SecondLoad_ClearsBrowserStateBeforeReaderCompletes()
+    {
+        var first = CreateFixture();
+        var second = CreateFixture("Second bar");
+        var entered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<BookmarkDocument>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var call = 0;
+        var reader = new StubReader(async (_, token) =>
+        {
+            call++;
+            if (call == 1)
+            {
+                return first.Document;
+            }
+
+            entered.TrySetResult();
+            return await release.Task.WaitAsync(token);
+        });
+        var viewModel = new MainViewModel(reader);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        var secondLoad = viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks-2");
+        await entered.Task;
+
+        Assert.Equal(DocumentState.Loading, viewModel.State);
+        Assert.Null(viewModel.Document);
+        Assert.Empty(viewModel.FolderRoots);
+        Assert.Null(viewModel.SelectedFolder);
+        Assert.Empty(viewModel.CurrentBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+        Assert.False(viewModel.CanBrowseDocument);
+        Assert.Equal(string.Empty, viewModel.DocumentSummaryText);
+        Assert.Equal(string.Empty, viewModel.SelectionSummaryText);
+
+        release.SetResult(second.Document);
+        await secondLoad;
+
+        Assert.Same(second.BookmarkBar, viewModel.SelectedFolder);
+        Assert.Equal("Second bar", viewModel.FolderRoots[0].Name);
+    }
+
+    private static Fixture CreateFixture(string bookmarkBarName = "Bookmarks bar")
+    {
+        var barUrlFirst = Url(
+            "4",
+            "44444444-4444-4444-8444-444444444444",
+            "First",
+            "https://example.com/first");
+        var nestedUrl = Url(
+            "6",
+            "66666666-6666-4666-8666-666666666666",
+            "Nested",
+            "https://example.com/nested");
+        var childFolder = Folder(
+            "5",
+            "55555555-5555-4555-8555-555555555555",
+            "Child folder",
+            nestedUrl);
+        var barUrlSecond = Url(
+            "7",
+            "77777777-7777-4777-8777-777777777777",
+            "Second",
+            "https://example.com/second");
+        var bookmarkBar = Folder(
+            "1",
+            "11111111-1111-4111-8111-111111111111",
+            bookmarkBarName,
+            barUrlFirst,
+            childFolder,
+            barUrlSecond);
+
+        var otherUrl = Url(
+            "8",
+            "88888888-8888-4888-8888-888888888888",
+            "Other",
+            "https://example.com/other");
+        var other = Folder(
+            "2",
+            "22222222-2222-4222-8222-222222222222",
+            "Other bookmarks",
+            otherUrl);
+        var synced = Folder(
+            "3",
+            "33333333-3333-4333-8333-333333333333",
+            "Mobile bookmarks");
+
+        var document = new BookmarkDocument(
+            1,
+            null,
+            null,
+            new BookmarkRoots(
+                bookmarkBar,
+                other,
+                synced,
+                EmptyProperties()),
+            EmptyProperties());
+
+        return new Fixture(
+            document,
+            bookmarkBar,
+            other,
+            synced,
+            childFolder,
+            barUrlFirst,
+            barUrlSecond,
+            nestedUrl);
+    }
+
+    private static BookmarkFolder Folder(
+        string id,
+        string guid,
+        string name,
+        params BookmarkNode[] children) =>
+        new(
+            id,
+            Guid.Parse(guid),
+            name,
+            null,
+            null,
+            null,
+            null,
+            EmptyProperties(),
+            children);
+
+    private static BookmarkUrl Url(
+        string id,
+        string guid,
+        string name,
+        string url) =>
+        new(
+            id,
+            Guid.Parse(guid),
+            name,
+            url,
+            null,
+            null,
+            null,
+            null,
+            EmptyProperties());
+
+    private static IReadOnlyDictionary<string, JsonElement> EmptyProperties() =>
+        new Dictionary<string, JsonElement>();
+
+    private sealed class StubReader(
+        Func<string, CancellationToken, Task<BookmarkDocument>> read)
+        : IChromeBookmarksReader
+    {
+        public Task<BookmarkDocument> ReadFileAsync(
+            string path,
+            CancellationToken cancellationToken = default) =>
+            read(path, cancellationToken);
+    }
+
+    private sealed record Fixture(
+        BookmarkDocument Document,
+        BookmarkFolder BookmarkBar,
+        BookmarkFolder Other,
+        BookmarkFolder Synced,
+        BookmarkFolder ChildFolder,
+        BookmarkUrl BarUrlFirst,
+        BookmarkUrl BarUrlSecond,
+        BookmarkUrl NestedUrl);
+}

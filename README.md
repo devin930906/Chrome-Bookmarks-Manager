@@ -4,11 +4,11 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.2 Chrome Bookmarks Reader**
+**Pre-release — V0.3 Browser UI**
 
-V0.2 adds a read-only Chrome Bookmarks reader on top of the V0.1 WPF/bootstrap baseline.
+V0.3 adds a real read-only bookmark browser on top of the completed V0.2 reader.
 
-The reader currently supports:
+The current application supports:
 
 - Chrome native bookmark file version `1`
 - `bookmark_bar`, `other`, and `synced` roots
@@ -20,11 +20,17 @@ The reader currently supports:
 - retention of unsupported/unknown JSON properties in memory
 - typed validation failures for malformed or structurally unsafe data
 - asynchronous file loading and cancellation
-- read-only loading from the WPF shell
+- a three-root folder tree backed by the parsed Chrome document
+- folder-only tree presentation wrappers
+- direct bookmark URLs for the currently selected folder
+- read-only bookmark selection
+- status summaries for document counts, selected-folder counts, load state, and source path
+- explicit WPF UI virtualization and recycling for the folder tree and bookmark list
+- synthetic large-browser-state verification up to 250,000 URLs
 
-V0.2 does **not** edit, save, overwrite, repair, reorder, delete, move, regenerate checksums, or write back to a Chrome profile.
+V0.3 still does **not** provide search, add, rename, edit, delete, move, reorder, drag/drop, Undo/Redo, checksum generation, save, overwrite, repair, or production Chrome write-back.
 
-Direct Chrome profile write-back remains disabled until the Safe Chrome Write milestone (V0.9) passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
+Search/index remains scheduled for V0.4. Editing begins in V0.5. Direct Chrome profile write-back remains disabled until the V0.9 Safe Chrome Write milestone passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
 
 ## Target
 
@@ -41,9 +47,9 @@ Real Chrome `Bookmarks` files are private user data and must never be committed 
 
 Only synthetic fixtures under `samples/` are permitted in Git.
 
-The current sample data uses reserved example domains and does not contain the user's real bookmark titles or URLs.
+The current sample and generated scale data use reserved example domains and do not contain the user's real bookmark titles or URLs.
 
-V0.2 remains strictly read-only. Production Chrome profile write-back is intentionally out of scope until V0.9.
+V0.3 remains strictly read-only. Production Chrome profile write-back is intentionally out of scope until V0.9.
 
 ## Build
 
@@ -66,7 +72,19 @@ Run the explicit large-reader release measurement with 250,000 generated URLs:
 pwsh -NoProfile -File scripts/Measure-Reader.ps1 -UrlCount 250000
 ```
 
-The generated workload uses synthetic reserved-domain data only, is written directly as UTF-8 JSON, and is deleted after the measurement.
+Run the explicit V0.3 browser-state release measurement with 250,000 generated URL nodes:
+
+```powershell
+pwsh -NoProfile -File scripts/Measure-BrowserState.ps1 -UrlCount 250000
+```
+
+Verify the production WPF browser controls still enforce virtualization/recycling:
+
+```powershell
+pwsh -NoProfile -File scripts/Verify-BrowserVirtualization.ps1
+```
+
+The generated workloads use synthetic reserved-domain data only.
 
 ## Publish
 
@@ -106,14 +124,16 @@ The workflow at `.github/workflows/build-windows.yml` runs on Windows and perfor
 1. repository privacy verification
 2. restore
 3. Release build
-4. named Chrome Bookmarks reader scale/cancellation gate
-5. full xUnit test suite
-6. self-contained Windows x64 publish
-7. single-file output verification
-8. executable startup smoke test
-9. artifact upload
+4. named Chrome Bookmarks ReaderScale gate
+5. browser virtualization/recycling contract verification
+6. named BrowserScale gate with the normal synthetic workload
+7. full xUnit test suite
+8. self-contained Windows x64 publish
+9. single-file output verification
+10. executable startup smoke test
+11. artifact upload
 
-The named reader gate uses the ordinary synthetic 10,000-URL workload. The explicit 250,000-URL measurement remains a release command rather than a normal CI requirement.
+The normal CI browser gate uses a synthetic 10,000-URL workload. The explicit 250,000-URL browser-state measurement remains a release command rather than a permanent heavy CI step.
 
 The downloadable workflow artifact is named:
 
@@ -132,11 +152,28 @@ Windows 10 owner acceptance completed successfully on 2026-09-19.
 - source-file last-write timestamp unchanged before/after
 - no private bookmark titles, URLs, raw file contents, or private logs were committed or uploaded
 
+## V0.3 verification status
+
+Automated V0.3 implementation verification is complete. Windows 10 owner acceptance for the new browser UI remains the final release gate before V0.3 may be marked complete and merged.
+
+Automated evidence includes:
+
+- folder-tree presentation tests
+- read-only browser-state tests
+- WPF binding/build verification
+- explicit virtualization/recycling verification
+- BrowserScale 10,000 synthetic URL gate
+- explicit BrowserScale 250,000 synthetic URL measurement
+- complete regression suite
+- self-contained single-EXE publish and startup smoke test
+
+The 250,000-URL browser-state measurement on the GitHub Windows runner completed successfully with exact domain-reference verification. Runner timings are observational only and are not treated as a Windows 10 owner-machine performance guarantee.
+
 ## Roadmap
 
 - **V0.1 — Bootstrap: completed** — project shell, tests, privacy guardrails, CI, single EXE
 - **V0.2 — Chrome Bookmarks Reader: completed** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading; Windows 10 owner acceptance passed with the private source file unchanged
-- **V0.3 — Browser UI:** folder tree, bookmark list, virtualization
+- **V0.3 — Browser UI: implementation complete / owner acceptance pending** — folder tree, selected-folder bookmark list, status summaries, virtualization/recycling
 - **V0.4 — Search / Index:** in-memory indexing and fast search
 - **V0.5 — Editing:** add, rename, edit URL, dirty-state tracking
 - **V0.6 — Move / Drag & Drop:** movement, reordering, hierarchy protection
@@ -150,6 +187,7 @@ Windows 10 owner acceptance completed successfully on 2026-09-19.
 - [Approved design spec](docs/superpowers/specs/2026-09-19-chrome-bookmarks-manager-design.md)
 - [V0.1 implementation plan](docs/superpowers/plans/2026-09-19-v0.1-bootstrap.md)
 - [V0.2 implementation plan](docs/superpowers/plans/2026-09-19-v0.2-chrome-bookmarks-reader.md)
+- [V0.3 implementation plan](docs/superpowers/plans/2026-09-19-v0.3-browser-ui.md)
 
 ## Development principles
 

@@ -205,6 +205,32 @@ public sealed class MainViewModelBrowserTests
         Assert.Equal("Second bar", viewModel.FolderRoots[0].Name);
     }
 
+    [Fact]
+    public async Task LoadBookmarksAsync_Reopen_ReplacesSummariesAndSourcePath()
+    {
+        var first = CreateFixture();
+        var second = CreateFixture("Second bar");
+        var call = 0;
+        var reader = new StubReader((_, _) =>
+        {
+            call++;
+            return Task.FromResult(call == 1 ? first.Document : second.Document);
+        });
+        var viewModel = new MainViewModel(reader);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        viewModel.SelectFolder(Assert.Single(viewModel.FolderRoots[0].Children));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks-2");
+
+        Assert.Equal(@"C:\Synthetic\Bookmarks-2", viewModel.SourcePath);
+        Assert.Equal("4 URLs | 4 folders", viewModel.DocumentSummaryText);
+        Assert.Equal("Second bar | 2 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Same(second.BookmarkBar, viewModel.SelectedFolder);
+        Assert.True(viewModel.FolderRoots[0].IsSelected);
+        Assert.False(viewModel.FolderRoots[0].IsExpanded);
+    }
+
     private static Fixture CreateFixture(string bookmarkBarName = "Bookmarks bar")
     {
         var barUrlFirst = Url(

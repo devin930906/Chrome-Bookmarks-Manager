@@ -83,4 +83,4 @@ jobs:
           name: ChromeBookmarksManager-win-x64
           path: artifacts/win-x64/ChromeBookmarksManager.exe
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1

@@ -169,7 +169,9 @@ public sealed class MainViewModel : ViewModelBase
     public bool CanBrowseDocument =>
         State is DocumentState.LoadedClean or DocumentState.LoadedDirty;
 
-    public async Task LoadBookmarksAsync(string path)
+    public async Task LoadBookmarksAsync(
+        string path,
+        bool discardDirtyChanges = false)
     {
         if (_loadCancellation is not null || State == DocumentState.Loading)
         {
@@ -178,6 +180,14 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (State == DocumentState.LoadedDirty &&
+            !discardDirtyChanges)
+        {
+            throw new InvalidOperationException(
+                "The current Bookmarks document has unsaved in-memory changes. " +
+                "Confirm Discard before loading another file.");
+        }
 
         ResetSearchState(clearIndex: true, resetScope: true);
         SetDocument(null);

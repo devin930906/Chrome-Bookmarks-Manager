@@ -68,15 +68,15 @@ jobs:
         shell: pwsh
         run: dotnet restore ChromeBookmarksManager.slnx
 
+      - name: Test
+        if: ${{ hashFiles('ChromeBookmarksManager.slnx') != '' }}
+        shell: pwsh
+        run: dotnet test ChromeBookmarksManager.slnx --configuration Release --no-restore --logger "console;verbosity=normal"
+
       - name: Build
         if: ${{ hashFiles('ChromeBookmarksManager.slnx') != '' }}
         shell: pwsh
         run: dotnet build ChromeBookmarksManager.slnx --configuration Release --no-restore
-
-      - name: Test
-        if: ${{ hashFiles('ChromeBookmarksManager.slnx') != '' }}
-        shell: pwsh
-        run: dotnet test ChromeBookmarksManager.slnx --configuration Release --no-build --logger "console;verbosity=normal"
 
       - name: Publish
         if: ${{ hashFiles('scripts/Publish-Windows.ps1') != '' }}

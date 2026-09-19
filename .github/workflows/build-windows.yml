@@ -45,6 +45,14 @@ jobs:
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=ReaderScale" --logger "console;verbosity=normal"
 
+      - name: Verify browser virtualization
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-BrowserVirtualization.ps1
+
+      - name: Verify browser scale
+        shell: pwsh
+        run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=BrowserScale" --logger "console;verbosity=normal"
+
       - name: Test
         shell: pwsh
         run: dotnet test ChromeBookmarksManager.slnx --configuration Release --no-build --logger "console;verbosity=normal"

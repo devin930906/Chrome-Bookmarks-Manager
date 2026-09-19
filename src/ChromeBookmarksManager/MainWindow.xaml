@@ -58,6 +58,20 @@
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusText}" />
             </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding DocumentSummaryText}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding SelectionSummaryText}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem HorizontalContentAlignment="Stretch">
+                <TextBlock Text="{Binding SourcePath}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding SourcePath}" />
+            </StatusBarItem>
         </StatusBar>
 
         <Grid>
@@ -68,8 +82,25 @@
             </Grid.ColumnDefinitions>
 
             <GroupBox Grid.Column="0" Header="Folders" Margin="8">
-                <TreeView IsEnabled="False">
-                    <TreeViewItem Header="No Bookmarks file is open" />
+                <TreeView ItemsSource="{Binding FolderRoots}"
+                          IsEnabled="{Binding CanBrowseDocument}"
+                          SelectedItemChanged="FolderTree_SelectedItemChanged"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          ScrollViewer.CanContentScroll="True">
+                    <TreeView.ItemTemplate>
+                        <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                            <TextBlock Text="{Binding Name}" />
+                        </HierarchicalDataTemplate>
+                    </TreeView.ItemTemplate>
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="{x:Type TreeViewItem}">
+                            <Setter Property="IsExpanded"
+                                    Value="{Binding IsExpanded, Mode=TwoWay}" />
+                            <Setter Property="IsSelected"
+                                    Value="{Binding IsSelected, Mode=TwoWay}" />
+                        </Style>
+                    </TreeView.ItemContainerStyle>
                 </TreeView>
             </GroupBox>
 
@@ -78,11 +109,21 @@
                           HorizontalAlignment="Stretch" />
 
             <GroupBox Grid.Column="2" Header="Bookmarks" Margin="8">
-                <ListView IsEnabled="False">
+                <ListView ItemsSource="{Binding CurrentBookmarks}"
+                          SelectedItem="{Binding SelectedBookmark, Mode=TwoWay}"
+                          SelectionMode="Single"
+                          IsEnabled="{Binding CanBrowseDocument}"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          ScrollViewer.CanContentScroll="True">
                     <ListView.View>
                         <GridView>
-                            <GridViewColumn Header="Name" Width="280" />
-                            <GridViewColumn Header="URL" Width="520" />
+                            <GridViewColumn Header="Name"
+                                            Width="280"
+                                            DisplayMemberBinding="{Binding Name}" />
+                            <GridViewColumn Header="URL"
+                                            Width="520"
+                                            DisplayMemberBinding="{Binding Url}" />
                         </GridView>
                     </ListView.View>
                 </ListView>

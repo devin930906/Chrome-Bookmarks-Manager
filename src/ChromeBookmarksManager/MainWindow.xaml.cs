@@ -34,4 +34,11 @@ public partial class MainWindow : Window
     {
         ViewModel.CancelLoad();
     }
+
+    private void FolderTree_SelectedItemChanged(
+        object sender,
+        RoutedPropertyChangedEventArgs<object> e)
+    {
+        ViewModel.SelectFolder(e.NewValue as FolderTreeItemViewModel);
+    }
 }

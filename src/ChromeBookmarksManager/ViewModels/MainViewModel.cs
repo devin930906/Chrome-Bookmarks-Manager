@@ -41,6 +41,7 @@ public sealed class MainViewModel : ViewModelBase
         Array.Empty<BookmarkUrl>();
     private bool _isSearchBusy;
     private string _searchSummaryText = string.Empty;
+    private bool _suppressFolderSearchRefresh;
 
     public MainViewModel(IChromeBookmarksReader reader)
         : this(reader, new BookmarkSearchService(), DefaultSearchDebounce)
@@ -291,6 +292,99 @@ public sealed class MainViewModel : ViewModelBase
 
     internal Task WaitForPendingSearchAsync() => _pendingSearchTask;
 
+    internal async Task RefreshProjectionsAfterEditAsync(
+        BookmarkFolder? preferredFolder = null,
+        BookmarkUrl? preferredBookmark = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_document is null || !CanBrowseDocument)
+        {
+            throw new InvalidOperationException(
+                "An editable bookmark document must be loaded before projections can be refreshed.");
+        }
+
+        var document = _document;
+        var selectedFolder =
+            preferredFolder ??
+            _selectedFolder ??
+            document.Roots.BookmarkBar;
+        var selectedBookmark =
+            preferredBookmark ??
+            _selectedBookmark;
+        var expandedFolders = _folderLookup
+            .Where(pair => pair.Value.IsExpanded)
+            .Select(pair => pair.Key)
+            .ToArray();
+        var searchWasActive = IsSearchActive;
+
+        ++_searchGeneration;
+        CancelPendingSearch();
+        _pendingSearchTask = Task.CompletedTask;
+        SetSearchResults(Array.Empty<BookmarkUrl>());
+        SetIsSearchBusy(false);
+        SetSearchSummaryText(
+            searchWasActive ? "Refreshing search index..." : string.Empty);
+
+        var refreshedIndex = await _searchService
+            .BuildIndexAsync(document, cancellationToken)
+            .ConfigureAwait(true);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!ReferenceEquals(_document, document) || !CanBrowseDocument)
+        {
+            throw new InvalidOperationException(
+                "The active bookmark document changed while edit projections were refreshing.");
+        }
+
+        SetSearchIndex(refreshedIndex);
+
+        _suppressFolderSearchRefresh = true;
+        try
+        {
+            BuildBrowserState(document);
+
+            foreach (var expandedFolder in expandedFolders)
+            {
+                if (_folderLookup.TryGetValue(expandedFolder, out var expandedItem))
+                {
+                    expandedItem.IsExpanded = true;
+                }
+            }
+
+            if (!_folderLookup.TryGetValue(selectedFolder, out var selectedItem))
+            {
+                selectedItem = _folderLookup[document.Roots.BookmarkBar];
+            }
+
+            SelectFolder(selectedItem);
+
+            if (selectedBookmark is not null &&
+                ReferenceEquals(selectedBookmark.Parent, SelectedFolder) &&
+                CurrentBookmarks.Any(
+                    bookmark => ReferenceEquals(bookmark, selectedBookmark)))
+            {
+                SetSelectedBookmark(selectedBookmark);
+            }
+        }
+        finally
+        {
+            _suppressFolderSearchRefresh = false;
+        }
+
+        if (searchWasActive &&
+            !string.IsNullOrWhiteSpace(SearchText))
+        {
+            ScheduleSearch(useDebounce: false);
+            var refreshSearch = _pendingSearchTask;
+            await refreshSearch.ConfigureAwait(true);
+        }
+        else
+        {
+            SetSearchSummaryText(string.Empty);
+        }
+    }
+
     private void BuildBrowserState(BookmarkDocument document)
     {
         var roots = new[]
@@ -398,6 +492,11 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RerunSearchForFolderChange()
     {
+        if (_suppressFolderSearchRefresh)
+        {
+            return;
+        }
+
         if (IsSearchActive &&
             SearchScope == BookmarkSearchScope.CurrentFolder)
         {

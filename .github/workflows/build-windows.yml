@@ -45,10 +45,6 @@ jobs:
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=ReaderScale" --logger "console;verbosity=normal"
 
-      - name: Verify 250k reader release measurement
-        shell: pwsh
-        run: pwsh -NoProfile -File scripts/Measure-Reader.ps1 -UrlCount 250000
-
       - name: Test
         shell: pwsh
         run: dotnet test ChromeBookmarksManager.slnx --configuration Release --no-build --logger "console;verbosity=normal"

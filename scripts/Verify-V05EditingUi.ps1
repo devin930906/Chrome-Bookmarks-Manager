@@ -74,12 +74,12 @@ if (Require-File $mainWindowCode) {
     Require-Text $code 'BookmarkEditException' "MainWindow must surface editing validation failures."
 
     foreach ($forbidden in @(
-        '.SetNames*(',
-        '.SetUrls*(',
-        '.AddChilds*(',
-        '.RecordAddedNodes*('
+        ".SetName(",
+        ".SetUrl(",
+        ".AddChild(",
+        ".RecordAddedNode("
     )) {
-        if ($code -match $forbidden) {
+        if ($code.Contains($forbidden, [System.StringComparison]::Ordinal)) {
             $errors.Add("MainWindow code-behind must not mutate the domain directly: $forbidden")
         }
     }

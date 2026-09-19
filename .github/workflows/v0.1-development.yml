@@ -1,9 +1,6 @@
 name: V0.1 Development Validation
 
 on:
-  push:
-    branches:
-      - feature/v0.1-bootstrap
   pull_request:
     branches:
       - main

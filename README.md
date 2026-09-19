@@ -154,7 +154,7 @@ Windows 10 owner acceptance completed successfully on 2026-09-19.
 
 ## V0.3 verification status
 
-Automated V0.3 implementation verification is complete. Windows 10 owner acceptance for the new browser UI remains the final release gate before V0.3 may be marked complete and merged.
+V0.3 automated verification and Windows 10 owner acceptance are complete. The browser UI has been validated against the owner's real private Chrome Bookmarks file without modifying the source file.
 
 Automated evidence includes:
 
@@ -169,11 +169,26 @@ Automated evidence includes:
 
 The 250,000-URL browser-state measurement on the GitHub Windows runner completed successfully with exact domain-reference verification. Runner timings are observational only and are not treated as a Windows 10 owner-machine performance guarantee.
 
+## V0.3 owner acceptance
+
+Windows 10 owner acceptance completed successfully on 2026-09-19.
+
+- real Chrome Bookmarks load: 209,382 URLs and 3,404 folders
+- observed load time on the owner's Windows 10 machine: approximately 2.5 seconds
+- three-root folder tree rendered correctly
+- nested folder browsing and selected-folder bookmark lists worked correctly
+- bookmark Name / URL rows displayed correctly locally
+- large-list scrolling remained usable
+- source-file SHA-256 unchanged before/after
+- source-file length unchanged before/after
+- source-file last-write timestamp unchanged before/after
+- no private bookmark titles, URLs, or raw file contents were committed or uploaded
+
 ## Roadmap
 
 - **V0.1 — Bootstrap: completed** — project shell, tests, privacy guardrails, CI, single EXE
 - **V0.2 — Chrome Bookmarks Reader: completed** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading; Windows 10 owner acceptance passed with the private source file unchanged
-- **V0.3 — Browser UI: implementation complete / owner acceptance pending** — folder tree, selected-folder bookmark list, status summaries, virtualization/recycling
+- **V0.3 — Browser UI: completed** — folder tree, selected-folder bookmark list, status summaries, virtualization/recycling; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.4 — Search / Index:** in-memory indexing and fast search
 - **V0.5 — Editing:** add, rename, edit URL, dirty-state tracking
 - **V0.6 — Move / Drag & Drop:** movement, reordering, hierarchy protection

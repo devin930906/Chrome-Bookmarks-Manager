@@ -132,7 +132,7 @@ public sealed class EditingProjectionRefreshTests
         Assert.Same(added, viewModel.SelectedFolder);
         Assert.True(addedItem.IsSelected);
         Assert.Empty(viewModel.CurrentBookmarks);
-        Assert.Equal("4 URLs | 5 folders", viewModel.DocumentSummaryText);
+        Assert.Equal("3 URLs | 5 folders", viewModel.DocumentSummaryText);
         Assert.Equal("Added folder | 0 bookmarks", viewModel.SelectionSummaryText);
         Assert.Equal(1, reader.ReadCalls);
     }

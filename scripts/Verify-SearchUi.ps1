@@ -17,7 +17,7 @@ if ($content.Contains(
 
 $listMatches = [regex]::Matches(
     $content,
-    '<ListView\b(?<attributes>[^>]*)>',
+    '<ListView(?=\s|>)(?<attributes>[^>]*)>',
     [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 
 if ($listMatches.Count -ne 1) {

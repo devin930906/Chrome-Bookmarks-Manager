@@ -1,5 +1,6 @@
 {
   "checksum": "synthetic-not-a-chrome-checksum",
+  "checksum_sha256": "synthetic-not-a-chrome-sha256",
   "roots": {
     "bookmark_bar": {
       "children": [
@@ -7,6 +8,10 @@
           "children": [
             {
               "date_added": "13370000000000000",
+              "date_last_used": "13370000000000001",
+              "future_node": {
+                "synthetic": true
+              },
               "guid": "11111111-1111-4111-8111-111111111111",
               "id": "3",
               "name": "Example Documentation",
@@ -36,6 +41,9 @@
           "guid": "44444444-4444-4444-8444-444444444444",
           "id": "5",
           "meta_info": {
+            "nested": {
+              "source": "fixture"
+            },
             "synthetic": "true"
           },
           "name": "Example Network",
@@ -58,8 +66,15 @@
       "id": "6",
       "name": "Mobile bookmarks",
       "type": "folder"
+    },
+    "future_root": {
+      "shape": "retained"
     }
   },
   "version": 1,
+  "future_document": {
+    "enabled": true,
+    "source": "synthetic"
+  },
   "v0_1_fixture_marker": "synthetic-only"
 }

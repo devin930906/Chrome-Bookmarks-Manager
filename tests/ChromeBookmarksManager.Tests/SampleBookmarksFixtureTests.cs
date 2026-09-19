@@ -20,6 +20,33 @@ public sealed class SampleBookmarksFixtureTests
         Assert.True(document.RootElement.GetProperty("roots").TryGetProperty("synced", out _));
     }
 
+
+    [Fact]
+    public void Fixture_ContainsV02MetadataAndUnknownFieldShapes()
+    {
+        Assert.True(File.Exists(FixturePath), $"Fixture not found: {FixturePath}");
+
+        using var document = JsonDocument.Parse(File.ReadAllText(FixturePath));
+        var root = document.RootElement;
+        var roots = root.GetProperty("roots");
+        var documentation = roots
+            .GetProperty("bookmark_bar")
+            .GetProperty("children")[0]
+            .GetProperty("children")[0];
+        var network = roots
+            .GetProperty("other")
+            .GetProperty("children")[0];
+
+        Assert.Equal("synthetic-not-a-chrome-sha256", root.GetProperty("checksum_sha256").GetString());
+        Assert.Equal(JsonValueKind.Object, root.GetProperty("future_document").ValueKind);
+        Assert.Equal(JsonValueKind.Object, roots.GetProperty("future_root").ValueKind);
+        Assert.Equal("13370000000000001", documentation.GetProperty("date_last_used").GetString());
+        Assert.Equal(JsonValueKind.Object, documentation.GetProperty("future_node").ValueKind);
+        Assert.Equal(
+            JsonValueKind.Object,
+            network.GetProperty("meta_info").GetProperty("nested").ValueKind);
+    }
+
     [Fact]
     public void Fixture_ContainsOnlyReservedExampleHosts()
     {

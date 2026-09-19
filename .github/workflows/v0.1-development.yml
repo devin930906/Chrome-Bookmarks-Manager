@@ -60,6 +60,29 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-RepositorySafety.ps1
 
+      - name: Prove repository safety rejects private tracked data
+        if: ${{ hashFiles('scripts/Verify-RepositorySafety.ps1') != '' }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force PrivateData | Out-Null
+          Set-Content -Path PrivateData/Bookmarks -Value '{}'
+          git add -f PrivateData/Bookmarks
+
+          pwsh -NoProfile -File scripts/Verify-RepositorySafety.ps1
+          $rejected = $LASTEXITCODE -ne 0
+
+          git reset -- PrivateData/Bookmarks
+          Remove-Item -Recurse -Force PrivateData
+
+          if (-not $rejected) {
+            throw 'Repository safety check failed to reject a forbidden tracked file.'
+          }
+
+          pwsh -NoProfile -File scripts/Verify-RepositorySafety.ps1
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Repository safety check did not recover after cleanup.'
+          }
+
       - name: Restore
         if: ${{ hashFiles('ChromeBookmarksManager.slnx') != '' }}
         shell: pwsh

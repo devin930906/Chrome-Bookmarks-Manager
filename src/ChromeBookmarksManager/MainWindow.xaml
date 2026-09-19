@@ -16,7 +16,29 @@
                 <Separator />
                 <MenuItem Header="E_xit" IsEnabled="False" />
             </MenuItem>
-            <MenuItem Header="_Edit" IsEnabled="False" />
+            <MenuItem Header="_Edit">
+                <MenuItem Header="Add _Bookmark..."
+                          InputGestureText="Ctrl+Shift+B"
+                          IsEnabled="{Binding CanAddBookmark}"
+                          Click="AddBookmark_Click" />
+                <MenuItem Header="Add _Folder..."
+                          InputGestureText="Ctrl+Shift+F"
+                          IsEnabled="{Binding CanAddFolder}"
+                          Click="AddFolder_Click" />
+                <Separator />
+                <MenuItem Header="_Rename Folder..."
+                          InputGestureText="F2"
+                          IsEnabled="{Binding CanRenameSelectedFolder}"
+                          Click="RenameFolder_Click" />
+                <MenuItem Header="Rename _Bookmark..."
+                          InputGestureText="F2"
+                          IsEnabled="{Binding CanRenameSelectedBookmark}"
+                          Click="RenameBookmark_Click" />
+                <MenuItem Header="Edit _URL..."
+                          InputGestureText="Ctrl+E"
+                          IsEnabled="{Binding CanEditSelectedBookmarkUrl}"
+                          Click="EditUrl_Click" />
+            </MenuItem>
             <MenuItem Header="_View" />
             <MenuItem Header="_Tools" IsEnabled="False" />
         </Menu>
@@ -39,7 +61,7 @@
                         Padding="16,6"
                         IsEnabled="{Binding CanOpenBookmarks}"
                         Click="OpenBookmarks_Click"
-                        ToolTip="Open a Chrome Bookmarks file in read-only mode." />
+                        ToolTip="Open a Chrome Bookmarks file. V0.5 edits remain in memory." />
 
                 <Button Grid.Column="1"
                         Margin="8,0,0,0"
@@ -48,6 +70,13 @@
                         IsEnabled="{Binding CanCancelLoad}"
                         Click="CancelLoad_Click"
                         ToolTip="Cancel the current Bookmarks load." />
+
+                <TextBlock Grid.Column="2"
+                           Margin="16,0,8,0"
+                           VerticalAlignment="Center"
+                           Text="V0.5 editing is in-memory only; Save is not available yet."
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="Edits are kept in memory only. Closing or replacing the document will require discarding them until safe save support is added." />
 
                 <TextBox x:Name="SearchBox"
                          Grid.Column="3"
@@ -107,12 +136,29 @@
             </Grid.ColumnDefinitions>
 
             <GroupBox Grid.Column="0" Header="Folders" Margin="8">
-                <TreeView ItemsSource="{Binding FolderRoots}"
+                <TreeView x:Name="FolderTree"
+                          ItemsSource="{Binding FolderRoots}"
                           IsEnabled="{Binding CanBrowseDocument}"
                           SelectedItemChanged="FolderTree_SelectedItemChanged"
+                          PreviewMouseRightButtonDown="FolderTree_PreviewMouseRightButtonDown"
                           VirtualizingPanel.IsVirtualizing="True"
                           VirtualizingPanel.VirtualizationMode="Recycling"
                           ScrollViewer.CanContentScroll="True">
+                    <TreeView.ContextMenu>
+                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="Add Bookmark..."
+                                      IsEnabled="{Binding CanAddBookmark}"
+                                      Click="AddBookmark_Click" />
+                            <MenuItem Header="Add Folder..."
+                                      IsEnabled="{Binding CanAddFolder}"
+                                      Click="AddFolder_Click" />
+                            <Separator />
+                            <MenuItem Header="Rename Folder..."
+                                      InputGestureText="F2"
+                                      IsEnabled="{Binding CanRenameSelectedFolder}"
+                                      Click="RenameFolder_Click" />
+                        </ContextMenu>
+                    </TreeView.ContextMenu>
                     <TreeView.ItemTemplate>
                         <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                             <TextBlock Text="{Binding Name}" />
@@ -139,11 +185,24 @@
                           SelectedItem="{Binding SelectedBookmark, Mode=TwoWay}"
                           MouseDoubleClick="BookmarksList_MouseDoubleClick"
                           KeyDown="BookmarksList_KeyDown"
+                          PreviewMouseRightButtonDown="BookmarksList_PreviewMouseRightButtonDown"
                           SelectionMode="Single"
                           IsEnabled="{Binding CanBrowseDocument}"
                           VirtualizingPanel.IsVirtualizing="True"
                           VirtualizingPanel.VirtualizationMode="Recycling"
                           ScrollViewer.CanContentScroll="True">
+                    <ListView.ContextMenu>
+                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="Rename Bookmark..."
+                                      InputGestureText="F2"
+                                      IsEnabled="{Binding CanRenameSelectedBookmark}"
+                                      Click="RenameBookmark_Click" />
+                            <MenuItem Header="Edit URL..."
+                                      InputGestureText="Ctrl+E"
+                                      IsEnabled="{Binding CanEditSelectedBookmarkUrl}"
+                                      Click="EditUrl_Click" />
+                        </ContextMenu>
+                    </ListView.ContextMenu>
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Name"

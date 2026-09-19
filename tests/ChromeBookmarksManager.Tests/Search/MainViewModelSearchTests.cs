@@ -39,7 +39,7 @@ public sealed class MainViewModelSearchTests
                 return releaseBuild.Task;
             }
         };
-        var viewModel = CreateViewModel(fixture.Document, service);
+        var viewModel = CreateViewModel(fixture, service);
 
         var load = viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
         await buildEntered.Task;
@@ -73,7 +73,7 @@ public sealed class MainViewModelSearchTests
                 throw new InvalidOperationException("Unreachable.");
             }
         };
-        var viewModel = CreateViewModel(fixture.Document, service);
+        var viewModel = CreateViewModel(fixture, service);
 
         var load = viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
         await buildEntered.Task;
@@ -93,7 +93,7 @@ public sealed class MainViewModelSearchTests
     public async Task EmptySearch_DisplaysNormalCurrentFolderBookmarks()
     {
         var fixture = CreateFixture();
-        var viewModel = CreateViewModel(fixture.Document);
+        var viewModel = CreateViewModel(fixture);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
 
@@ -116,7 +116,7 @@ public sealed class MainViewModelSearchTests
                         ? new[] { fixture.OtherUrl }
                         : Array.Empty<BookmarkUrl>())
         };
-        var viewModel = CreateViewModel(fixture.Document, service);
+        var viewModel = CreateViewModel(fixture, service);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
         viewModel.SearchText = "target";
@@ -177,7 +177,7 @@ public sealed class MainViewModelSearchTests
                 return releaseNew.Task;
             }
         };
-        var viewModel = CreateViewModel(fixture.Document, service);
+        var viewModel = CreateViewModel(fixture, service);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
 
@@ -209,7 +209,7 @@ public sealed class MainViewModelSearchTests
                 Task.FromResult<IReadOnlyList<BookmarkUrl>>(
                     new[] { fixture.OtherUrl })
         };
-        var viewModel = CreateViewModel(fixture.Document, service);
+        var viewModel = CreateViewModel(fixture, service);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
         viewModel.SearchText = "target";
@@ -230,7 +230,7 @@ public sealed class MainViewModelSearchTests
     {
         var fixture = CreateFixture();
         var service = new StubSearchService();
-        var viewModel = CreateViewModel(fixture.Document, service);
+        var viewModel = CreateViewModel(fixture, service);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
         viewModel.SearchText = "match";
@@ -250,7 +250,7 @@ public sealed class MainViewModelSearchTests
     {
         var fixture = CreateFixture();
         var service = new StubSearchService();
-        var viewModel = CreateViewModel(fixture.Document, service);
+        var viewModel = CreateViewModel(fixture, service);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
         viewModel.SearchScope = BookmarkSearchScope.CurrentFolder;
@@ -337,7 +337,7 @@ public sealed class MainViewModelSearchTests
                 return release.Task;
             }
         };
-        var viewModel = CreateViewModel(fixture.Document, service);
+        var viewModel = CreateViewModel(fixture, service);
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
 
         const string privateQuery = "private-query-text";
@@ -360,7 +360,7 @@ public sealed class MainViewModelSearchTests
     public async Task NoMatches_UsesStableSummaryWithoutQueryText()
     {
         var fixture = CreateFixture();
-        var viewModel = CreateViewModel(fixture.Document);
+        var viewModel = CreateViewModel(fixture);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
         viewModel.SearchText = "not-present";

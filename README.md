@@ -4,9 +4,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.5 Editing (implementation and Windows 10 owner acceptance complete; PR merge pending)**
+**Pre-release — V0.6 Move / Reorder / Drag & Drop (implementation, automated release gates, and Windows 10 owner acceptance complete; merge pending)**
 
-V0.5 adds safe in-memory bookmark editing and explicit Discard / Cancel protection on top of the V0.4 browser and search features.
+V0.6 adds browser-style in-memory bookmark and folder movement, reordering, Drag & Drop, and Move to... on top of the completed V0.5 editing milestone.
 
 The current application supports:
 
@@ -37,8 +37,18 @@ The current application supports:
 - dirty-state tracking after successful edits
 - Discard / Cancel confirmation before dirty-document reload or application close
 - Cancel preserves the current in-memory document; Discard never writes the source file
+- bookmark Move to... across any valid folder, appending at the destination end
+- folder Move to... with self/descendant-cycle prevention
+- bookmark Drag & Drop for same-folder Before/After reorder and cross-folder Into movement
+- folder Drag & Drop using top/middle/bottom thirds for Before/Into/After placement
+- permanent Chrome roots remain valid Into destinations but can never be moved as sources
+- mixed folder/bookmark child order is preserved when reordering only one node kind
+- pure moves preserve node object identity, IDs, GUIDs, metadata, timestamps, URLs, descendants, and document counts
+- active search remains coherent after cross-folder moves without rebuilding the search index
+- named V0.6 MoveScale verification at 10,000 synthetic URLs plus 1,000 synthetic folders in normal CI
+- V0.6 production-source safety gate rejects file-write/write-back primitives
 
-V0.5 editing is limited to the in-memory document. Delete, move, reorder, drag/drop, Undo/Redo, Save, overwrite, repair, and production Chrome write-back are not available. Dirty-document reload and app close require explicit Discard / Cancel confirmation; there is no Save path.
+V0.6 editing and movement are limited to the in-memory document. Delete/batch operations, Undo/Redo, Save, overwrite, repair, and production Chrome write-back are not available. Dirty-document reload and app close require explicit Discard / Cancel confirmation; there is no Save path.
 
 Direct Chrome profile write-back remains disabled until the V0.9 Safe Chrome Write milestone passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
 
@@ -57,7 +67,7 @@ Real Chrome `Bookmarks` files are private user data and must never be committed 
 
 Only synthetic fixtures under `samples/` are permitted in Git. Generated scale data use reserved example domains and do not contain the owner's real bookmark titles, URLs, queries, or raw file contents.
 
-V0.5 editing changes only the in-memory bookmark graph. Opening a file reads the source; search and editing do not write to it. A dirty reload or app close requires an explicit Discard choice, and no Save/write path exists. Production Chrome profile write-back remains intentionally out of scope until V0.9.
+V0.6 editing and movement change only the in-memory bookmark graph. Opening a file reads the source; search, editing, Move to..., and Drag & Drop do not write to it. A dirty reload or app close requires an explicit Discard choice, and no Save/write path exists. Production Chrome profile write-back remains intentionally out of scope until V0.9.
 
 ## Build
 
@@ -92,11 +102,26 @@ Run the explicit V0.4 search release measurement with 250,000 generated URLs:
 pwsh -NoProfile -File scripts/Measure-Search.ps1 -UrlCount 250000
 ```
 
+Run the V0.6 movement scale gate with a larger synthetic workload when preparing a release:
+
+```powershell
+$env:CBM_MOVE_URL_COUNT = "250000"
+$env:CBM_MOVE_FOLDER_COUNT = "4000"
+dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --filter "Category=MoveScale"
+Remove-Item Env:CBM_MOVE_URL_COUNT
+Remove-Item Env:CBM_MOVE_FOLDER_COUNT
+```
+
 Verify the production WPF browser and search controls still enforce their UI contracts:
 
 ```powershell
 pwsh -NoProfile -File scripts/Verify-BrowserVirtualization.ps1
 pwsh -NoProfile -File scripts/Verify-SearchUi.ps1
+pwsh -NoProfile -File scripts/Verify-V05EditingUi.ps1
+pwsh -NoProfile -File scripts/Verify-V06MoveUi.ps1
+pwsh -NoProfile -File scripts/Verify-V06BookmarkDragDrop.ps1
+pwsh -NoProfile -File scripts/Verify-V06FolderDragDrop.ps1
+pwsh -NoProfile -File scripts/Verify-V06MoveSafety.ps1
 ```
 
 The generated workloads use synthetic reserved-domain data only.
@@ -137,18 +162,23 @@ The safety gate rejects tracked production-style `Bookmarks` files, backup files
 The workflow at `.github/workflows/build-windows.yml` runs on Windows and performs:
 
 1. repository privacy verification
-2. restore
-3. Release build
-4. named Chrome Bookmarks ReaderScale gate
-5. browser virtualization/recycling contract verification
-6. search UI contract verification
-7. named BrowserScale gate with the normal synthetic workload
-8. named SearchScale gate with the normal 10,000-URL synthetic workload
-9. full xUnit test suite
-10. self-contained Windows x64 publish
-11. single-file output verification
-12. executable startup smoke test
-13. artifact upload
+2. restore and Release build
+3. named Chrome Bookmarks ReaderScale gate
+4. browser virtualization/recycling contract verification
+5. search UI contract verification
+6. V0.5 editing UI contract verification
+7. V0.6 Move to... UI contract verification
+8. V0.6 bookmark Drag & Drop contract verification
+9. V0.6 folder Drag & Drop contract verification
+10. V0.6 production-source move/write-safety verification
+11. named BrowserScale gate
+12. named SearchScale gate
+13. named V0.6 MoveScale gate with 10,000 synthetic URLs plus 1,000 synthetic folders
+14. full xUnit test suite
+15. self-contained Windows x64 publish
+16. single-file output verification
+17. executable startup smoke test
+18. artifact upload
 
 The normal CI BrowserScale and SearchScale gates use synthetic 10,000-URL workloads. The 250,000-URL browser-state and search measurements remain explicit release commands rather than permanent heavy normal CI steps.
 
@@ -286,14 +316,42 @@ $afterHash = (Get-FileHash -LiteralPath $bookmarksPath -Algorithm SHA256).Hash
 
 All three values must be `True`. Report only pass/fail and the three comparison results. Do not commit or upload the private file, its bookmark titles or URLs, private search queries, or screenshots.
 
+## V0.6 automated verification status
+
+V0.6 implementation, automated release-candidate gates, final author review, and Windows 10 owner acceptance are complete. PR #6 is ready for merge pending the final post-documentation CI check.
+
+Automated evidence includes:
+
+- controlled domain mutation and atomic move-service tests
+- same-parent mixed-child bookmark/folder reorder semantics
+- root, foreign-document, self-target, and deep-descendant protections
+- MainViewModel dirty-state and projection-coherence tests
+- Move to... target-tree validation
+- bookmark-list and folder-tree Drag & Drop behavior
+- dedicated bookmark and folder Drag & Drop mechanical UI guards
+- V0.6 no-write production-source safety gate
+- named MoveScale gate using 10,000 synthetic URLs plus 1,000 interleaved synthetic folders in normal CI
+- complete regression suite, Windows x64 single-file publish, and EXE startup smoke test
+- Actions #145 passed the complete Task 7 folder Drag & Drop pipeline
+- Actions #148 passed MoveScale, move safety, the complete test suite, publish, single-file verification, smoke test, and artifact upload
+- Actions #149 passed the release-candidate commit including the dedicated folder Drag & Drop UI guard and the complete regression/publish pipeline
+- Actions #152 passed after partial owner-acceptance documentation was recorded, confirming the complete Windows pipeline remained green
+- Windows 10 owner acceptance passed on 2026-09-20 using the owner's private Chrome Bookmarks file: bookmark/folder reorder, cross-folder Drag & Drop, bookmark/folder Move to..., invalid self/descendant protection, protected roots, search coherence, and dirty Discard/Cancel behavior all passed
+- source-file SHA-256, byte length, and LastWriteTimeUtc were unchanged before/after acceptance; all three comparisons returned `True`; no private bookmark content was committed or uploaded
+
+MoveScale timing is recorded as diagnostic evidence only and is not encoded as a correctness threshold. The final release-candidate fixture intentionally mixes a large bookmark list with many folder slots so bookmark and folder reordering exercise the real mixed-child model.
+
+V0.6 remains strictly in-memory. The source Chrome `Bookmarks` file is not saved, replaced, repaired, checksummed, backed up, or otherwise modified by V0.6 code.
+
+
 ## Roadmap
 
 - **V0.1 — Bootstrap: completed** — project shell, tests, privacy guardrails, CI, single EXE
 - **V0.2 — Chrome Bookmarks Reader: completed** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.3 — Browser UI: completed** — folder tree, selected-folder bookmark list, status summaries, virtualization/recycling; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.4 — Search / Index: completed** — in-memory indexing, read-only search, result navigation; automated release gates, Windows 10 owner acceptance, merge, and post-merge verification complete
-- **V0.5 — Editing: implementation and owner acceptance complete** — in-memory add/rename/edit URL, dirty-state tracking, and explicit discard protection; PR #5 merge and post-merge verification pending
-- **V0.6 — Move / Drag & Drop:** movement, reordering, hierarchy protection
+- **V0.5 — Editing: completed** — in-memory add/rename/edit URL, dirty-state tracking, explicit discard protection, Windows 10 owner acceptance, PR #5 merge, and post-merge verification complete
+- **V0.6 — Move / Drag & Drop: implementation, automated release gates, final review, and Windows 10 owner acceptance complete; merge pending** — bookmark/folder Move to..., reorder, Drag & Drop, hierarchy protection, MoveScale, and no-write safety gates
 - **V0.7 — Delete / Batch:** multi-select and batch operations
 - **V0.8 — Undo / Redo:** reversible command history
 - **V0.9 — Safe Chrome Write:** checksum, backup, atomic replace, Chrome compatibility verification
@@ -307,6 +365,8 @@ All three values must be `True`. Report only pass/fail and the three comparison 
 - [V0.3 implementation plan](docs/superpowers/plans/2026-09-19-v0.3-browser-ui.md)
 - [V0.4 implementation plan](docs/superpowers/plans/2026-09-19-v0.4-search-index.md)
 - [V0.5 implementation plan](docs/superpowers/plans/2026-09-19-v0.5-editing.md)
+- [V0.6 approved design spec](docs/superpowers/specs/2026-09-20-v0.6-move-drag-drop-design.md)
+- [V0.6 implementation plan](docs/superpowers/plans/2026-09-20-v0.6-move-drag-drop.md)
 
 ## Development principles
 

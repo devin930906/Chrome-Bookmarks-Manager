@@ -62,7 +62,7 @@
                         Padding="16,6"
                         IsEnabled="{Binding CanOpenBookmarks}"
                         Click="OpenBookmarks_Click"
-                        ToolTip="Open a Chrome Bookmarks file. V0.5 edits remain in memory." />
+                        ToolTip="Open a Chrome Bookmarks file. V0.6 edits and moves remain in memory." />
 
                 <Button Grid.Column="1"
                         Margin="8,0,0,0"
@@ -75,9 +75,9 @@
                 <TextBlock Grid.Column="2"
                            Margin="16,0,8,0"
                            VerticalAlignment="Center"
-                           Text="V0.5 editing is in-memory only; Save is not available yet."
+                           Text="V0.6 editing and moving are in-memory only; Save is not available yet."
                            TextTrimming="CharacterEllipsis"
-                           ToolTip="Edits are kept in memory only. Closing or replacing the document will require discarding them until safe save support is added." />
+                           ToolTip="Edits and moves are kept in memory only. Closing or replacing the document will require discarding them until safe save support is added." />
 
                 <TextBox x:Name="SearchBox"
                          Grid.Column="3"
@@ -141,7 +141,13 @@
                           ItemsSource="{Binding FolderRoots}"
                           IsEnabled="{Binding CanBrowseDocument}"
                           SelectedItemChanged="FolderTree_SelectedItemChanged"
+                          PreviewMouseLeftButtonDown="FolderTree_PreviewMouseLeftButtonDown"
+                          PreviewMouseMove="FolderTree_PreviewMouseMove"
                           PreviewMouseRightButtonDown="FolderTree_PreviewMouseRightButtonDown"
+                          AllowDrop="True"
+                          DragOver="FolderTree_DragOver"
+                          DragLeave="FolderTree_DragLeave"
+                          Drop="FolderTree_Drop"
                           VirtualizingPanel.IsVirtualizing="True"
                           VirtualizingPanel.VirtualizationMode="Recycling"
                           ScrollViewer.CanContentScroll="True">
@@ -158,6 +164,9 @@
                                       InputGestureText="F2"
                                       IsEnabled="{Binding CanRenameSelectedFolder}"
                                       Click="RenameFolder_Click" />
+                            <MenuItem Header="Move to..."
+                                      IsEnabled="{Binding CanMoveSelectedFolder}"
+                                      Click="MoveFolder_Click" />
                         </ContextMenu>
                     </TreeView.ContextMenu>
                     <TreeView.ItemTemplate>
@@ -186,7 +195,13 @@
                           SelectedItem="{Binding SelectedBookmark, Mode=TwoWay}"
                           MouseDoubleClick="BookmarksList_MouseDoubleClick"
                           KeyDown="BookmarksList_KeyDown"
+                          PreviewMouseLeftButtonDown="BookmarksList_PreviewMouseLeftButtonDown"
+                          PreviewMouseMove="BookmarksList_PreviewMouseMove"
                           PreviewMouseRightButtonDown="BookmarksList_PreviewMouseRightButtonDown"
+                          AllowDrop="True"
+                          DragOver="BookmarksList_DragOver"
+                          DragLeave="BookmarksList_DragLeave"
+                          Drop="BookmarksList_Drop"
                           SelectionMode="Single"
                           IsEnabled="{Binding CanBrowseDocument}"
                           VirtualizingPanel.IsVirtualizing="True"
@@ -202,6 +217,9 @@
                                       InputGestureText="Ctrl+E"
                                       IsEnabled="{Binding CanEditSelectedBookmarkUrl}"
                                       Click="EditUrl_Click" />
+                            <MenuItem Header="Move to..."
+                                      IsEnabled="{Binding CanMoveSelectedBookmark}"
+                                      Click="MoveBookmark_Click" />
                         </ContextMenu>
                     </ListView.ContextMenu>
                     <ListView.View>

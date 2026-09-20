@@ -6,8 +6,10 @@ using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.History;
 using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Application.Search;
+using ChromeBookmarksManager.Application.Saving;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
+using ChromeBookmarksManager.Infrastructure.Persistence;
 
 namespace ChromeBookmarksManager.ViewModels;
 
@@ -21,6 +23,8 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IBookmarkEditingService _editingService;
     private readonly IBookmarkMoveService _moveService;
     private readonly IBookmarkDeleteService _deleteService;
+    private readonly IBookmarkSourceBaselineService? _baselineService;
+    private readonly IChromeBookmarksSaveService? _saveService;
     private readonly BookmarkHistoryManager _history = new();
     private readonly TimeSpan _searchDebounce;
     private CancellationTokenSource? _loadCancellation;
@@ -30,6 +34,7 @@ public sealed class MainViewModel : ViewModelBase
     private BookmarkDocument? _document;
     private BookmarkSearchIndex? _searchIndex;
     private string? _sourcePath;
+    private BookmarkSourceBaseline? _sourceBaseline;
     private DocumentState _state = DocumentState.NoDocument;
     private string _statusText = "No Bookmarks file is open.";
     private IReadOnlyList<FolderTreeItemViewModel> _folderRoots =
@@ -116,6 +121,45 @@ public sealed class MainViewModel : ViewModelBase
         IBookmarkMoveService moveService,
         IBookmarkDeleteService deleteService,
         TimeSpan searchDebounce)
+        : this(
+            reader,
+            searchService,
+            editingService,
+            moveService,
+            deleteService,
+            baselineService: null,
+            saveService: null,
+            searchDebounce)
+    {
+    }
+
+    internal MainViewModel(
+        IChromeBookmarksReader reader,
+        IBookmarkSearchService searchService,
+        IBookmarkSourceBaselineService baselineService,
+        IChromeBookmarksSaveService saveService,
+        TimeSpan searchDebounce)
+        : this(
+            reader,
+            searchService,
+            new BookmarkEditingService(),
+            new BookmarkMoveService(),
+            new BookmarkDeleteService(),
+            baselineService,
+            saveService,
+            searchDebounce)
+    {
+    }
+
+    internal MainViewModel(
+        IChromeBookmarksReader reader,
+        IBookmarkSearchService searchService,
+        IBookmarkEditingService editingService,
+        IBookmarkMoveService moveService,
+        IBookmarkDeleteService deleteService,
+        IBookmarkSourceBaselineService? baselineService,
+        IChromeBookmarksSaveService? saveService,
+        TimeSpan searchDebounce)
     {
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));
         _searchService = searchService
@@ -126,6 +170,14 @@ public sealed class MainViewModel : ViewModelBase
             ?? throw new ArgumentNullException(nameof(moveService));
         _deleteService = deleteService
             ?? throw new ArgumentNullException(nameof(deleteService));
+        _baselineService = baselineService;
+        _saveService = saveService;
+
+        if ((baselineService is null) != (saveService is null))
+        {
+            throw new ArgumentException(
+                "Persistence baseline and save services must be supplied together.");
+        }
 
         if (searchDebounce < TimeSpan.Zero)
         {
@@ -145,6 +197,8 @@ public sealed class MainViewModel : ViewModelBase
     public BookmarkDocument? Document => _document;
 
     public string? SourcePath => _sourcePath;
+
+    public BookmarkSourceBaseline? SourceBaseline => _sourceBaseline;
 
     public string StatusText => _statusText;
 
@@ -200,7 +254,14 @@ public sealed class MainViewModel : ViewModelBase
 
     public string SearchSummaryText => _searchSummaryText;
 
-    public bool IsDirty => State == DocumentState.LoadedDirty;
+    public bool IsDirty =>
+        State is DocumentState.LoadedDirty or DocumentState.SaveFailed;
+
+    public bool CanSave =>
+        _saveService is not null &&
+        _sourceBaseline is not null &&
+        _document is not null &&
+        State is DocumentState.LoadedDirty or DocumentState.SaveFailed;
 
     public bool CanUndo =>
         CanBrowseDocument && _history.CanUndo;
@@ -266,7 +327,9 @@ public sealed class MainViewModel : ViewModelBase
     public bool CanCancelLoad => State == DocumentState.Loading;
 
     public bool CanBrowseDocument =>
-        State is DocumentState.LoadedClean or DocumentState.LoadedDirty;
+        State is DocumentState.LoadedClean or
+            DocumentState.LoadedDirty or
+            DocumentState.SaveFailed;
 
     public async Task LoadBookmarksAsync(
         string path,
@@ -280,7 +343,7 @@ public sealed class MainViewModel : ViewModelBase
 
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        if (State == DocumentState.LoadedDirty &&
+        if (IsDirty &&
             !discardDirtyChanges)
         {
             throw new InvalidOperationException(
@@ -292,6 +355,7 @@ public sealed class MainViewModel : ViewModelBase
         ResetSearchState(clearIndex: true, resetScope: true);
         SetDocument(null);
         SetSourcePath(null);
+        SetSourceBaseline(null);
         ClearBrowserState();
         SetState(DocumentState.Loading);
         SetStatusText("Reading Bookmarks...");
@@ -299,12 +363,29 @@ public sealed class MainViewModel : ViewModelBase
         var cancellation = new CancellationTokenSource();
         _loadCancellation = cancellation;
         var stopwatch = Stopwatch.StartNew();
+        BookmarkSourceBaseline? sourceBaseline = null;
 
         try
         {
+            if (_baselineService is not null)
+            {
+                SetStatusText("Verifying Bookmarks source...");
+                sourceBaseline = await _baselineService
+                    .CaptureAsync(path, cancellation.Token)
+                    .ConfigureAwait(true);
+            }
+
+            SetStatusText("Reading Bookmarks...");
             var document = await _reader
                 .ReadFileAsync(path, cancellation.Token)
                 .ConfigureAwait(true);
+
+            if (_baselineService is not null && sourceBaseline is not null)
+            {
+                await _baselineService
+                    .VerifyUnchangedAsync(sourceBaseline, cancellation.Token)
+                    .ConfigureAwait(true);
+            }
 
             SetStatusText("Building search index...");
 
@@ -318,6 +399,7 @@ public sealed class MainViewModel : ViewModelBase
             SetSearchIndex(searchIndex);
             SetDocument(document);
             SetSourcePath(path);
+            SetSourceBaseline(sourceBaseline);
             BuildBrowserState(document);
             SetState(DocumentState.LoadedClean);
             SetStatusText(
@@ -332,6 +414,7 @@ public sealed class MainViewModel : ViewModelBase
             ResetSearchState(clearIndex: true, resetScope: true);
             SetDocument(null);
             SetSourcePath(null);
+            SetSourceBaseline(null);
             ClearBrowserState();
             SetState(DocumentState.NoDocument);
             SetStatusText("Loading was canceled.");
@@ -342,6 +425,18 @@ public sealed class MainViewModel : ViewModelBase
             ResetSearchState(clearIndex: true, resetScope: true);
             SetDocument(null);
             SetSourcePath(null);
+            SetSourceBaseline(null);
+            ClearBrowserState();
+            SetState(DocumentState.LoadFailed);
+            SetStatusText(exception.Message);
+        }
+        catch (BookmarkSourceBaselineException exception)
+        {
+            stopwatch.Stop();
+            ResetSearchState(clearIndex: true, resetScope: true);
+            SetDocument(null);
+            SetSourcePath(null);
+            SetSourceBaseline(null);
             ClearBrowserState();
             SetState(DocumentState.LoadFailed);
             SetStatusText(exception.Message);
@@ -352,6 +447,7 @@ public sealed class MainViewModel : ViewModelBase
             ResetSearchState(clearIndex: true, resetScope: true);
             SetDocument(null);
             SetSourcePath(null);
+            SetSourceBaseline(null);
             ClearBrowserState();
             SetState(DocumentState.LoadFailed);
             SetStatusText("Loading failed while preparing search.");
@@ -364,6 +460,64 @@ public sealed class MainViewModel : ViewModelBase
             }
 
             cancellation.Dispose();
+        }
+    }
+
+    public async Task<ChromeBookmarksSaveResult> SaveAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (_saveService is null ||
+            _document is null ||
+            _sourceBaseline is null)
+        {
+            throw new InvalidOperationException(
+                "A persistence-enabled loaded Bookmarks document is required before saving.");
+        }
+
+        if (!CanSave)
+        {
+            throw new InvalidOperationException(
+                "The active Bookmarks document has no unsaved changes that can be saved.");
+        }
+
+        var document = _document;
+        var baseline = _sourceBaseline;
+
+        SetState(DocumentState.Saving);
+        SetStatusText("Saving Bookmarks safely...");
+
+        try
+        {
+            var result = await _saveService
+                .SaveAsync(document, baseline, cancellationToken)
+                .ConfigureAwait(true);
+
+            if (!ReferenceEquals(_document, document))
+            {
+                throw new InvalidOperationException(
+                    "The active Bookmarks document changed while saving.");
+            }
+
+            SetSourceBaseline(result.FinalBaseline);
+            _history.MarkClean();
+            SetState(DocumentState.LoadedClean);
+            SetStatusText(
+                $"Saved and verified. Safety backup: {result.BackupPath}");
+            NotifyHistoryAvailabilityChanged();
+
+            return result;
+        }
+        catch (ChromeBookmarksSaveException exception)
+        {
+            SetState(DocumentState.SaveFailed);
+            SetStatusText(exception.Message);
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            SetState(DocumentState.SaveFailed);
+            SetStatusText("Saving was canceled before replacement.");
+            throw;
         }
     }
 
@@ -1183,7 +1337,8 @@ public sealed class MainViewModel : ViewModelBase
     private void SyncDocumentStateFromHistory()
     {
         if (State is not DocumentState.LoadedClean and
-            not DocumentState.LoadedDirty)
+            not DocumentState.LoadedDirty and
+            not DocumentState.SaveFailed)
         {
             throw new InvalidOperationException(
                 "History state can only be synchronized for a loaded bookmark document.");
@@ -1557,6 +1712,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsSearchActive));
         OnPropertyChanged(nameof(DisplayedBookmarks));
         OnPropertyChanged(nameof(IsDirty));
+        OnPropertyChanged(nameof(CanSave));
         NotifyEditingAvailabilityChanged();
         NotifyHistoryAvailabilityChanged();
     }
@@ -1594,6 +1750,18 @@ public sealed class MainViewModel : ViewModelBase
 
         _sourcePath = value;
         OnPropertyChanged(nameof(SourcePath));
+    }
+
+    private void SetSourceBaseline(BookmarkSourceBaseline? value)
+    {
+        if (Equals(_sourceBaseline, value))
+        {
+            return;
+        }
+
+        _sourceBaseline = value;
+        OnPropertyChanged(nameof(SourceBaseline));
+        OnPropertyChanged(nameof(CanSave));
     }
 
     private void SetStatusText(string value)

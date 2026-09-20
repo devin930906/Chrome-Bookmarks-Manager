@@ -8,6 +8,8 @@ $mainWindowXaml = Join-Path $ProjectRoot "src/ChromeBookmarksManager/MainWindow.
 $mainWindowCode = Join-Path $ProjectRoot "src/ChromeBookmarksManager/MainWindow.xaml.cs"
 $dialogXaml = Join-Path $ProjectRoot "src/ChromeBookmarksManager/BookmarkEditDialog.xaml"
 $dialogCode = Join-Path $ProjectRoot "src/ChromeBookmarksManager/BookmarkEditDialog.xaml.cs"
+$discardDialogXaml = Join-Path $ProjectRoot "src/ChromeBookmarksManager/DiscardChangesDialog.xaml"
+$discardDialogCode = Join-Path $ProjectRoot "src/ChromeBookmarksManager/DiscardChangesDialog.xaml.cs"
 
 $errors = [System.Collections.Generic.List[string]]::new()
 
@@ -54,6 +56,7 @@ if (Require-File $mainWindowXaml) {
     Require-Text $xaml 'VirtualizingPanel.VirtualizationMode="Recycling"' "Editing UI must preserve recycling virtualization."
     Require-Text $xaml 'in-memory only' "UI must explicitly state that V0.5 edits are in-memory only."
     Require-Text $xaml 'Save is not available' "UI must explicitly state that Save is not available in V0.5."
+    Require-Text $xaml 'Closing="Window_Closing"' "Main window must guard close while a document is dirty."
 }
 
 if (Require-File $mainWindowCode) {
@@ -72,6 +75,10 @@ if (Require-File $mainWindowCode) {
     Require-Text $code 'Key.F2' "MainWindow must route F2 rename."
     Require-Text $code 'BookmarkEditDialog' "MainWindow must use the shared compact editing dialog."
     Require-Text $code 'BookmarkEditException' "MainWindow must surface editing validation failures."
+    Require-Text $code 'private bool ConfirmDiscardChanges()' "MainWindow must use one explicit discard confirmation dialog."
+    Require-Text $code 'discardDirtyChanges: true' "Opening another file must pass discard authorization only after confirmation."
+    Require-Text $code 'e.Cancel = !ConfirmDiscardChanges()' "Cancel must keep the application open while the document is dirty."
+    Require-Text $code 'return dialog.ShowDialog() == true' "Only an explicit Discard result may authorize replacement or closing."
 
     foreach ($forbidden in @(
         ".SetName(",
@@ -98,6 +105,19 @@ if (Require-File $dialogCode) {
     $dialogCodeContent = Get-Content -LiteralPath $dialogCode -Raw
     Require-Text $dialogCodeContent 'string.IsNullOrWhiteSpace(UrlBox.Text)' "Dialog must reject an empty URL when URL input is required."
     Require-Text $dialogCodeContent 'ValidationText' "Dialog validation must produce visible feedback."
+}
+
+if (Require-File $discardDialogXaml) {
+    $discardDialog = Get-Content -LiteralPath $discardDialogXaml -Raw
+    Require-Text $discardDialog 'Content="Discard"' "Discard dialog must have an explicit Discard action."
+    Require-Text $discardDialog 'Content="Cancel"' "Discard dialog must have an explicit Cancel action."
+    Require-Text $discardDialog 'IsDefault="True"' "Cancel must be the safe default action."
+    Require-Text $discardDialog 'IsCancel="True"' "Escape and window-close must cancel discard."
+}
+
+if (Require-File $discardDialogCode) {
+    $discardDialogCodeContent = Get-Content -LiteralPath $discardDialogCode -Raw
+    Require-Text $discardDialogCodeContent 'DialogResult = true' "Discard confirmation must explicitly return true."
 }
 
 if ($errors.Count -gt 0) {

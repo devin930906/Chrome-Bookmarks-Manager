@@ -31,13 +31,25 @@ public sealed class BookmarkFileTransaction : IBookmarkFileTransaction
             ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
+    public Task<BookmarkFileTransactionResult> ExecuteAsync(
+        BookmarkDocument document,
+        BookmarkSourceBaseline expectedBaseline,
+        CancellationToken cancellationToken = default) =>
+        ExecuteAsync(
+            document,
+            expectedBaseline,
+            static _ => Task.CompletedTask,
+            cancellationToken);
+
     public async Task<BookmarkFileTransactionResult> ExecuteAsync(
         BookmarkDocument document,
         BookmarkSourceBaseline expectedBaseline,
+        Func<CancellationToken, Task> beforeReplaceGuard,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(expectedBaseline);
+        ArgumentNullException.ThrowIfNull(beforeReplaceGuard);
         cancellationToken.ThrowIfCancellationRequested();
 
         var sourcePath = Path.GetFullPath(expectedBaseline.FullPath);
@@ -129,6 +141,13 @@ public sealed class BookmarkFileTransaction : IBookmarkFileTransaction
                     expectedBaseline,
                     backupPath,
                     cancellationToken)
+                .ConfigureAwait(false);
+
+            // From this point onward the operation must reach a coherent
+            // filesystem state even if the caller requests cancellation.
+            // The orchestrator uses this hook for the final Chrome-process
+            // safety recheck immediately before File.Replace.
+            await beforeReplaceGuard(CancellationToken.None)
                 .ConfigureAwait(false);
 
             try

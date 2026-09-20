@@ -29,6 +29,7 @@ public sealed class BookmarkBatchMoveTests
             new BookmarkNode[]
             {
                 fixture.TargetExistingFolder,
+                fixture.TargetEarlierBookmark,
                 fixture.TargetExistingBookmark,
                 fixture.BarSecond,
                 fixture.OtherFirst,

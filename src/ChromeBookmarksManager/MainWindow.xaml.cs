@@ -4,7 +4,9 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using ChromeBookmarksManager.Application.Editing;
+using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Chrome;
+using ChromeBookmarksManager.Domain;
 using ChromeBookmarksManager.ViewModels;
 using Microsoft.Win32;
 
@@ -155,6 +157,16 @@ public partial class MainWindow : Window
     private async void EditUrl_Click(object sender, RoutedEventArgs e)
     {
         await EditUrlFromUiAsync();
+    }
+
+    private async void MoveFolder_Click(object sender, RoutedEventArgs e)
+    {
+        await MoveFolderFromUiAsync();
+    }
+
+    private async void MoveBookmark_Click(object sender, RoutedEventArgs e)
+    {
+        await MoveBookmarkFromUiAsync();
     }
 
     private async Task AddBookmarkFromUiAsync()
@@ -312,6 +324,71 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task MoveFolderFromUiAsync()
+    {
+        if (!ViewModel.CanMoveSelectedFolder ||
+            ViewModel.SelectedFolder is not { } folder ||
+            ViewModel.Document is not { } document)
+        {
+            return;
+        }
+
+        var dialog = CreateMoveDialog(document, folder);
+        if (dialog.ShowDialog() != true ||
+            dialog.SelectedTarget is not { } target)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.MoveFolderToEndAsync(folder, target);
+        }
+        catch (BookmarkMoveException exception)
+        {
+            ShowMoveError(exception);
+        }
+    }
+
+    private async Task MoveBookmarkFromUiAsync()
+    {
+        if (!ViewModel.CanMoveSelectedBookmark ||
+            ViewModel.SelectedBookmark is not { } bookmark ||
+            ViewModel.Document is not { } document)
+        {
+            return;
+        }
+
+        var dialog = CreateMoveDialog(document, bookmark);
+        if (dialog.ShowDialog() != true ||
+            dialog.SelectedTarget is not { } target)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.MoveBookmarkToEndAsync(bookmark, target);
+        }
+        catch (BookmarkMoveException exception)
+        {
+            ShowMoveError(exception);
+        }
+    }
+
+    private MoveNodeDialog CreateMoveDialog(
+        BookmarkDocument document,
+        BookmarkNode node)
+    {
+        var dialog = new MoveNodeDialog
+        {
+            Owner = this
+        };
+
+        dialog.Configure(document, node);
+        return dialog;
+    }
+
     private BookmarkEditDialog CreateEditDialog(
         string title,
         string name,
@@ -342,6 +419,16 @@ public partial class MainWindow : Window
             this,
             exception.Message,
             "Bookmark editing",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
+
+    private void ShowMoveError(BookmarkMoveException exception)
+    {
+        MessageBox.Show(
+            this,
+            exception.Message,
+            "Move bookmark item",
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
     }

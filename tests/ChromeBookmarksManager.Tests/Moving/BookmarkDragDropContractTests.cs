@@ -55,17 +55,17 @@ public sealed class BookmarkDragDropContractTests
     }
 
     [Theory]
-    [InlineData(0, 20, DropPlacement.Before)]
-    [InlineData(9.99, 20, DropPlacement.Before)]
-    [InlineData(10, 20, DropPlacement.After)]
-    [InlineData(20, 20, DropPlacement.After)]
+    [InlineData(0, 20, "Before")]
+    [InlineData(9.99, 20, "Before")]
+    [InlineData(10, 20, "After")]
+    [InlineData(20, 20, "After")]
     public void BookmarkRowPlacement_UsesUpperAndLowerHalves(
         double pointerY,
         double rowHeight,
-        DropPlacement expected)
+        string expectedName)
     {
         Assert.Equal(
-            expected,
+            Enum.Parse<DropPlacement>(expectedName),
             DragDropRules.GetBookmarkRowPlacement(
                 pointerY,
                 rowHeight));

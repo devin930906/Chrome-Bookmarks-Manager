@@ -54,16 +54,16 @@ The current application supports:
 - delete confirmation defaults to Cancel and folder confirmation reports recursive URL/folder counts
 - named V0.7 DeleteBatchScale verification for a 10,000-bookmark batch, a 10,000-bookmark folder subtree, active-search rebuild, and 1,000 synthetic folders in normal CI
 - V0.7 production-source safety gate rejects file-write/write-back primitives and File.Delete
-- batch edits remain in memory; no Save or source-file write-back path is available
+- V0.5–V0.8 batch edits were intentionally in-memory only; V0.9 adds an explicit guarded Save path on this pre-release branch
 - V0.8 bounded 200-operation Undo/Redo history spans add, rename, URL edit, move/reorder, batch move, single/batch delete, and recursive folder delete
 - Undo/Redo preserves original node identity, exact mixed-child placement, document counts, and search/index coherence
 - Undoing all reachable changes back to the loaded baseline returns the document to clean state; a divergent new edit clears the redo branch
 - Undo is available through Ctrl+Z; Redo through Ctrl+Y or Ctrl+Shift+Z, with visible menu/toolbar controls
 - V0.8 history remains graph-local and in memory; it does not serialize or write the Chrome source file
 
-V0.5 editing, V0.6 movement, V0.7 deletion/batch operations, and the V0.8 work-in-progress history layer change only the in-memory document. Save, overwrite, repair, and production Chrome write-back are not available. Dirty-document reload and app close require explicit Discard / Cancel confirmation; there is no Save path.
+V0.5 editing, V0.6 movement, V0.7 deletion/batch operations, and V0.8 Undo/Redo were intentionally in-memory-only milestones. On this V0.9 pre-release branch, those changes can now be persisted only through the explicit guarded Save flow described below; automatic write-back and repair remain unavailable.
 
-Direct Chrome profile write-back remains disabled until the V0.9 Safe Chrome Write milestone passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
+**Production-profile approval remains disabled.** V0.9 Save is test-profile-only until the disposable Chrome compatibility gate and Windows 10 production-owner acceptance pass. Do not use the real Chrome profile yet.
 
 ## Target
 
@@ -80,7 +80,7 @@ Real Chrome `Bookmarks` files are private user data and must never be committed 
 
 Only synthetic fixtures under `samples/` are permitted in Git. Generated scale data use reserved example domains and do not contain the owner's real bookmark titles, URLs, queries, or raw file contents.
 
-V0.5 editing, V0.6 movement, and V0.7 deletion change only the in-memory bookmark graph. Opening a file reads the source; search, editing, Move to..., Drag & Drop, and Delete do not write to or delete the source file. A dirty reload or app close requires an explicit Discard choice, and no Save/write path exists. Production Chrome profile write-back remains intentionally out of scope until V0.9.
+V0.5–V0.8 editing/move/delete/history operations were intentionally in-memory only. On the V0.9 pre-release branch, search, editing, Move to..., Drag & Drop, Delete, Undo, and Redo still never write automatically; only an explicit Save enters the guarded persistence transaction. That Save path remains approved only for disposable/test profiles until the V0.9 compatibility and production-owner gates pass.
 
 ## Build
 
@@ -424,6 +424,10 @@ The Save path is intentionally conservative:
 - The replaced source is reopened and validated again before Save is reported as successful.
 - A failed pre-replace stage leaves the original source untouched. If an unexpected post-replace validation failure occurs, the verified application backup is retained and the UI reports that recovery may be required.
 - Save / Discard / Cancel protects dirty close and dirty reload flows. A failed Save keeps the current in-memory document open and dirty.
+- Window close is fail-closed while Save is in progress, so a second close request cannot terminate the application in the middle of the save transaction.
+- Failure UI labels a backup as a verified recovery backup only after the transaction has actually passed backup verification; backup creation/verification failures are never presented as verified.
+- Unexpected non-fatal Save exceptions return the ViewModel to a dirty, browseable, retryable `SaveFailed` state instead of leaving it stuck in `Saving`.
+- Pre-replace cancellation is typed as `CanceledBeforeReplacement`; after the verified backup/final recheck boundary, replacement and final validation run to a coherent state without mid-critical-section cancellation.
 
 ### V0.9 automated gates
 

@@ -99,6 +99,7 @@ foreach ($file in $allProductionCs) {
 Require-Text $transaction 'WriteTempAsync(' "Transaction must write a separate temporary file first."
 Require-Text $transaction 'ReadValidatedDocumentAsync(' "Transaction must re-open generated/final files for validation."
 Require-Text $transaction 'EnsureEquivalent(' "Transaction must verify logical equivalence before and after replacement."
+Require-Text $transaction 'StoredChecksumsMatch(' "Transaction must verify stored checksum fields against recomputed bookmark checksums."
 Require-Text $transaction 'CreateUniqueBackupPath(' "Transaction must allocate a unique application-owned backup path."
 Require-Text $transaction '.ChromeBookmarksManager.' "Application backup naming must be distinguishable from Chrome's own backup."
 Require-Text $transaction '_fileSystem.Copy(sourcePath, backupPath)' "Source must be copied to a backup before replacement."

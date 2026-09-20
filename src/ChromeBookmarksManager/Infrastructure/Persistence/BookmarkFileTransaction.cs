@@ -377,11 +377,14 @@ public sealed class BookmarkFileTransaction : IBookmarkFileTransaction
         BookmarkFileTransactionError error,
         string? backupPath)
     {
+        var expectedChecksums = ChromeBookmarksChecksum.Compute(expected);
+        var actualChecksums = ChromeBookmarksChecksum.Compute(actual);
+
         if (expected.Version != actual.Version ||
             expected.FolderCount != actual.FolderCount ||
             expected.UrlCount != actual.UrlCount ||
-            ChromeBookmarksChecksum.Compute(expected) !=
-            ChromeBookmarksChecksum.Compute(actual) ||
+            expectedChecksums != actualChecksums ||
+            !StoredChecksumsMatch(actual, actualChecksums) ||
             !RootsEquivalent(expected.Roots, actual.Roots) ||
             !JsonDictionaryEquivalent(
                 expected.ExtensionData,
@@ -393,11 +396,23 @@ public sealed class BookmarkFileTransaction : IBookmarkFileTransaction
             throw new BookmarkFileTransactionException(
                 error,
                 error == BookmarkFileTransactionError.TempValidationFailed
-                    ? "The temporary Chrome Bookmarks file is not logically equivalent to the in-memory document."
-                    : "The final Chrome Bookmarks file is not logically equivalent to the in-memory document. Recovery from the verified backup may be required.",
+                    ? "The temporary Chrome Bookmarks file failed logical or stored-checksum validation."
+                    : "The final Chrome Bookmarks file failed logical or stored-checksum validation. Recovery from the verified backup may be required.",
                 backupPath);
         }
     }
+
+    private static bool StoredChecksumsMatch(
+        BookmarkDocument document,
+        ChromeBookmarksChecksums computed) =>
+        string.Equals(
+            document.Checksum,
+            computed.Md5,
+            StringComparison.Ordinal) &&
+        string.Equals(
+            document.ChecksumSha256,
+            computed.Sha256,
+            StringComparison.Ordinal);
 
     private static bool RootsEquivalent(
         BookmarkRoots expected,

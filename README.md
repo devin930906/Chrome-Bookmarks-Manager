@@ -4,9 +4,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.7 Delete / Batch completed**
+**Pre-release — V0.8 Undo / Redo owner acceptance passed; merge closeout in progress**
 
-V0.7 adds safe in-memory single and batch deletion plus multi-select Move to... on top of the completed V0.6 movement milestone.
+V0.8 adds reversible in-memory command history across the completed V0.5 editing, V0.6 movement, and V0.7 delete/batch mutation surfaces. Automated release-candidate validation and Windows 10 owner acceptance are complete; merge closeout remains.
 
 The current application supports:
 
@@ -55,8 +55,13 @@ The current application supports:
 - named V0.7 DeleteBatchScale verification for a 10,000-bookmark batch, a 10,000-bookmark folder subtree, active-search rebuild, and 1,000 synthetic folders in normal CI
 - V0.7 production-source safety gate rejects file-write/write-back primitives and File.Delete
 - batch edits remain in memory; no Save or source-file write-back path is available
+- V0.8 bounded 200-operation Undo/Redo history spans add, rename, URL edit, move/reorder, batch move, single/batch delete, and recursive folder delete
+- Undo/Redo preserves original node identity, exact mixed-child placement, document counts, and search/index coherence
+- Undoing all reachable changes back to the loaded baseline returns the document to clean state; a divergent new edit clears the redo branch
+- Undo is available through Ctrl+Z; Redo through Ctrl+Y or Ctrl+Shift+Z, with visible menu/toolbar controls
+- V0.8 history remains graph-local and in memory; it does not serialize or write the Chrome source file
 
-V0.5 editing, V0.6 movement, and V0.7 deletion/batch operations change only the in-memory document. Undo/Redo, Save, overwrite, repair, and production Chrome write-back are not available. Dirty-document reload and app close require explicit Discard / Cancel confirmation; there is no Save path.
+V0.5 editing, V0.6 movement, V0.7 deletion/batch operations, and the V0.8 work-in-progress history layer change only the in-memory document. Save, overwrite, repair, and production Chrome write-back are not available. Dirty-document reload and app close require explicit Discard / Cancel confirmation; there is no Save path.
 
 Direct Chrome profile write-back remains disabled until the V0.9 Safe Chrome Write milestone passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
 
@@ -380,6 +385,25 @@ V0.7 implementation, automated release-candidate validation, Windows 10 owner ac
 - Post-merge `main` Actions #179 passed the complete Windows pipeline, including V0.7 UI, delete safety, DeleteBatchScale, full tests, publish, single-file verification, smoke test, and artifact upload.
 
 
+## V0.8 release-candidate status
+
+V0.8 implementation now covers the core history engine, reversible mutation entries, ViewModel integration for V0.5 editing / V0.6 movement / V0.7 deletion, and WPF Undo/Redo controls.
+
+- Task 1: RED Actions #182 / GREEN Actions #183.
+- Task 2: RED Actions #184 / GREEN Actions #185.
+- Task 3: RED Actions #186 / GREEN Actions #187.
+- Task 4: RED Actions #188 / GREEN Actions #189.
+- Task 5: RED Actions #190 / GREEN Actions #191.
+- Task 6 UI contract: RED Actions #193; GREEN Actions #195 passed the complete Windows pipeline.
+- V0.8 UndoRedoScale and dedicated no-write history safety gates are wired into normal Windows CI.
+- Actions #198 passed the complete V0.8 release-candidate Windows pipeline at `606e1f7d6dc7080542f9c13358fddbcf3ed3c180`.
+- Final whole-branch review found no Critical or Important defects.
+- Windows 10 owner acceptance passed on 2026-09-20; SHA-256, byte length, and LastWriteTimeUtc were all unchanged.
+- **Current stage: PR #8 merge closeout and post-merge verification.**
+- V0.8 remains strictly in-memory. Safe Chrome source-file persistence remains deferred to V0.9.
+
+
+
 ## Roadmap
 
 - **V0.1 — Bootstrap: completed** — project shell, tests, privacy guardrails, CI, single EXE
@@ -389,7 +413,7 @@ V0.7 implementation, automated release-candidate validation, Windows 10 owner ac
 - **V0.5 — Editing: completed** — in-memory add/rename/edit URL, dirty-state tracking, explicit discard protection, Windows 10 owner acceptance, PR #5 merge, and post-merge verification complete
 - **V0.6 — Move / Drag & Drop: completed** — bookmark/folder Move to..., reorder, Drag & Drop, hierarchy protection, MoveScale, no-write safety gates, Windows 10 owner acceptance, PR #6 merge, and post-merge verification complete
 - **V0.7 — Delete / Batch: completed** — single and recursive deletion, bookmark multi-selection, batch delete/Move to..., DeleteBatchScale, no-write/no-file-delete safety, Windows 10 owner acceptance, PR #7 merge, and post-merge verification complete
-- **V0.8 — Undo / Redo:** reversible command history
+- **V0.8 — Undo / Redo: owner acceptance passed** — bounded reversible command history covers V0.5–V0.7 mutations with history-position dirty state and Ctrl+Z/Ctrl+Y/Ctrl+Shift+Z; automated validation, whole-branch review, and Windows 10 owner acceptance are complete
 - **V0.9 — Safe Chrome Write:** checksum, backup, atomic replace, Chrome compatibility verification
 - **V1.0 — Stable personal-use release**
 
@@ -405,6 +429,8 @@ V0.7 implementation, automated release-candidate validation, Windows 10 owner ac
 - [V0.6 implementation plan](docs/superpowers/plans/2026-09-20-v0.6-move-drag-drop.md)
 - [V0.7 design spec](docs/superpowers/specs/2026-09-20-v0.7-delete-batch-design.md)
 - [V0.7 implementation plan](docs/superpowers/plans/2026-09-20-v0.7-delete-batch.md)
+- [V0.8 design spec](docs/superpowers/specs/2026-09-20-v0.8-undo-redo-design.md)
+- [V0.8 implementation plan](docs/superpowers/plans/2026-09-20-v0.8-undo-redo.md)
 
 ## Development principles
 

@@ -225,6 +225,123 @@ public sealed class MainViewModelDeleteTests
         Assert.Null(viewModel.SelectedBookmark);
     }
 
+
+    [Fact]
+    public async Task DeleteSingleBookmark_UndoRedo_RestoresIdentityCountsAndSearch()
+    {
+        var fixture = CreateFixture();
+        var search = new CountingSearchService();
+        var viewModel = CreateViewModel(fixture.Document, search);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        viewModel.SearchText = "https://example.com/first";
+        await viewModel.WaitForPendingSearchAsync();
+        viewModel.UpdateSelectedBookmarks(new[] { fixture.BarFirst });
+
+        Assert.True(await viewModel.DeleteSelectedBookmarksAsync());
+        await viewModel.WaitForPendingSearchAsync();
+
+        Assert.Null(fixture.BarFirst.Parent);
+        Assert.Empty(viewModel.SearchResults);
+        Assert.Equal(4, fixture.Document.UrlCount);
+        Assert.Equal(2, search.BuildIndexCalls);
+        Assert.Equal("Delete 1 bookmarks", viewModel.UndoDescription);
+
+        Assert.True(await viewModel.UndoAsync());
+        await viewModel.WaitForPendingSearchAsync();
+
+        Assert.Same(fixture.BookmarkBar, fixture.BarFirst.Parent);
+        Assert.Same(
+            fixture.BarFirst,
+            Assert.Single(viewModel.SearchResults));
+        Assert.Equal(5, fixture.Document.UrlCount);
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Equal(3, search.BuildIndexCalls);
+
+        Assert.True(await viewModel.RedoAsync());
+        await viewModel.WaitForPendingSearchAsync();
+
+        Assert.Null(fixture.BarFirst.Parent);
+        Assert.Empty(viewModel.SearchResults);
+        Assert.Equal(4, fixture.Document.UrlCount);
+        Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
+        Assert.Equal(4, search.BuildIndexCalls);
+    }
+
+    [Fact]
+    public async Task BatchDelete_UndoRedo_RestoresOriginalMixedChildOrderAndIdentity()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        viewModel.UpdateSelectedBookmarks(
+            new[] { fixture.BarFirst, fixture.BarSecond });
+
+        Assert.True(await viewModel.DeleteSelectedBookmarksAsync());
+        Assert.Equal(
+            new BookmarkNode[] { fixture.ChildFolder },
+            fixture.BookmarkBar.Children);
+        Assert.Equal(3, fixture.Document.UrlCount);
+
+        Assert.True(await viewModel.UndoAsync());
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.BarFirst,
+                fixture.ChildFolder,
+                fixture.BarSecond
+            },
+            fixture.BookmarkBar.Children);
+        Assert.Same(fixture.BookmarkBar, fixture.BarFirst.Parent);
+        Assert.Same(fixture.BookmarkBar, fixture.BarSecond.Parent);
+        Assert.Equal(5, fixture.Document.UrlCount);
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+
+        Assert.True(await viewModel.RedoAsync());
+        Assert.Equal(
+            new BookmarkNode[] { fixture.ChildFolder },
+            fixture.BookmarkBar.Children);
+        Assert.Null(fixture.BarFirst.Parent);
+        Assert.Null(fixture.BarSecond.Parent);
+        Assert.Equal(3, fixture.Document.UrlCount);
+        Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
+    }
+
+    [Fact]
+    public async Task DeleteFolderSubtree_UndoRedo_RestoresExactSubtreeCountsAndSelection()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var childItem = Assert.Single(viewModel.FolderRoots[0].Children);
+        viewModel.SelectFolder(childItem);
+
+        Assert.True(await viewModel.DeleteSelectedFolderAsync());
+        Assert.Null(fixture.ChildFolder.Parent);
+        Assert.Equal(4, fixture.Document.UrlCount);
+        Assert.Equal(3, fixture.Document.FolderCount);
+        Assert.Equal("Delete folder", viewModel.UndoDescription);
+
+        Assert.True(await viewModel.UndoAsync());
+        Assert.Same(fixture.BookmarkBar, fixture.ChildFolder.Parent);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.Same(
+            fixture.ChildFolder,
+            Assert.Single(viewModel.FolderRoots[0].Children).Folder);
+        Assert.Equal(5, fixture.Document.UrlCount);
+        Assert.Equal(4, fixture.Document.FolderCount);
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+
+        Assert.True(await viewModel.RedoAsync());
+        Assert.Null(fixture.ChildFolder.Parent);
+        Assert.Empty(viewModel.FolderRoots[0].Children);
+        Assert.Equal(4, fixture.Document.UrlCount);
+        Assert.Equal(3, fixture.Document.FolderCount);
+        Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
+    }
+
     private static MainViewModel CreateViewModel(
         BookmarkDocument document,
         IBookmarkSearchService? searchService = null) =>

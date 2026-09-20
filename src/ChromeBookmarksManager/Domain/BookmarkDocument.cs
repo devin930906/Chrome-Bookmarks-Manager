@@ -117,6 +117,34 @@ public sealed class BookmarkDocument
         FolderCount -= removedFolderCount;
     }
 
+
+    internal void RecordRestoredSubtree(
+        int restoredUrlCount,
+        int restoredFolderCount)
+    {
+        if (restoredUrlCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(restoredUrlCount),
+                restoredUrlCount,
+                "Restored URL count cannot be negative.");
+        }
+
+        if (restoredFolderCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(restoredFolderCount),
+                restoredFolderCount,
+                "Restored folder count cannot be negative.");
+        }
+
+        var newUrlCount = checked(UrlCount + restoredUrlCount);
+        var newFolderCount = checked(FolderCount + restoredFolderCount);
+
+        UrlCount = newUrlCount;
+        FolderCount = newFolderCount;
+    }
+
     internal void RecordAddedNode(BookmarkNode node)
     {
         ArgumentNullException.ThrowIfNull(node);

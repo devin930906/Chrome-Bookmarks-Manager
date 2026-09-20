@@ -3,6 +3,7 @@ using System.Globalization;
 using ChromeBookmarksManager.Application;
 using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
+using ChromeBookmarksManager.Application.History;
 using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Application.Search;
 using ChromeBookmarksManager.Chrome;
@@ -20,6 +21,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IBookmarkEditingService _editingService;
     private readonly IBookmarkMoveService _moveService;
     private readonly IBookmarkDeleteService _deleteService;
+    private readonly BookmarkHistoryManager _history = new();
     private readonly TimeSpan _searchDebounce;
     private CancellationTokenSource? _loadCancellation;
     private CancellationTokenSource? _searchCancellation;
@@ -200,6 +202,18 @@ public sealed class MainViewModel : ViewModelBase
 
     public bool IsDirty => State == DocumentState.LoadedDirty;
 
+    public bool CanUndo =>
+        CanBrowseDocument && _history.CanUndo;
+
+    public bool CanRedo =>
+        CanBrowseDocument && _history.CanRedo;
+
+    public string? UndoDescription =>
+        CanUndo ? _history.UndoDescription : null;
+
+    public string? RedoDescription =>
+        CanRedo ? _history.RedoDescription : null;
+
     public bool CanAddBookmark =>
         CanBrowseDocument && SelectedFolder is not null;
 
@@ -274,6 +288,7 @@ public sealed class MainViewModel : ViewModelBase
                 "Confirm Discard before loading another file.");
         }
 
+        ClearHistory();
         ResetSearchState(clearIndex: true, resetScope: true);
         SetDocument(null);
         SetSourcePath(null);
@@ -366,13 +381,18 @@ public sealed class MainViewModel : ViewModelBase
             ?? throw new InvalidOperationException(
                 "Select a folder before adding a bookmark.");
 
+        var insertionIndex = parent.Children.Count;
         var bookmark = _editingService.AddBookmark(
             document,
             parent,
             name,
             url);
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkAddHistoryEntry(
+                bookmark,
+                parent,
+                insertionIndex));
         await RefreshProjectionsAfterEditAsync(
                 preferredFolder: parent,
                 preferredBookmark: bookmark)
@@ -388,12 +408,17 @@ public sealed class MainViewModel : ViewModelBase
             ?? throw new InvalidOperationException(
                 "Select a folder before adding a folder.");
 
+        var insertionIndex = parent.Children.Count;
         var folder = _editingService.AddFolder(
             document,
             parent,
             name);
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkAddHistoryEntry(
+                folder,
+                parent,
+                insertionIndex));
         await RefreshProjectionsAfterEditAsync(
                 preferredFolder: folder)
             .ConfigureAwait(true);
@@ -414,6 +439,7 @@ public sealed class MainViewModel : ViewModelBase
                 "The selected Chrome root folder cannot be renamed.");
         }
 
+        var oldName = folder.Name;
         var changed = _editingService.RenameNode(
             document,
             folder,
@@ -424,7 +450,11 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkRenameHistoryEntry(
+                folder,
+                oldName,
+                folder.Name));
         await RefreshProjectionsAfterEditAsync(
                 preferredFolder: folder)
             .ConfigureAwait(true);
@@ -439,6 +469,7 @@ public sealed class MainViewModel : ViewModelBase
             ?? throw new InvalidOperationException(
                 "Select a bookmark before renaming it.");
 
+        var oldName = bookmark.Name;
         var changed = _editingService.RenameNode(
             document,
             bookmark,
@@ -449,7 +480,11 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkRenameHistoryEntry(
+                bookmark,
+                oldName,
+                bookmark.Name));
         await RefreshProjectionsAfterEditAsync(
                 preferredBookmark: bookmark)
             .ConfigureAwait(true);
@@ -464,6 +499,7 @@ public sealed class MainViewModel : ViewModelBase
             ?? throw new InvalidOperationException(
                 "Select a bookmark before editing its URL.");
 
+        var oldUrl = bookmark.Url;
         var changed = _editingService.EditUrl(
             document,
             bookmark,
@@ -474,9 +510,59 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkUrlEditHistoryEntry(
+                bookmark,
+                oldUrl,
+                bookmark.Url));
         await RefreshProjectionsAfterEditAsync(
                 preferredBookmark: bookmark)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> UndoAsync()
+    {
+        var document = RequireEditableDocument();
+        var preferredFolder = SelectedFolder;
+        var preferredBookmark = SelectedBookmark;
+
+        var result = _history.Undo(document);
+        if (!result.Changed)
+        {
+            return false;
+        }
+
+        SyncDocumentStateFromHistory();
+
+        await RefreshAfterHistoryAsync(
+                result,
+                preferredFolder,
+                preferredBookmark)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> RedoAsync()
+    {
+        var document = RequireEditableDocument();
+        var preferredFolder = SelectedFolder;
+        var preferredBookmark = SelectedBookmark;
+
+        var result = _history.Redo(document);
+        if (!result.Changed)
+        {
+            return false;
+        }
+
+        SyncDocumentStateFromHistory();
+
+        await RefreshAfterHistoryAsync(
+                result,
+                preferredFolder,
+                preferredBookmark)
             .ConfigureAwait(true);
 
         return true;
@@ -1059,6 +1145,82 @@ public sealed class MainViewModel : ViewModelBase
          ReferenceEquals(folder, _document.Roots.Other) ||
          ReferenceEquals(folder, _document.Roots.Synced));
 
+    private void RecordHistory(IBookmarkHistoryEntry entry)
+    {
+        _history.Record(entry);
+        SyncDocumentStateFromHistory();
+    }
+
+    private void ClearHistory()
+    {
+        _history.Clear();
+        NotifyHistoryAvailabilityChanged();
+    }
+
+    private void SyncDocumentStateFromHistory()
+    {
+        if (State is not DocumentState.LoadedClean and
+            not DocumentState.LoadedDirty)
+        {
+            throw new InvalidOperationException(
+                "History state can only be synchronized for a loaded bookmark document.");
+        }
+
+        var isClean = _history.IsAtCleanState;
+
+        SetState(
+            isClean
+                ? DocumentState.LoadedClean
+                : DocumentState.LoadedDirty);
+
+        SetStatusText(
+            isClean
+                ? "No unsaved in-memory changes. Source file has not been modified."
+                : "Unsaved in-memory changes. Changes are not saved to disk.");
+
+        NotifyHistoryAvailabilityChanged();
+    }
+
+    private async Task RefreshAfterHistoryAsync(
+        BookmarkHistoryResult result,
+        BookmarkFolder? preferredFolder,
+        BookmarkUrl? preferredBookmark)
+    {
+        switch (result.Impact)
+        {
+            case BookmarkHistoryImpact.SearchRelevant:
+                await RefreshProjectionsAfterEditAsync(
+                        preferredFolder,
+                        preferredBookmark)
+                    .ConfigureAwait(true);
+                break;
+
+            case BookmarkHistoryImpact.StructureOnly:
+                await RefreshProjectionsAfterMoveAsync(
+                        preferredFolder,
+                        preferredBookmark)
+                    .ConfigureAwait(true);
+                break;
+
+            case BookmarkHistoryImpact.None:
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(result),
+                    result.Impact,
+                    "Unsupported bookmark history projection impact.");
+        }
+    }
+
+    private void NotifyHistoryAvailabilityChanged()
+    {
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+        OnPropertyChanged(nameof(UndoDescription));
+        OnPropertyChanged(nameof(RedoDescription));
+    }
+
     private void MarkDirty()
     {
         if (State == DocumentState.LoadedClean)
@@ -1373,6 +1535,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(DisplayedBookmarks));
         OnPropertyChanged(nameof(IsDirty));
         NotifyEditingAvailabilityChanged();
+        NotifyHistoryAvailabilityChanged();
     }
 
     private void SetDocument(BookmarkDocument? value)

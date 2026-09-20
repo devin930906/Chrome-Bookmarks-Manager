@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using ChromeBookmarksManager.Application;
 using ChromeBookmarksManager.Application.Editing;
+using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Application.Search;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
@@ -16,6 +17,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IChromeBookmarksReader _reader;
     private readonly IBookmarkSearchService _searchService;
     private readonly IBookmarkEditingService _editingService;
+    private readonly IBookmarkMoveService _moveService;
     private readonly TimeSpan _searchDebounce;
     private CancellationTokenSource? _loadCancellation;
     private CancellationTokenSource? _searchCancellation;
@@ -50,6 +52,7 @@ public sealed class MainViewModel : ViewModelBase
             reader,
             new BookmarkSearchService(),
             new BookmarkEditingService(),
+            new BookmarkMoveService(),
             DefaultSearchDebounce)
     {
     }
@@ -62,6 +65,7 @@ public sealed class MainViewModel : ViewModelBase
             reader,
             searchService,
             new BookmarkEditingService(),
+            new BookmarkMoveService(),
             searchDebounce)
     {
     }
@@ -71,12 +75,29 @@ public sealed class MainViewModel : ViewModelBase
         IBookmarkSearchService searchService,
         IBookmarkEditingService editingService,
         TimeSpan searchDebounce)
+        : this(
+            reader,
+            searchService,
+            editingService,
+            new BookmarkMoveService(),
+            searchDebounce)
+    {
+    }
+
+    internal MainViewModel(
+        IChromeBookmarksReader reader,
+        IBookmarkSearchService searchService,
+        IBookmarkEditingService editingService,
+        IBookmarkMoveService moveService,
+        TimeSpan searchDebounce)
     {
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));
         _searchService = searchService
             ?? throw new ArgumentNullException(nameof(searchService));
         _editingService = editingService
             ?? throw new ArgumentNullException(nameof(editingService));
+        _moveService = moveService
+            ?? throw new ArgumentNullException(nameof(moveService));
 
         if (searchDebounce < TimeSpan.Zero)
         {
@@ -160,6 +181,14 @@ public sealed class MainViewModel : ViewModelBase
 
     public bool CanEditSelectedBookmarkUrl =>
         CanBrowseDocument && SelectedBookmark is not null;
+
+    public bool CanMoveSelectedBookmark =>
+        CanBrowseDocument && SelectedBookmark is not null;
+
+    public bool CanMoveSelectedFolder =>
+        CanBrowseDocument &&
+        SelectedFolder is not null &&
+        !IsPermanentRoot(SelectedFolder);
 
     public bool CanOpenBookmarks =>
         State is not DocumentState.Loading and not DocumentState.Saving;
@@ -397,6 +426,161 @@ public sealed class MainViewModel : ViewModelBase
         return true;
     }
 
+    public async Task<bool> MoveBookmarkToEndAsync(
+        BookmarkUrl bookmark,
+        BookmarkFolder targetParent)
+    {
+        ArgumentNullException.ThrowIfNull(bookmark);
+        ArgumentNullException.ThrowIfNull(targetParent);
+
+        var document = RequireEditableDocument();
+        var searchWasActive = IsSearchActive;
+        var selectedFolderBeforeMove = SelectedFolder;
+        var result = _moveService.MoveToEnd(
+            document,
+            bookmark,
+            targetParent);
+
+        if (!result.Changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        await RefreshProjectionsAfterMoveAsync(
+                preferredFolder: searchWasActive
+                    ? selectedFolderBeforeMove
+                    : result.TargetParent,
+                preferredBookmark: bookmark)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> MoveFolderToEndAsync(
+        BookmarkFolder folder,
+        BookmarkFolder targetParent)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+        ArgumentNullException.ThrowIfNull(targetParent);
+
+        var document = RequireEditableDocument();
+        var result = _moveService.MoveToEnd(
+            document,
+            folder,
+            targetParent);
+
+        if (!result.Changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        await RefreshProjectionsAfterMoveAsync(
+                preferredFolder: folder)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> MoveBookmarkBeforeAsync(
+        BookmarkUrl bookmark,
+        BookmarkUrl target)
+    {
+        EnsurePositionalBookmarkMoveAllowed();
+
+        var document = RequireEditableDocument();
+        var result = _moveService.MoveBookmarkBefore(
+            document,
+            bookmark,
+            target);
+
+        if (!result.Changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        await RefreshProjectionsAfterMoveAsync(
+                preferredFolder: result.TargetParent,
+                preferredBookmark: bookmark)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> MoveBookmarkAfterAsync(
+        BookmarkUrl bookmark,
+        BookmarkUrl target)
+    {
+        EnsurePositionalBookmarkMoveAllowed();
+
+        var document = RequireEditableDocument();
+        var result = _moveService.MoveBookmarkAfter(
+            document,
+            bookmark,
+            target);
+
+        if (!result.Changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        await RefreshProjectionsAfterMoveAsync(
+                preferredFolder: result.TargetParent,
+                preferredBookmark: bookmark)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> MoveFolderBeforeAsync(
+        BookmarkFolder folder,
+        BookmarkFolder target)
+    {
+        var document = RequireEditableDocument();
+        var result = _moveService.MoveFolderBefore(
+            document,
+            folder,
+            target);
+
+        if (!result.Changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        await RefreshProjectionsAfterMoveAsync(
+                preferredFolder: folder)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> MoveFolderAfterAsync(
+        BookmarkFolder folder,
+        BookmarkFolder target)
+    {
+        var document = RequireEditableDocument();
+        var result = _moveService.MoveFolderAfter(
+            document,
+            folder,
+            target);
+
+        if (!result.Changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        await RefreshProjectionsAfterMoveAsync(
+                preferredFolder: folder)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
     public void NavigateToSearchResult(BookmarkUrl? bookmark)
     {
         if (!IsSearchActive ||
@@ -567,6 +751,110 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    internal async Task RefreshProjectionsAfterMoveAsync(
+        BookmarkFolder? preferredFolder = null,
+        BookmarkUrl? preferredBookmark = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_document is null || !CanBrowseDocument)
+        {
+            throw new InvalidOperationException(
+                "An editable bookmark document must be loaded before move projections can be refreshed.");
+        }
+
+        var document = _document;
+        var selectedFolder =
+            preferredFolder ??
+            _selectedFolder ??
+            document.Roots.BookmarkBar;
+        var selectedBookmark =
+            preferredBookmark ??
+            _selectedBookmark;
+        var expandedFolders = _folderLookup
+            .Where(pair => pair.Value.IsExpanded)
+            .Select(pair => pair.Key)
+            .ToArray();
+        var searchWasActive = IsSearchActive;
+
+        ++_searchGeneration;
+        CancelPendingSearch();
+        _pendingSearchTask = Task.CompletedTask;
+        SetSearchResults(Array.Empty<BookmarkUrl>());
+        SetIsSearchBusy(false);
+        SetSearchSummaryText(
+            searchWasActive ? "Refreshing search..." : string.Empty);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!ReferenceEquals(_document, document) || !CanBrowseDocument)
+        {
+            throw new InvalidOperationException(
+                "The active bookmark document changed while move projections were refreshing.");
+        }
+
+        _suppressFolderSearchRefresh = true;
+        try
+        {
+            BuildBrowserState(document);
+
+            foreach (var expandedFolder in expandedFolders)
+            {
+                if (_folderLookup.TryGetValue(expandedFolder, out var expandedItem))
+                {
+                    expandedItem.IsExpanded = true;
+                }
+            }
+
+            if (!_folderLookup.TryGetValue(selectedFolder, out var selectedItem))
+            {
+                selectedItem = _folderLookup[document.Roots.BookmarkBar];
+            }
+
+            SelectFolder(selectedItem);
+
+            if (selectedBookmark is not null &&
+                ReferenceEquals(selectedBookmark.Parent, SelectedFolder) &&
+                CurrentBookmarks.Any(
+                    bookmark => ReferenceEquals(bookmark, selectedBookmark)))
+            {
+                SetSelectedBookmark(selectedBookmark);
+            }
+        }
+        finally
+        {
+            _suppressFolderSearchRefresh = false;
+        }
+
+        if (searchWasActive &&
+            !string.IsNullOrWhiteSpace(SearchText))
+        {
+            ScheduleSearch(useDebounce: false);
+            var refreshSearch = _pendingSearchTask;
+            await refreshSearch.ConfigureAwait(true);
+
+            if (selectedBookmark is not null &&
+                SearchResults.Any(
+                    bookmark => ReferenceEquals(bookmark, selectedBookmark)))
+            {
+                SetSelectedBookmark(selectedBookmark);
+            }
+        }
+        else
+        {
+            SetSearchSummaryText(string.Empty);
+        }
+    }
+
+    private void EnsurePositionalBookmarkMoveAllowed()
+    {
+        if (IsSearchActive)
+        {
+            throw new BookmarkMoveException(
+                BookmarkMoveError.InvalidDropTarget,
+                "Bookmarks cannot be positionally reordered while search results are displayed.");
+        }
+    }
+
     private BookmarkDocument RequireEditableDocument()
     {
         if (_document is null || !CanBrowseDocument)
@@ -607,6 +895,8 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanRenameSelectedFolder));
         OnPropertyChanged(nameof(CanRenameSelectedBookmark));
         OnPropertyChanged(nameof(CanEditSelectedBookmarkUrl));
+        OnPropertyChanged(nameof(CanMoveSelectedBookmark));
+        OnPropertyChanged(nameof(CanMoveSelectedFolder));
     }
 
     private void BuildBrowserState(BookmarkDocument document)

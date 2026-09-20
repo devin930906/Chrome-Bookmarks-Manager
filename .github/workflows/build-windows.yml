@@ -69,6 +69,10 @@ jobs:
         shell: pwsh
         run: node scripts/Verify-V08UndoRedoUi.mjs
 
+      - name: Verify V0.9 Save UI contract
+        shell: pwsh
+        run: node scripts/Verify-V09SaveUi.mjs
+
       - name: Verify V0.6 bookmark Drag & Drop contract
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V06BookmarkDragDrop.ps1

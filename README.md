@@ -4,7 +4,7 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.5 Editing (engineering verified; Windows 10 owner acceptance pending)**
+**Pre-release — V0.5 Editing (implementation and Windows 10 owner acceptance complete; PR merge pending)**
 
 V0.5 adds safe in-memory bookmark editing and explicit Discard / Cancel protection on top of the V0.4 browser and search features.
 
@@ -292,7 +292,7 @@ All three values must be `True`. Report only pass/fail and the three comparison 
 - **V0.2 — Chrome Bookmarks Reader: completed** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.3 — Browser UI: completed** — folder tree, selected-folder bookmark list, status summaries, virtualization/recycling; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.4 — Search / Index: completed** — in-memory indexing, read-only search, result navigation; automated release gates, Windows 10 owner acceptance, merge, and post-merge verification complete
-- **V0.5 — Editing: implementation and CI verified; Windows 10 owner acceptance pending** — in-memory add/rename/edit URL, dirty-state tracking, and explicit discard protection
+- **V0.5 — Editing: implementation and owner acceptance complete** — in-memory add/rename/edit URL, dirty-state tracking, and explicit discard protection; PR #5 merge and post-merge verification pending
 - **V0.6 — Move / Drag & Drop:** movement, reordering, hierarchy protection
 - **V0.7 — Delete / Batch:** multi-select and batch operations
 - **V0.8 — Undo / Redo:** reversible command history

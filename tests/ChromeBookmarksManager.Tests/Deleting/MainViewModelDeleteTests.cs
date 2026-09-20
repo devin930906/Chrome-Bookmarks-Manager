@@ -326,7 +326,7 @@ public sealed class MainViewModelDeleteTests
 
         Assert.True(await viewModel.UndoAsync());
         Assert.Same(fixture.BookmarkBar, fixture.ChildFolder.Parent);
-        Assert.Same(fixture.ChildFolder, viewModel.SelectedFolder);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
         Assert.Same(
             fixture.ChildFolder,
             Assert.Single(viewModel.FolderRoots[0].Children).Folder);

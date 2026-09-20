@@ -138,6 +138,136 @@ public sealed class BookmarkFileTransactionTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_WhenBackupCopyFails_LeavesSourceBytesUnchanged()
+    {
+        var source = await CreateSourceAsync();
+        var before = await File.ReadAllBytesAsync(source);
+        var reader = new ChromeBookmarksReader();
+        var document = await reader.ReadFileAsync(source);
+        var baselineService = new BookmarkSourceBaselineService();
+        var baseline = await baselineService.CaptureAsync(source);
+
+        var transaction = new BookmarkFileTransaction(
+            new ChromeBookmarksWriter(),
+            reader,
+            baselineService,
+            new BackupCopyFailingFileSystem(),
+            TimeProvider.System);
+
+        var error = await Assert.ThrowsAsync<BookmarkFileTransactionException>(
+            () => transaction.ExecuteAsync(document, baseline));
+
+        Assert.Equal(BookmarkFileTransactionError.BackupCreationFailed, error.Error);
+        Assert.Equal(before, await File.ReadAllBytesAsync(source));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenBackupVerificationFails_LeavesSourceBytesUnchanged()
+    {
+        var source = await CreateSourceAsync();
+        var before = await File.ReadAllBytesAsync(source);
+        var reader = new ChromeBookmarksReader();
+        var document = await reader.ReadFileAsync(source);
+        var baselineService = new BookmarkSourceBaselineService();
+        var baseline = await baselineService.CaptureAsync(source);
+
+        var transaction = new BookmarkFileTransaction(
+            new ChromeBookmarksWriter(),
+            reader,
+            baselineService,
+            new CorruptingBackupFileSystem(),
+            TimeProvider.System);
+
+        var error = await Assert.ThrowsAsync<BookmarkFileTransactionException>(
+            () => transaction.ExecuteAsync(document, baseline));
+
+        Assert.Equal(BookmarkFileTransactionError.BackupVerificationFailed, error.Error);
+        Assert.NotNull(error.BackupPath);
+        Assert.Equal(before, await File.ReadAllBytesAsync(source));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenFinalValidationFails_RetainsBackupAndReportsRecoveryRequiredState()
+    {
+        var source = await CreateSourceAsync();
+        var before = await File.ReadAllBytesAsync(source);
+        var realReader = new ChromeBookmarksReader();
+        var document = await realReader.ReadFileAsync(source);
+        var baselineService = new BookmarkSourceBaselineService();
+        var baseline = await baselineService.CaptureAsync(source);
+
+        var transaction = new BookmarkFileTransaction(
+            new ChromeBookmarksWriter(),
+            new FailOnSecondReadReader(realReader),
+            baselineService,
+            new BookmarkFileSystem(),
+            TimeProvider.System);
+
+        var error = await Assert.ThrowsAsync<BookmarkFileTransactionException>(
+            () => transaction.ExecuteAsync(document, baseline));
+
+        Assert.Equal(BookmarkFileTransactionError.PostWriteValidationFailed, error.Error);
+        Assert.NotNull(error.BackupPath);
+        Assert.True(File.Exists(error.BackupPath));
+        Assert.Equal(before, await File.ReadAllBytesAsync(error.BackupPath!));
+        Assert.NotEqual(before, await File.ReadAllBytesAsync(source));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCleanupFails_DoesNotMaskPrimaryFailureOrTouchSource()
+    {
+        var source = await CreateSourceAsync();
+        var before = await File.ReadAllBytesAsync(source);
+        var reader = new ChromeBookmarksReader();
+        var document = await reader.ReadFileAsync(source);
+        var baselineService = new BookmarkSourceBaselineService();
+        var baseline = await baselineService.CaptureAsync(source);
+
+        var transaction = new BookmarkFileTransaction(
+            new ThrowingWriter(),
+            reader,
+            baselineService,
+            new CleanupFailingFileSystem(),
+            TimeProvider.System);
+
+        var error = await Assert.ThrowsAsync<BookmarkFileTransactionException>(
+            () => transaction.ExecuteAsync(document, baseline));
+
+        Assert.Equal(BookmarkFileTransactionError.TempWriteFailed, error.Error);
+        Assert.Equal(before, await File.ReadAllBytesAsync(source));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenBackupTimestampCollides_UsesDeterministicSuffixWithoutOverwrite()
+    {
+        var source = await CreateSourceAsync();
+        var reader = new ChromeBookmarksReader();
+        var baselineService = new BookmarkSourceBaselineService();
+        var baseline = await baselineService.CaptureAsync(source);
+        var document = await reader.ReadFileAsync(source);
+        var now = new DateTimeOffset(2026, 9, 20, 12, 34, 56, 789, TimeSpan.Zero);
+        var existing = Path.Combine(
+            _directory,
+            "Bookmarks.ChromeBookmarksManager.20260920-123456.789.bak");
+        await File.WriteAllTextAsync(existing, "do-not-overwrite");
+
+        var transaction = new BookmarkFileTransaction(
+            new ChromeBookmarksWriter(),
+            reader,
+            baselineService,
+            new BookmarkFileSystem(),
+            new FixedTimeProvider(now));
+
+        var result = await transaction.ExecuteAsync(document, baseline);
+
+        Assert.Equal("do-not-overwrite", await File.ReadAllTextAsync(existing));
+        Assert.EndsWith(
+            "Bookmarks.ChromeBookmarksManager.20260920-123456.789.1.bak",
+            result.BackupPath,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WhenSourceChangesBeforeReplace_RefusesOverwrite()
     {
         var source = await CreateSourceAsync();

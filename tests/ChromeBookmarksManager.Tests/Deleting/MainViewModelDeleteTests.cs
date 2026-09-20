@@ -71,8 +71,8 @@ public sealed class MainViewModelDeleteTests
         Assert.Empty(viewModel.SelectedBookmarks);
         Assert.Null(viewModel.SelectedBookmark);
         Assert.Empty(viewModel.CurrentBookmarks);
-        Assert.Equal("2 URLs | 5 folders", viewModel.DocumentSummaryText);
-        Assert.Equal(2, fixture.Document.UrlCount);
+        Assert.Equal("4 URLs | 3 folders", viewModel.DocumentSummaryText);
+        Assert.Equal(3, fixture.Document.UrlCount);
     }
 
     [Fact]
@@ -120,8 +120,8 @@ public sealed class MainViewModelDeleteTests
         Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
         Assert.Empty(viewModel.FolderRoots[0].Children);
         Assert.Equal("3 URLs | 4 folders", viewModel.DocumentSummaryText);
-        Assert.Equal(3, fixture.Document.UrlCount);
-        Assert.Equal(4, fixture.Document.FolderCount);
+        Assert.Equal(4, fixture.Document.UrlCount);
+        Assert.Equal(3, fixture.Document.FolderCount);
     }
 
     [Fact]

@@ -38,7 +38,7 @@ public sealed class ChromeProcessDetectorTests
                 throw new InvalidOperationException("synthetic enumeration failure"));
 
         var error = Assert.Throws<ChromeProcessDetectionException>(
-            detector.IsChromeRunning);
+            () => detector.IsChromeRunning());
 
         Assert.Equal(
             ChromeProcessDetectionError.EnumerationFailed,

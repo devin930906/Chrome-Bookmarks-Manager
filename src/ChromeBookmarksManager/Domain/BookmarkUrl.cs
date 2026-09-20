@@ -10,5 +10,18 @@ public sealed class BookmarkUrl : BookmarkNode
         Url = url;
     }
 
-    public string Url { get; }
+    public string Url { get; private set; }
+
+    internal bool SetUrl(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (string.Equals(Url, value, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        Url = value;
+        return true;
+    }
 }

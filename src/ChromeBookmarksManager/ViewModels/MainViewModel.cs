@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using ChromeBookmarksManager.Application;
+using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.Search;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
@@ -14,6 +15,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private readonly IChromeBookmarksReader _reader;
     private readonly IBookmarkSearchService _searchService;
+    private readonly IBookmarkEditingService _editingService;
     private readonly TimeSpan _searchDebounce;
     private CancellationTokenSource? _loadCancellation;
     private CancellationTokenSource? _searchCancellation;
@@ -41,9 +43,14 @@ public sealed class MainViewModel : ViewModelBase
         Array.Empty<BookmarkUrl>();
     private bool _isSearchBusy;
     private string _searchSummaryText = string.Empty;
+    private bool _suppressFolderSearchRefresh;
 
     public MainViewModel(IChromeBookmarksReader reader)
-        : this(reader, new BookmarkSearchService(), DefaultSearchDebounce)
+        : this(
+            reader,
+            new BookmarkSearchService(),
+            new BookmarkEditingService(),
+            DefaultSearchDebounce)
     {
     }
 
@@ -51,10 +58,25 @@ public sealed class MainViewModel : ViewModelBase
         IChromeBookmarksReader reader,
         IBookmarkSearchService searchService,
         TimeSpan searchDebounce)
+        : this(
+            reader,
+            searchService,
+            new BookmarkEditingService(),
+            searchDebounce)
+    {
+    }
+
+    internal MainViewModel(
+        IChromeBookmarksReader reader,
+        IBookmarkSearchService searchService,
+        IBookmarkEditingService editingService,
+        TimeSpan searchDebounce)
     {
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));
         _searchService = searchService
             ?? throw new ArgumentNullException(nameof(searchService));
+        _editingService = editingService
+            ?? throw new ArgumentNullException(nameof(editingService));
 
         if (searchDebounce < TimeSpan.Zero)
         {
@@ -120,6 +142,25 @@ public sealed class MainViewModel : ViewModelBase
 
     public string SearchSummaryText => _searchSummaryText;
 
+    public bool IsDirty => State == DocumentState.LoadedDirty;
+
+    public bool CanAddBookmark =>
+        CanBrowseDocument && SelectedFolder is not null;
+
+    public bool CanAddFolder =>
+        CanBrowseDocument && SelectedFolder is not null;
+
+    public bool CanRenameSelectedFolder =>
+        CanBrowseDocument &&
+        SelectedFolder is not null &&
+        !IsPermanentRoot(SelectedFolder);
+
+    public bool CanRenameSelectedBookmark =>
+        CanBrowseDocument && SelectedBookmark is not null;
+
+    public bool CanEditSelectedBookmarkUrl =>
+        CanBrowseDocument && SelectedBookmark is not null;
+
     public bool CanOpenBookmarks =>
         State is not DocumentState.Loading and not DocumentState.Saving;
 
@@ -128,7 +169,9 @@ public sealed class MainViewModel : ViewModelBase
     public bool CanBrowseDocument =>
         State is DocumentState.LoadedClean or DocumentState.LoadedDirty;
 
-    public async Task LoadBookmarksAsync(string path)
+    public async Task LoadBookmarksAsync(
+        string path,
+        bool discardDirtyChanges = false)
     {
         if (_loadCancellation is not null || State == DocumentState.Loading)
         {
@@ -137,6 +180,14 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (State == DocumentState.LoadedDirty &&
+            !discardDirtyChanges)
+        {
+            throw new InvalidOperationException(
+                "The current Bookmarks document has unsaved in-memory changes. " +
+                "Confirm Discard before loading another file.");
+        }
 
         ResetSearchState(clearIndex: true, resetScope: true);
         SetDocument(null);
@@ -221,6 +272,131 @@ public sealed class MainViewModel : ViewModelBase
         _loadCancellation?.Cancel();
     }
 
+    public async Task<BookmarkUrl> AddBookmarkAsync(
+        string name,
+        string url)
+    {
+        var document = RequireEditableDocument();
+        var parent = SelectedFolder
+            ?? throw new InvalidOperationException(
+                "Select a folder before adding a bookmark.");
+
+        var bookmark = _editingService.AddBookmark(
+            document,
+            parent,
+            name,
+            url);
+
+        MarkDirty();
+        await RefreshProjectionsAfterEditAsync(
+                preferredFolder: parent,
+                preferredBookmark: bookmark)
+            .ConfigureAwait(true);
+
+        return bookmark;
+    }
+
+    public async Task<BookmarkFolder> AddFolderAsync(string name)
+    {
+        var document = RequireEditableDocument();
+        var parent = SelectedFolder
+            ?? throw new InvalidOperationException(
+                "Select a folder before adding a folder.");
+
+        var folder = _editingService.AddFolder(
+            document,
+            parent,
+            name);
+
+        MarkDirty();
+        await RefreshProjectionsAfterEditAsync(
+                preferredFolder: folder)
+            .ConfigureAwait(true);
+
+        return folder;
+    }
+
+    public async Task<bool> RenameSelectedFolderAsync(string newName)
+    {
+        var document = RequireEditableDocument();
+        var folder = SelectedFolder
+            ?? throw new InvalidOperationException(
+                "Select a folder before renaming it.");
+
+        if (!CanRenameSelectedFolder)
+        {
+            throw new InvalidOperationException(
+                "The selected Chrome root folder cannot be renamed.");
+        }
+
+        var changed = _editingService.RenameNode(
+            document,
+            folder,
+            newName);
+
+        if (!changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        await RefreshProjectionsAfterEditAsync(
+                preferredFolder: folder)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> RenameSelectedBookmarkAsync(string newName)
+    {
+        var document = RequireEditableDocument();
+        var bookmark = SelectedBookmark
+            ?? throw new InvalidOperationException(
+                "Select a bookmark before renaming it.");
+
+        var changed = _editingService.RenameNode(
+            document,
+            bookmark,
+            newName);
+
+        if (!changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        await RefreshProjectionsAfterEditAsync(
+                preferredBookmark: bookmark)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> EditSelectedBookmarkUrlAsync(string newUrl)
+    {
+        var document = RequireEditableDocument();
+        var bookmark = SelectedBookmark
+            ?? throw new InvalidOperationException(
+                "Select a bookmark before editing its URL.");
+
+        var changed = _editingService.EditUrl(
+            document,
+            bookmark,
+            newUrl);
+
+        if (!changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        await RefreshProjectionsAfterEditAsync(
+                preferredBookmark: bookmark)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
     public void NavigateToSearchResult(BookmarkUrl? bookmark)
     {
         if (!IsSearchActive ||
@@ -290,6 +466,148 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     internal Task WaitForPendingSearchAsync() => _pendingSearchTask;
+
+    internal async Task RefreshProjectionsAfterEditAsync(
+        BookmarkFolder? preferredFolder = null,
+        BookmarkUrl? preferredBookmark = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_document is null || !CanBrowseDocument)
+        {
+            throw new InvalidOperationException(
+                "An editable bookmark document must be loaded before projections can be refreshed.");
+        }
+
+        var document = _document;
+        var selectedFolder =
+            preferredFolder ??
+            _selectedFolder ??
+            document.Roots.BookmarkBar;
+        var selectedBookmark =
+            preferredBookmark ??
+            _selectedBookmark;
+        var expandedFolders = _folderLookup
+            .Where(pair => pair.Value.IsExpanded)
+            .Select(pair => pair.Key)
+            .ToArray();
+        var searchWasActive = IsSearchActive;
+
+        ++_searchGeneration;
+        CancelPendingSearch();
+        _pendingSearchTask = Task.CompletedTask;
+        SetSearchResults(Array.Empty<BookmarkUrl>());
+        SetIsSearchBusy(false);
+        SetSearchSummaryText(
+            searchWasActive ? "Refreshing search index..." : string.Empty);
+
+        var refreshedIndex = await _searchService
+            .BuildIndexAsync(document, cancellationToken)
+            .ConfigureAwait(true);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!ReferenceEquals(_document, document) || !CanBrowseDocument)
+        {
+            throw new InvalidOperationException(
+                "The active bookmark document changed while edit projections were refreshing.");
+        }
+
+        SetSearchIndex(refreshedIndex);
+
+        _suppressFolderSearchRefresh = true;
+        try
+        {
+            BuildBrowserState(document);
+
+            foreach (var expandedFolder in expandedFolders)
+            {
+                if (_folderLookup.TryGetValue(expandedFolder, out var expandedItem))
+                {
+                    expandedItem.IsExpanded = true;
+                }
+            }
+
+            if (!_folderLookup.TryGetValue(selectedFolder, out var selectedItem))
+            {
+                selectedItem = _folderLookup[document.Roots.BookmarkBar];
+            }
+
+            SelectFolder(selectedItem);
+
+            if (selectedBookmark is not null &&
+                ReferenceEquals(selectedBookmark.Parent, SelectedFolder) &&
+                CurrentBookmarks.Any(
+                    bookmark => ReferenceEquals(bookmark, selectedBookmark)))
+            {
+                SetSelectedBookmark(selectedBookmark);
+            }
+        }
+        finally
+        {
+            _suppressFolderSearchRefresh = false;
+        }
+
+        if (searchWasActive &&
+            !string.IsNullOrWhiteSpace(SearchText))
+        {
+            ScheduleSearch(useDebounce: false);
+            var refreshSearch = _pendingSearchTask;
+            await refreshSearch.ConfigureAwait(true);
+
+            if (selectedBookmark is not null &&
+                SearchResults.Any(
+                    bookmark => ReferenceEquals(bookmark, selectedBookmark)))
+            {
+                SetSelectedBookmark(selectedBookmark);
+            }
+        }
+        else
+        {
+            SetSearchSummaryText(string.Empty);
+        }
+    }
+
+    private BookmarkDocument RequireEditableDocument()
+    {
+        if (_document is null || !CanBrowseDocument)
+        {
+            throw new InvalidOperationException(
+                "An editable bookmark document is not loaded.");
+        }
+
+        return _document;
+    }
+
+    private bool IsPermanentRoot(BookmarkFolder folder) =>
+        _document is not null &&
+        (ReferenceEquals(folder, _document.Roots.BookmarkBar) ||
+         ReferenceEquals(folder, _document.Roots.Other) ||
+         ReferenceEquals(folder, _document.Roots.Synced));
+
+    private void MarkDirty()
+    {
+        if (State == DocumentState.LoadedClean)
+        {
+            SetState(DocumentState.LoadedDirty);
+        }
+        else if (State != DocumentState.LoadedDirty)
+        {
+            throw new InvalidOperationException(
+                "Only a loaded bookmark document can become dirty.");
+        }
+
+        SetStatusText(
+            "Unsaved in-memory changes. Changes are not saved to disk.");
+    }
+
+    private void NotifyEditingAvailabilityChanged()
+    {
+        OnPropertyChanged(nameof(CanAddBookmark));
+        OnPropertyChanged(nameof(CanAddFolder));
+        OnPropertyChanged(nameof(CanRenameSelectedFolder));
+        OnPropertyChanged(nameof(CanRenameSelectedBookmark));
+        OnPropertyChanged(nameof(CanEditSelectedBookmarkUrl));
+    }
 
     private void BuildBrowserState(BookmarkDocument document)
     {
@@ -398,6 +716,11 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RerunSearchForFolderChange()
     {
+        if (_suppressFolderSearchRefresh)
+        {
+            return;
+        }
+
         if (IsSearchActive &&
             SearchScope == BookmarkSearchScope.CurrentFolder)
         {
@@ -566,6 +889,8 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanSearchDocument));
         OnPropertyChanged(nameof(IsSearchActive));
         OnPropertyChanged(nameof(DisplayedBookmarks));
+        OnPropertyChanged(nameof(IsDirty));
+        NotifyEditingAvailabilityChanged();
     }
 
     private void SetDocument(BookmarkDocument? value)
@@ -635,6 +960,7 @@ public sealed class MainViewModel : ViewModelBase
 
         _selectedFolder = value;
         OnPropertyChanged(nameof(SelectedFolder));
+        NotifyEditingAvailabilityChanged();
     }
 
     private void SetCurrentBookmarks(IReadOnlyList<BookmarkUrl> value)
@@ -662,6 +988,7 @@ public sealed class MainViewModel : ViewModelBase
 
         _selectedBookmark = value;
         OnPropertyChanged(nameof(SelectedBookmark));
+        NotifyEditingAvailabilityChanged();
     }
 
     private void SetDocumentSummaryText(string value)

@@ -1,0 +1,38 @@
+<Window x:Class="ChromeBookmarksManager.DiscardChangesDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Discard in-memory changes?"
+        Width="440"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock FontSize="16"
+                       FontWeight="SemiBold"
+                       Text="This document has unsaved changes." />
+            <TextBlock Margin="0,8,0,0"
+                       TextWrapping="Wrap"
+                       Text="Your edits are stored in memory only. Discard these changes and continue? The original Chrome Bookmarks file will not be changed." />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button Content="Cancel"
+                    Width="88"
+                    Margin="0,0,8,0"
+                    IsDefault="True"
+                    IsCancel="True" />
+            <Button Content="Discard"
+                    Width="88"
+                    Click="Discard_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

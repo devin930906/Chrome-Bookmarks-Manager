@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using ChromeBookmarksManager.Application;
 using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.Moving;
@@ -64,7 +65,18 @@ public partial class MainWindow : Window
 
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
-        if (_allowClose || !ViewModel.IsDirty)
+        if (_allowClose)
+        {
+            return;
+        }
+
+        if (ViewModel.State == DocumentState.Saving)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        if (!ViewModel.IsDirty)
         {
             return;
         }
@@ -116,9 +128,9 @@ public partial class MainWindow : Window
         }
         catch (ChromeBookmarksSaveException exception)
         {
-            var recovery = string.IsNullOrWhiteSpace(exception.BackupPath)
-                ? string.Empty
-                : $"\n\nVerified backup: {exception.BackupPath}";
+            var recovery = exception.HasVerifiedRecoveryBackup
+                ? $"\n\nVerified recovery backup: {exception.BackupPath}"
+                : string.Empty;
 
             MessageBox.Show(
                 this,

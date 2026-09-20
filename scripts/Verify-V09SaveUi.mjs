@@ -37,6 +37,14 @@ requireText(code, "ModifierKeys.Control", "Ctrl modifier must be checked for Sav
 requireText(code, "SaveDiscardCancel", "Dirty document flow must expose Save / Discard / Cancel semantics");
 requireText(code, "PromptDirtyDocumentAsync", "Open/close dirty handling must share one save-aware prompt");
 requireText(code, "ChromeBookmarksSaveException", "UI must surface typed save failures");
+requireText(
+  code,
+  "ViewModel.State == DocumentState.Saving",
+  "Window close must be blocked while Save is in progress");
+requireText(
+  code,
+  "exception.HasVerifiedRecoveryBackup",
+  "Save failure UI must only label a backup verified after the recovery backup reached a verified stage");
 
 forbidText(
   xaml,

@@ -16,4 +16,9 @@ public sealed class ChromeBookmarksSaveException : InvalidOperationException
     public ChromeBookmarksSaveError Error { get; }
 
     public string? BackupPath { get; }
+
+    public bool HasVerifiedRecoveryBackup =>
+        !string.IsNullOrWhiteSpace(BackupPath) &&
+        Error is ChromeBookmarksSaveError.AtomicReplacementFailed or
+            ChromeBookmarksSaveError.RecoveryRequired;
 }

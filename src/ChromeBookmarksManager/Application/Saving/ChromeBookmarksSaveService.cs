@@ -42,7 +42,10 @@ public sealed class ChromeBookmarksSaveService : IChromeBookmarksSaveService
                 $"Chrome bookmark format version {document.Version} is not supported for safe writing.");
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw Canceled(new OperationCanceledException(cancellationToken));
+        }
 
         EnsureChromeClosed();
 

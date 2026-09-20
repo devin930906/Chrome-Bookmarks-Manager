@@ -292,6 +292,52 @@ public sealed class BookmarkFileTransactionTests : IDisposable
         Assert.Contains("external-change", await File.ReadAllTextAsync(source));
     }
 
+    [Fact]
+    public async Task ExecuteAsync_CancellationAtCriticalGuard_CompletesCoherentReplacement()
+    {
+        var source = await CreateSourceAsync();
+        var reader = new ChromeBookmarksReader();
+        var baselineService = new BookmarkSourceBaselineService();
+        var baseline = await baselineService.CaptureAsync(source);
+        var document = await reader.ReadFileAsync(source);
+        var editing = new ChromeBookmarksManager.Application.Editing.BookmarkEditingService(
+            new FixedTimeProvider(new DateTimeOffset(2026, 9, 20, 12, 0, 0, TimeSpan.Zero)));
+        editing.AddBookmark(
+            document,
+            document.Roots.Other,
+            "Critical cancellation boundary",
+            "https://example.com/critical-cancellation");
+        var transaction = new BookmarkFileTransaction(
+            new ChromeBookmarksWriter(),
+            reader,
+            baselineService,
+            new BookmarkFileSystem(),
+            TimeProvider.System);
+        using var cancellation = new CancellationTokenSource();
+        var guardInvoked = false;
+
+        var result = await transaction.ExecuteAsync(
+            document,
+            baseline,
+            guardToken =>
+            {
+                guardInvoked = true;
+                Assert.False(guardToken.CanBeCanceled);
+                cancellation.Cancel();
+                return Task.CompletedTask;
+            },
+            cancellation.Token);
+
+        Assert.True(guardInvoked);
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.True(File.Exists(result.BackupPath));
+
+        var saved = await reader.ReadFileAsync(source);
+        Assert.Equal(
+            ChromeBookmarksChecksum.Compute(document),
+            ChromeBookmarksChecksum.Compute(saved));
+    }
+
     private async Task<string> CreateSourceAsync()
     {
         var source = Path.Combine(_directory, "Bookmarks");

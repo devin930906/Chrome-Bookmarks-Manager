@@ -171,6 +171,34 @@ public sealed class MainViewModelSaveTests
     }
 
     [Fact]
+    public async Task SaveAsync_UnexpectedFailure_LeavesDocumentDirtyBrowseableAndRetryable()
+    {
+        var fixture = CreateFixture();
+        var baseline = CreateBaseline();
+        var saveService = new ControlledSaveService
+        {
+            ImmediateException = new InvalidOperationException(
+                "Synthetic unexpected save failure.")
+        };
+        var viewModel = CreateViewModel(
+            fixture.Document,
+            new RecordingBaselineService(baseline),
+            saveService);
+
+        await viewModel.LoadBookmarksAsync(baseline.FullPath);
+        await viewModel.AddFolderAsync("Unsaved after unexpected failure");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => viewModel.SaveAsync());
+
+        Assert.Equal(DocumentState.SaveFailed, viewModel.State);
+        Assert.True(viewModel.IsDirty);
+        Assert.True(viewModel.CanBrowseDocument);
+        Assert.True(viewModel.CanSave);
+        Assert.True(viewModel.CanUndo);
+    }
+
+    [Fact]
     public async Task ReloadAfterFailedSave_ClearsOldBaselineAndHistory()
     {
         var first = CreateFixture();
@@ -377,7 +405,7 @@ public sealed class MainViewModelSaveTests
 
         public ChromeBookmarksSaveResult? ImmediateResult { get; set; }
 
-        public ChromeBookmarksSaveException? ImmediateException { get; set; }
+        public Exception? ImmediateException { get; set; }
 
         public Task<ChromeBookmarksSaveResult> SaveAsync(
             BookmarkDocument? document,

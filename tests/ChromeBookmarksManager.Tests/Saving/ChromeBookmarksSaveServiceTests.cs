@@ -203,6 +203,48 @@ public sealed class ChromeBookmarksSaveServiceTests
         Assert.Equal(0, transaction.ExecuteCount);
     }
 
+    [Fact]
+    public async Task SaveAsync_PreCanceledToken_MapsToTypedCancellationBeforeSafetyChecks()
+    {
+        var process = new SequenceProcessDetector(false);
+        var baseline = new RecordingBaselineService();
+        var transaction = new RecordingTransaction();
+        var service = new ChromeBookmarksSaveService(process, baseline, transaction);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var error = await Assert.ThrowsAsync<ChromeBookmarksSaveException>(
+            () => service.SaveAsync(
+                CreateDocument(),
+                CreateBaseline(),
+                cancellation.Token));
+
+        Assert.Equal(
+            ChromeBookmarksSaveError.CanceledBeforeReplacement,
+            error.Error);
+        Assert.Equal(0, process.CallCount);
+        Assert.Equal(0, baseline.VerifyCount);
+        Assert.Equal(0, transaction.ExecuteCount);
+    }
+
+    [Theory]
+    [InlineData(ChromeBookmarksSaveError.BackupCreationFailed, false)]
+    [InlineData(ChromeBookmarksSaveError.BackupVerificationFailed, false)]
+    [InlineData(ChromeBookmarksSaveError.SourceChangedExternally, false)]
+    [InlineData(ChromeBookmarksSaveError.AtomicReplacementFailed, true)]
+    [InlineData(ChromeBookmarksSaveError.RecoveryRequired, true)]
+    public void SaveException_HasVerifiedRecoveryBackup_OnlyForVerifiedRecoveryStages(
+        ChromeBookmarksSaveError error,
+        bool expected)
+    {
+        var exception = new ChromeBookmarksSaveException(
+            error,
+            "Synthetic save failure.",
+            @"C:\Synthetic\Bookmarks.ChromeBookmarksManager.test.bak");
+
+        Assert.Equal(expected, exception.HasVerifiedRecoveryBackup);
+    }
+
     private static BookmarkSourceBaseline CreateBaseline() =>
         new(
             Path.GetFullPath(

@@ -502,7 +502,7 @@ public sealed class MainViewModel : ViewModelBase
             _history.MarkClean();
             SetState(DocumentState.LoadedClean);
             SetStatusText(
-                $"Saved and verified. Safety backup: {result.BackupPath}");
+                $"Saved and verified. Verified safety backup: {result.BackupPath}");
             NotifyHistoryAvailabilityChanged();
 
             return result;
@@ -517,6 +517,13 @@ public sealed class MainViewModel : ViewModelBase
         {
             SetState(DocumentState.SaveFailed);
             SetStatusText("Saving was canceled before replacement.");
+            throw;
+        }
+        catch (Exception)
+        {
+            SetState(DocumentState.SaveFailed);
+            SetStatusText(
+                "Saving failed unexpectedly. The document remains unsaved and retryable.");
             throw;
         }
     }

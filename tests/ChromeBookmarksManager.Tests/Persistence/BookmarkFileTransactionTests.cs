@@ -338,6 +338,52 @@ public sealed class BookmarkFileTransactionTests : IDisposable
                 "Synthetic validation failure.");
     }
 
+    private sealed class BackupCopyFailingFileSystem : BookmarkFileSystem
+    {
+        public override void Copy(string sourceFileName, string destinationFileName)
+        {
+            throw new IOException("Synthetic backup copy failure.");
+        }
+    }
+
+    private sealed class CorruptingBackupFileSystem : BookmarkFileSystem
+    {
+        public override void Copy(string sourceFileName, string destinationFileName)
+        {
+            base.Copy(sourceFileName, destinationFileName);
+            File.AppendAllText(destinationFileName, "\ncorrupted-backup");
+        }
+    }
+
+    private sealed class CleanupFailingFileSystem : BookmarkFileSystem
+    {
+        public override void Delete(string path)
+        {
+            throw new IOException("Synthetic cleanup failure.");
+        }
+    }
+
+    private sealed class FailOnSecondReadReader(IChromeBookmarksReader inner) :
+        IChromeBookmarksReader
+    {
+        private int _reads;
+
+        public async Task<ChromeBookmarksManager.Domain.BookmarkDocument> ReadFileAsync(
+            string path,
+            CancellationToken cancellationToken = default)
+        {
+            _reads++;
+            if (_reads == 2)
+            {
+                throw new ChromeBookmarksReadException(
+                    ChromeBookmarksReadError.MalformedJson,
+                    "Synthetic post-replace validation failure.");
+            }
+
+            return await inner.ReadFileAsync(path, cancellationToken);
+        }
+    }
+
     private sealed class ReplaceFailingFileSystem : BookmarkFileSystem
     {
         public override void Replace(string sourceFileName, string destinationFileName)

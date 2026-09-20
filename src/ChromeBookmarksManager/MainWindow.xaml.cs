@@ -1026,8 +1026,8 @@ public partial class MainWindow : Window
             : "These bookmarks";
         var confirmation =
             $"{targetDescription}\n\n" +
-            $"{removalSubject} will be removed from the currently loaded in-memory document only.\n" +
-            "V0.7 has no Save or write-back path; the source Chrome Bookmarks file remains unchanged.";
+            $"{removalSubject} will be removed from the loaded document.\n" +
+            "Use Save to write the change safely to the source Chrome Bookmarks file.";
 
         if (!ConfirmDestructiveOperation(
                 "Confirm bookmark deletion",

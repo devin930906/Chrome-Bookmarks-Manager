@@ -535,6 +535,22 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void Undo_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.CanUndo)
+        {
+            await ViewModel.UndoAsync();
+        }
+    }
+
+    private async void Redo_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.CanRedo)
+        {
+            await ViewModel.RedoAsync();
+        }
+    }
+
     private async void AddBookmark_Click(object sender, RoutedEventArgs e)
     {
         await AddBookmarkFromUiAsync();
@@ -1005,6 +1021,35 @@ public partial class MainWindow : Window
     private async void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var modifiers = Keyboard.Modifiers;
+        var textInputOwnsFocus = Keyboard.FocusedElement is TextBox;
+
+        if (!textInputOwnsFocus &&
+            e.Key == Key.Z &&
+            modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            if (ViewModel.CanUndo)
+            {
+                await ViewModel.UndoAsync();
+            }
+
+            return;
+        }
+
+        if (!textInputOwnsFocus &&
+            ((e.Key == Key.Y &&
+              modifiers == ModifierKeys.Control) ||
+             (e.Key == Key.Z &&
+              modifiers == (ModifierKeys.Control | ModifierKeys.Shift))))
+        {
+            e.Handled = true;
+            if (ViewModel.CanRedo)
+            {
+                await ViewModel.RedoAsync();
+            }
+
+            return;
+        }
 
         if (e.Key == Key.A &&
             modifiers == ModifierKeys.Control &&

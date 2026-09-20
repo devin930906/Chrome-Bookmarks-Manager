@@ -141,6 +141,8 @@
                           ItemsSource="{Binding FolderRoots}"
                           IsEnabled="{Binding CanBrowseDocument}"
                           SelectedItemChanged="FolderTree_SelectedItemChanged"
+                          PreviewMouseLeftButtonDown="FolderTree_PreviewMouseLeftButtonDown"
+                          PreviewMouseMove="FolderTree_PreviewMouseMove"
                           PreviewMouseRightButtonDown="FolderTree_PreviewMouseRightButtonDown"
                           AllowDrop="True"
                           DragOver="FolderTree_DragOver"

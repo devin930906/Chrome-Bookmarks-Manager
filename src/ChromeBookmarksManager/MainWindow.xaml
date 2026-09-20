@@ -13,7 +13,13 @@
     <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
-                <MenuItem Header="_Open Bookmarks..." IsEnabled="False" />
+                <MenuItem Header="_Open Bookmarks..."
+                          IsEnabled="{Binding CanOpenBookmarks}"
+                          Click="OpenBookmarks_Click" />
+                <MenuItem Header="_Save"
+                          InputGestureText="Ctrl+S"
+                          IsEnabled="{Binding CanSave}"
+                          Click="Save_Click" />
                 <Separator />
                 <MenuItem Header="E_xit" IsEnabled="False" />
             </MenuItem>
@@ -106,12 +112,13 @@
                         Click="Redo_Click"
                         ToolTip="{Binding RedoDescription}" />
 
-                <TextBlock Grid.Column="4"
-                           Margin="16,0,8,0"
-                           VerticalAlignment="Center"
-                           Text="V0.8 Undo/Redo is in-memory only; Save is not available yet."
-                           TextTrimming="CharacterEllipsis"
-                           ToolTip="Edits, moves, deletes, Undo, and Redo are kept in memory only. Closing or replacing the document will require discarding them until safe save support is added." />
+                <Button Grid.Column="4"
+                        Margin="8,0,8,0"
+                        Content="Save"
+                        Padding="16,6"
+                        IsEnabled="{Binding CanSave}"
+                        Click="Save_Click"
+                        ToolTip="Safely save to the loaded Chrome Bookmarks file. Chrome must be fully closed; a verified backup is created before replacement." />
 
                 <TextBox x:Name="SearchBox"
                          Grid.Column="5"

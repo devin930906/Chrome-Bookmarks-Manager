@@ -65,6 +65,10 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V06BookmarkDragDrop.ps1
 
+      - name: Verify V0.6 move safety
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-V06MoveSafety.ps1
+
       - name: Verify browser scale
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=BrowserScale" --logger "console;verbosity=normal"
@@ -72,6 +76,10 @@ jobs:
       - name: Verify search scale
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=SearchScale" --logger "console;verbosity=normal"
+
+      - name: Verify V0.6 move scale
+        shell: pwsh
+        run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=MoveScale" --logger "console;verbosity=normal"
 
       - name: Test
         shell: pwsh

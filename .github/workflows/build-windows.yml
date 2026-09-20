@@ -65,6 +65,10 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V06BookmarkDragDrop.ps1
 
+      - name: Verify V0.6 folder Drag & Drop contract
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-V06FolderDragDrop.ps1
+
       - name: Verify V0.6 move safety
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V06MoveSafety.ps1

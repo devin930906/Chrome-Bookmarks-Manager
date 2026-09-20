@@ -4,9 +4,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.8 Undo / Redo development in progress**
+**Pre-release — V0.8 Undo / Redo Windows acceptance pending**
 
-V0.8 is adding reversible in-memory command history across the completed V0.5 editing, V0.6 movement, and V0.7 delete/batch mutation surfaces.
+V0.8 adds reversible in-memory command history across the completed V0.5 editing, V0.6 movement, and V0.7 delete/batch mutation surfaces. Automated release-candidate validation is complete; Windows 10 owner acceptance remains.
 
 The current application supports:
 
@@ -395,7 +395,10 @@ V0.8 implementation now covers the core history engine, reversible mutation entr
 - Task 4: RED Actions #188 / GREEN Actions #189.
 - Task 5: RED Actions #190 / GREEN Actions #191.
 - Task 6 UI contract: RED Actions #193; GREEN Actions #195 passed the complete Windows pipeline.
-- V0.8 UndoRedoScale and dedicated no-write history safety gates are now wired into normal Windows CI.
+- V0.8 UndoRedoScale and dedicated no-write history safety gates are wired into normal Windows CI.
+- Actions #198 passed the complete V0.8 release-candidate Windows pipeline at `606e1f7d6dc7080542f9c13358fddbcf3ed3c180`.
+- Final whole-branch review found no Critical or Important defects.
+- **Current stage: Task 8 — Windows 10 owner acceptance.**
 - V0.8 remains strictly in-memory. Safe Chrome source-file persistence remains deferred to V0.9.
 
 
@@ -409,7 +412,7 @@ V0.8 implementation now covers the core history engine, reversible mutation entr
 - **V0.5 — Editing: completed** — in-memory add/rename/edit URL, dirty-state tracking, explicit discard protection, Windows 10 owner acceptance, PR #5 merge, and post-merge verification complete
 - **V0.6 — Move / Drag & Drop: completed** — bookmark/folder Move to..., reorder, Drag & Drop, hierarchy protection, MoveScale, no-write safety gates, Windows 10 owner acceptance, PR #6 merge, and post-merge verification complete
 - **V0.7 — Delete / Batch: completed** — single and recursive deletion, bookmark multi-selection, batch delete/Move to..., DeleteBatchScale, no-write/no-file-delete safety, Windows 10 owner acceptance, PR #7 merge, and post-merge verification complete
-- **V0.8 — Undo / Redo: release validation in progress** — bounded reversible command history now covers V0.5–V0.7 mutations with history-position dirty state and Ctrl+Z/Ctrl+Y/Ctrl+Shift+Z; scale/safety/release validation is in progress
+- **V0.8 — Undo / Redo: Windows acceptance pending** — bounded reversible command history covers V0.5–V0.7 mutations with history-position dirty state and Ctrl+Z/Ctrl+Y/Ctrl+Shift+Z; automated scale/safety/release validation and whole-branch review are complete
 - **V0.9 — Safe Chrome Write:** checksum, backup, atomic replace, Chrome compatibility verification
 - **V1.0 — Stable personal-use release**
 

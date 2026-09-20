@@ -93,6 +93,10 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V08UndoRedoSafety.ps1
 
+      - name: Verify V0.9 persistence safety
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-V09WriteSafety.ps1
+
       - name: Verify browser scale
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=BrowserScale" --logger "console;verbosity=normal"
@@ -112,6 +116,10 @@ jobs:
       - name: Verify V0.8 Undo/Redo scale
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=UndoRedoScale" --logger "console;verbosity=normal"
+
+      - name: Verify V0.9 write scale
+        shell: pwsh
+        run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=WriteScale" --logger "console;verbosity=normal"
 
       - name: Test
         shell: pwsh

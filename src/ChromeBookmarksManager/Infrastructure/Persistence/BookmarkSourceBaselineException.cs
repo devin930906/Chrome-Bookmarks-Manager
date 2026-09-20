@@ -1,3 +1,4 @@
+using System.IO;
 namespace ChromeBookmarksManager.Infrastructure.Persistence;
 
 public sealed class BookmarkSourceBaselineException : IOException

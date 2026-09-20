@@ -7,4 +7,7 @@ public sealed record BookmarkMoveResult(
     BookmarkFolder SourceParent,
     int SourceIndex,
     BookmarkFolder TargetParent,
-    int TargetIndex);
+    int TargetIndex,
+    BookmarkMoveSemantics Semantics = BookmarkMoveSemantics.Direct,
+    int? SourceVisibleIndex = null,
+    int? TargetVisibleIndex = null);

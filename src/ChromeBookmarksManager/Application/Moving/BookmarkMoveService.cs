@@ -487,7 +487,10 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
             parent,
             sourceIndex,
             parent,
-            slotIndexes[insertVisibleIndex]);
+            slotIndexes[insertVisibleIndex],
+            BookmarkMoveSemantics.SameKindSlotReorder,
+            sourceVisibleIndex,
+            insertVisibleIndex);
     }
 
     private static int IndexOfReference(

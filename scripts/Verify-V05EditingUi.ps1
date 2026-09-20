@@ -76,6 +76,7 @@ if (Require-File $mainWindowCode) {
     Require-Text $code 'BookmarkEditDialog' "MainWindow must use the shared compact editing dialog."
     Require-Text $code 'BookmarkEditException' "MainWindow must surface editing validation failures."
     Require-Text $code 'private bool ConfirmDiscardChanges()' "MainWindow must use one explicit discard confirmation dialog."
+    Require-Text $code 'if (!ConfirmDiscardChanges())' "Cancel must stop a dirty-document reload before any state is cleared."
     Require-Text $code 'discardDirtyChanges: true' "Opening another file must pass discard authorization only after confirmation."
     Require-Text $code 'e.Cancel = !ConfirmDiscardChanges()' "Cancel must keep the application open while the document is dirty."
     Require-Text $code 'return dialog.ShowDialog() == true' "Only an explicit Discard result may authorize replacement or closing."

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -19,6 +20,26 @@ public partial class MainWindow : Window
 
     private MainViewModel ViewModel => (MainViewModel)DataContext;
 
+    private void Window_Closing(object? sender, CancelEventArgs e)
+    {
+        if (!ViewModel.IsDirty)
+        {
+            return;
+        }
+
+        e.Cancel = !ConfirmDiscardChanges();
+    }
+
+    private bool ConfirmDiscardChanges()
+    {
+        var dialog = new DiscardChangesDialog
+        {
+            Owner = this
+        };
+
+        return dialog.ShowDialog() == true;
+    }
+
     private async void OpenBookmarks_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
@@ -28,10 +49,25 @@ public partial class MainWindow : Window
             CheckFileExists = true
         };
 
-        if (dialog.ShowDialog(this) == true)
+        if (dialog.ShowDialog(this) != true)
         {
-            await ViewModel.LoadBookmarksAsync(dialog.FileName);
+            return;
         }
+
+        if (ViewModel.IsDirty)
+        {
+            if (!ConfirmDiscardChanges())
+            {
+                return;
+            }
+
+            await ViewModel.LoadBookmarksAsync(
+                dialog.FileName,
+                discardDirtyChanges: true);
+            return;
+        }
+
+        await ViewModel.LoadBookmarksAsync(dialog.FileName);
     }
 
     private void CancelLoad_Click(object sender, RoutedEventArgs e)

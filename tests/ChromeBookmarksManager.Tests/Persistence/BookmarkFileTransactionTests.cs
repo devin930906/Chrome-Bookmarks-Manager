@@ -1,3 +1,4 @@
+using System.Text;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Infrastructure.Persistence;
 
@@ -78,6 +79,31 @@ public sealed class BookmarkFileTransactionTests : IDisposable
             () => transaction.ExecuteAsync(document, baseline));
 
         Assert.Equal(BookmarkFileTransactionError.TempWriteFailed, error.Error);
+        Assert.Equal(before, await File.ReadAllBytesAsync(source));
+        Assert.Null(error.BackupPath);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenTempStoredChecksumIsCorrupted_LeavesSourceBytesUnchanged()
+    {
+        var source = await CreateSourceAsync();
+        var before = await File.ReadAllBytesAsync(source);
+        var reader = new ChromeBookmarksReader();
+        var document = await reader.ReadFileAsync(source);
+        var baselineService = new BookmarkSourceBaselineService();
+        var baseline = await baselineService.CaptureAsync(source);
+
+        var transaction = new BookmarkFileTransaction(
+            new CorruptStoredChecksumWriter(),
+            reader,
+            baselineService,
+            new BookmarkFileSystem(),
+            TimeProvider.System);
+
+        var error = await Assert.ThrowsAsync<BookmarkFileTransactionException>(
+            () => transaction.ExecuteAsync(document, baseline));
+
+        Assert.Equal(BookmarkFileTransactionError.TempValidationFailed, error.Error);
         Assert.Equal(before, await File.ReadAllBytesAsync(source));
         Assert.Null(error.BackupPath);
     }
@@ -211,6 +237,34 @@ public sealed class BookmarkFileTransactionTests : IDisposable
         Assert.True(File.Exists(error.BackupPath));
         Assert.Equal(before, await File.ReadAllBytesAsync(error.BackupPath!));
         Assert.NotEqual(before, await File.ReadAllBytesAsync(source));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenFinalStoredChecksumIsCorrupted_RetainsBackupAndReportsRecoveryRequiredState()
+    {
+        var source = await CreateSourceAsync();
+        var before = await File.ReadAllBytesAsync(source);
+        var reader = new ChromeBookmarksReader();
+        var document = await reader.ReadFileAsync(source);
+        var baselineService = new BookmarkSourceBaselineService();
+        var baseline = await baselineService.CaptureAsync(source);
+
+        var transaction = new BookmarkFileTransaction(
+            new ChromeBookmarksWriter(),
+            reader,
+            baselineService,
+            new ChecksumCorruptingReplaceFileSystem(),
+            TimeProvider.System);
+
+        var error = await Assert.ThrowsAsync<BookmarkFileTransactionException>(
+            () => transaction.ExecuteAsync(document, baseline));
+
+        Assert.Equal(
+            BookmarkFileTransactionError.PostWriteValidationFailed,
+            error.Error);
+        Assert.NotNull(error.BackupPath);
+        Assert.True(File.Exists(error.BackupPath));
+        Assert.Equal(before, await File.ReadAllBytesAsync(error.BackupPath!));
     }
 
     [Fact]
@@ -365,6 +419,33 @@ public sealed class BookmarkFileTransactionTests : IDisposable
         }
     }
 
+    private sealed class CorruptStoredChecksumWriter : IChromeBookmarksWriter
+    {
+        private readonly ChromeBookmarksWriter _inner = new();
+
+        public async Task<ChromeBookmarksChecksums> WriteAsync(
+            ChromeBookmarksManager.Domain.BookmarkDocument document,
+            Stream destination,
+            CancellationToken cancellationToken = default)
+        {
+            await using var buffer = new MemoryStream();
+            var checksums = await _inner.WriteAsync(
+                document,
+                buffer,
+                cancellationToken);
+            var json = Encoding.UTF8.GetString(buffer.ToArray());
+            var corruptMd5 = new string('0', checksums.Md5.Length);
+            json = json.Replace(
+                checksums.Md5,
+                corruptMd5,
+                StringComparison.Ordinal);
+            var bytes = Encoding.UTF8.GetBytes(json);
+            await destination.WriteAsync(bytes, cancellationToken);
+            await destination.FlushAsync(cancellationToken);
+            return checksums;
+        }
+    }
+
     private sealed class ThrowingWriter : IChromeBookmarksWriter
     {
         public Task<ChromeBookmarksChecksums> WriteAsync(
@@ -427,6 +508,31 @@ public sealed class BookmarkFileTransactionTests : IDisposable
             }
 
             return await inner.ReadFileAsync(path, cancellationToken);
+        }
+    }
+
+    private sealed class ChecksumCorruptingReplaceFileSystem : BookmarkFileSystem
+    {
+        public override void Replace(string sourceFileName, string destinationFileName)
+        {
+            base.Replace(sourceFileName, destinationFileName);
+
+            var json = File.ReadAllText(destinationFileName);
+            const string marker = "\"checksum\": \"";
+            var valueStart = json.IndexOf(marker, StringComparison.Ordinal);
+            if (valueStart < 0)
+            {
+                throw new InvalidOperationException(
+                    "Synthetic test could not locate the checksum field.");
+            }
+
+            valueStart += marker.Length;
+            const int md5Length = 32;
+            json = string.Concat(
+                json.AsSpan(0, valueStart),
+                new string('f', md5Length),
+                json.AsSpan(valueStart + md5Length));
+            File.WriteAllText(destinationFileName, json);
         }
     }
 

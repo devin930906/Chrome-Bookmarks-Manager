@@ -21,6 +21,14 @@ public sealed class BookmarkMoveScaleTests(ITestOutputHelper output)
 
         Assert.InRange(urlCount, 4, 250_000);
 
+        var folderCount = int.TryParse(
+            Environment.GetEnvironmentVariable("CBM_MOVE_FOLDER_COUNT"),
+            out var configuredFolders)
+            ? configuredFolders
+            : 1_000;
+
+        Assert.InRange(folderCount, 1, 10_000);
+
         var sourceUrlCount = Math.Max(2, urlCount * 3 / 4);
         var targetUrlCount = urlCount - sourceUrlCount;
 
@@ -44,15 +52,36 @@ public sealed class BookmarkMoveScaleTests(ITestOutputHelper output)
         var movingFolder = Folder(7001, "Moving folder", nestedLeaf);
         var siblingFolder = Folder(7002, "Sibling folder");
         var anchorFolder = Folder(7003, "Anchor folder");
+        var scaleFolders = Enumerable
+            .Range(0, folderCount)
+            .Select(index => Folder(
+                300_000 + index,
+                $"Scale folder {index}"))
+            .ToArray();
 
-        var split = sourceUrls.Length / 2;
-        var sourceChildren = new List<BookmarkNode>
+        var sourceChildren = new List<BookmarkNode>(
+            sourceUrls.Length + scaleFolders.Length + 3)
         {
-            movingFolder
+            movingFolder,
+            siblingFolder
         };
-        sourceChildren.AddRange(sourceUrls.Take(split));
-        sourceChildren.Add(siblingFolder);
-        sourceChildren.AddRange(sourceUrls.Skip(split));
+
+        var nextScaleFolder = 0;
+        for (var index = 0; index < sourceUrls.Length; index++)
+        {
+            sourceChildren.Add(sourceUrls[index]);
+
+            var expectedScaleFolders =
+                (int)(((long)(index + 1) * scaleFolders.Length) /
+                      sourceUrls.Length);
+
+            while (nextScaleFolder < expectedScaleFolders)
+            {
+                sourceChildren.Add(scaleFolders[nextScaleFolder]);
+                nextScaleFolder++;
+            }
+        }
+
         sourceChildren.Add(anchorFolder);
 
         var source = Folder(4, "Source folder", sourceChildren.ToArray());
@@ -71,6 +100,8 @@ public sealed class BookmarkMoveScaleTests(ITestOutputHelper output)
                 synced,
                 EmptyProperties),
             EmptyProperties);
+
+        Assert.Equal(folderCount + 9, document.FolderCount);
 
         var originalUrlCount = document.UrlCount;
         var originalFolderCount = document.FolderCount;
@@ -130,6 +161,7 @@ public sealed class BookmarkMoveScaleTests(ITestOutputHelper output)
 
         output.WriteLine(
             $"URLs={urlCount.ToString("N0", CultureInfo.InvariantCulture)}; " +
+            $"SyntheticScaleFolders={folderCount.ToString("N0", CultureInfo.InvariantCulture)}; " +
             $"Folders={document.FolderCount.ToString("N0", CultureInfo.InvariantCulture)}; " +
             $"Elapsed={stopwatch.Elapsed}; " +
             $"SourceChildren={source.Children.Count.ToString("N0", CultureInfo.InvariantCulture)}; " +

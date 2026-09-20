@@ -45,7 +45,7 @@ The current application supports:
 - mixed folder/bookmark child order is preserved when reordering only one node kind
 - pure moves preserve node object identity, IDs, GUIDs, metadata, timestamps, URLs, descendants, and document counts
 - active search remains coherent after cross-folder moves without rebuilding the search index
-- named V0.6 MoveScale verification at 10,000 synthetic URLs in normal CI
+- named V0.6 MoveScale verification at 10,000 synthetic URLs plus 1,000 synthetic folders in normal CI
 - V0.6 production-source safety gate rejects file-write/write-back primitives
 
 V0.6 editing and movement are limited to the in-memory document. Delete/batch operations, Undo/Redo, Save, overwrite, repair, and production Chrome write-back are not available. Dirty-document reload and app close require explicit Discard / Cancel confirmation; there is no Save path.
@@ -106,8 +106,10 @@ Run the V0.6 movement scale gate with a larger synthetic workload when preparing
 
 ```powershell
 $env:CBM_MOVE_URL_COUNT = "250000"
+$env:CBM_MOVE_FOLDER_COUNT = "4000"
 dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --filter "Category=MoveScale"
 Remove-Item Env:CBM_MOVE_URL_COUNT
+Remove-Item Env:CBM_MOVE_FOLDER_COUNT
 ```
 
 Verify the production WPF browser and search controls still enforce their UI contracts:
@@ -171,7 +173,7 @@ The workflow at `.github/workflows/build-windows.yml` runs on Windows and perfor
 10. V0.6 production-source move/write-safety verification
 11. named BrowserScale gate
 12. named SearchScale gate
-13. named V0.6 MoveScale gate with the normal 10,000-URL synthetic workload
+13. named V0.6 MoveScale gate with 10,000 synthetic URLs plus 1,000 synthetic folders
 14. full xUnit test suite
 15. self-contained Windows x64 publish
 16. single-file output verification
@@ -328,13 +330,13 @@ Automated evidence includes:
 - bookmark-list and folder-tree Drag & Drop behavior
 - dedicated bookmark and folder Drag & Drop mechanical UI guards
 - V0.6 no-write production-source safety gate
-- named MoveScale gate using 10,000 synthetic URLs in normal CI
+- named MoveScale gate using 10,000 synthetic URLs plus 1,000 interleaved synthetic folders in normal CI
 - complete regression suite, Windows x64 single-file publish, and EXE startup smoke test
 - Actions #145 passed the complete Task 7 folder Drag & Drop pipeline
 - Actions #148 passed MoveScale, move safety, the complete test suite, publish, single-file verification, smoke test, and artifact upload
 - Actions #149 passed the release-candidate commit including the dedicated folder Drag & Drop UI guard and the complete regression/publish pipeline
 
-The named 10,000-URL MoveScale test completed in approximately 50 ms in its dedicated gate on the GitHub Windows runner (and approximately 73 ms when repeated inside the full suite). These timings are diagnostic observations only, not a performance guarantee.
+MoveScale timing is recorded as diagnostic evidence only and is not encoded as a correctness threshold. The final release-candidate fixture intentionally mixes a large bookmark list with many folder slots so bookmark and folder reordering exercise the real mixed-child model.
 
 V0.6 remains strictly in-memory. The source Chrome `Bookmarks` file is not saved, replaced, repaired, checksummed, backed up, or otherwise modified by V0.6 code.
 

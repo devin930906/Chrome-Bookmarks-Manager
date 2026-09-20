@@ -332,6 +332,7 @@ Automated evidence includes:
 - complete regression suite, Windows x64 single-file publish, and EXE startup smoke test
 - Actions #145 passed the complete Task 7 folder Drag & Drop pipeline
 - Actions #148 passed MoveScale, move safety, the complete test suite, publish, single-file verification, smoke test, and artifact upload
+- Actions #149 passed the release-candidate commit including the dedicated folder Drag & Drop UI guard and the complete regression/publish pipeline
 
 The named 10,000-URL MoveScale test completed in approximately 50 ms in its dedicated gate on the GitHub Windows runner (and approximately 73 ms when repeated inside the full suite). These timings are diagnostic observations only, not a performance guarantee.
 

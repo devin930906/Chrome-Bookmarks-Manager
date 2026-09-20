@@ -83,7 +83,7 @@ public sealed class MainViewModelDeleteTests
         var viewModel = CreateViewModel(fixture.Document, search);
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
 
-        viewModel.SearchText = "First";
+        viewModel.SearchText = "https://example.com/first";
         await viewModel.WaitForPendingSearchAsync();
         var result = Assert.Single(viewModel.SearchResults);
         viewModel.UpdateSelectedBookmarks(new[] { result });

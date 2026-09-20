@@ -686,7 +686,10 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkBatchMoveHistoryEntry(
+                selected,
+                result));
         ClearBookmarkSelection();
 
         await RefreshProjectionsAfterMoveAsync(
@@ -718,7 +721,10 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkMoveHistoryEntry(
+                bookmark,
+                result));
         await RefreshProjectionsAfterMoveAsync(
                 preferredFolder: searchWasActive
                     ? selectedFolderBeforeMove
@@ -747,7 +753,10 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkMoveHistoryEntry(
+                folder,
+                result));
         await RefreshProjectionsAfterMoveAsync(
                 preferredFolder: folder)
             .ConfigureAwait(true);
@@ -772,7 +781,10 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkMoveHistoryEntry(
+                bookmark,
+                result));
         await RefreshProjectionsAfterMoveAsync(
                 preferredFolder: result.TargetParent,
                 preferredBookmark: bookmark)
@@ -798,7 +810,10 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkMoveHistoryEntry(
+                bookmark,
+                result));
         await RefreshProjectionsAfterMoveAsync(
                 preferredFolder: result.TargetParent,
                 preferredBookmark: bookmark)
@@ -822,7 +837,10 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkMoveHistoryEntry(
+                folder,
+                result));
         await RefreshProjectionsAfterMoveAsync(
                 preferredFolder: folder)
             .ConfigureAwait(true);
@@ -845,7 +863,10 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkMoveHistoryEntry(
+                folder,
+                result));
         await RefreshProjectionsAfterMoveAsync(
                 preferredFolder: folder)
             .ConfigureAwait(true);

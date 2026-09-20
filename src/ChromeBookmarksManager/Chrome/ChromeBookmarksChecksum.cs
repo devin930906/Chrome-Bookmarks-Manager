@@ -10,16 +10,19 @@ public static class ChromeBookmarksChecksum
     private static readonly UTF8Encoding StrictUtf8 =
         new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
-    public static ChromeBookmarksChecksums Compute(BookmarkDocument document)
+    public static ChromeBookmarksChecksums Compute(
+        BookmarkDocument document,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
+        cancellationToken.ThrowIfCancellationRequested();
 
         using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
         using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 
-        AppendNode(document.Roots.BookmarkBar, md5, sha256);
-        AppendNode(document.Roots.Other, md5, sha256);
-        AppendNode(document.Roots.Synced, md5, sha256);
+        AppendNode(document.Roots.BookmarkBar, md5, sha256, cancellationToken);
+        AppendNode(document.Roots.Other, md5, sha256, cancellationToken);
+        AppendNode(document.Roots.Synced, md5, sha256, cancellationToken);
 
         return new ChromeBookmarksChecksums(
             Convert.ToHexString(md5.GetHashAndReset()).ToLowerInvariant(),
@@ -29,8 +32,10 @@ public static class ChromeBookmarksChecksum
     private static void AppendNode(
         BookmarkNode node,
         IncrementalHash md5,
-        IncrementalHash sha256)
+        IncrementalHash sha256,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         AppendUtf8(node.Id, md5, sha256);
         AppendUtf16LittleEndian(node.Name, md5, sha256);
 
@@ -45,7 +50,7 @@ public static class ChromeBookmarksChecksum
                 AppendUtf8("folder", md5, sha256);
                 foreach (var child in folder.Children)
                 {
-                    AppendNode(child, md5, sha256);
+                    AppendNode(child, md5, sha256, cancellationToken);
                 }
 
                 break;

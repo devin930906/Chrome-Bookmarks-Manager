@@ -112,7 +112,7 @@ public sealed class ChromeBookmarksChecksumTests
             metaInfo,
             new Dictionary<string, JsonElement>
             {
-                ["future_field"] = JsonDocument.Parse(""preserved"").RootElement.Clone()
+                ["future_field"] = JsonSerializer.SerializeToElement("preserved")
             });
 
         return Document(

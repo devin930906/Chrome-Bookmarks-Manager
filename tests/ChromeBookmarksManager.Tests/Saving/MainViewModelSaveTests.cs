@@ -108,13 +108,13 @@ public sealed class MainViewModelSaveTests
 
         await viewModel.LoadBookmarksAsync(baseline.FullPath);
         viewModel.SelectedBookmark = fixture.First;
+        await viewModel.RenameSelectedBookmarkAsync("First saved");
         viewModel.SearchText = "first.example";
         await viewModel.WaitForPendingSearchAsync();
         var selectedFolder = viewModel.SelectedFolder;
         var selectedBookmark = viewModel.SelectedBookmark;
         var roots = viewModel.FolderRoots;
 
-        await viewModel.RenameSelectedBookmarkAsync("First saved");
         await viewModel.SaveAsync();
 
         Assert.Same(selectedFolder, viewModel.SelectedFolder);

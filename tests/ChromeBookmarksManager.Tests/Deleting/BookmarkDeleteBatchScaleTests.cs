@@ -2,7 +2,10 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using ChromeBookmarksManager.Application.Deleting;
+using ChromeBookmarksManager.Application.Search;
+using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
+using ChromeBookmarksManager.ViewModels;
 using Xunit.Abstractions;
 
 namespace ChromeBookmarksManager.Tests.Deleting;
@@ -114,6 +117,107 @@ public sealed class BookmarkDeleteBatchScaleTests(ITestOutputHelper output)
             $"Elapsed={stopwatch.Elapsed}");
     }
 
+    [Fact]
+    [Trait("Category", "DeleteBatchScale")]
+    public async Task DeleteLargeFolderSubtree_RebuildsActiveSearchIndexAtScale()
+    {
+        var urlCount = ReadCount("CBM_DELETE_URL_COUNT", 10_000, 4, 250_000);
+        var folderCount = ReadCount("CBM_DELETE_FOLDER_COUNT", 1_000, 1, 10_000);
+        var folderChildren = Enumerable
+            .Range(0, folderCount)
+            .Select(_ => new List<BookmarkNode>())
+            .ToArray();
+        var bookmarks = new BookmarkUrl[urlCount];
+
+        for (var index = 0; index < urlCount; index++)
+        {
+            var bookmark = Url(
+                1_000_000 + index,
+                $"Delete Scale Match {index}",
+                $"https://delete-scale-{index % 19}.example/bookmark/{index}");
+
+            bookmarks[index] = bookmark;
+            folderChildren[index % folderCount].Add(bookmark);
+        }
+
+        var descendantFolders = Enumerable
+            .Range(0, folderCount)
+            .Select(index => Folder(
+                100_000 + index,
+                $"Subtree Folder {index}",
+                folderChildren[index].ToArray()))
+            .ToArray();
+        var subtree = Folder(
+            50_000,
+            "Large delete scale subtree",
+            descendantFolders);
+        var survivor = Url(
+            2_000_000,
+            "Synthetic survivor",
+            "https://survivor.example/keep");
+        var bookmarkBar = Folder(
+            1,
+            "Bookmarks bar",
+            subtree,
+            survivor);
+        var other = Folder(2, "Other bookmarks");
+        var synced = Folder(3, "Mobile bookmarks");
+        var document = new BookmarkDocument(
+            1,
+            null,
+            null,
+            new BookmarkRoots(bookmarkBar, other, synced, EmptyProperties),
+            EmptyProperties);
+        var viewModel = new MainViewModel(
+            new DelegateReader(document),
+            new BookmarkSearchService(),
+            TimeSpan.Zero);
+
+        Assert.Equal(urlCount + 1, document.UrlCount);
+        Assert.Equal(folderCount + 4, document.FolderCount);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        viewModel.SearchText = "delete scale match";
+        await viewModel.WaitForPendingSearchAsync();
+        Assert.Equal(urlCount, viewModel.SearchResults.Count);
+
+        var subtreeItem = Assert.Single(viewModel.FolderRoots[0].Children);
+        viewModel.SelectFolder(subtreeItem);
+        await viewModel.WaitForPendingSearchAsync();
+        Assert.Same(subtree, viewModel.SelectedFolder);
+        Assert.Equal(urlCount, viewModel.SearchResults.Count);
+
+        var stopwatch = Stopwatch.StartNew();
+        var changed = await viewModel.DeleteSelectedFolderAsync();
+        stopwatch.Stop();
+        await viewModel.WaitForPendingSearchAsync();
+
+        Assert.True(changed);
+        Assert.Null(subtree.Parent);
+        Assert.Same(bookmarkBar, viewModel.SelectedFolder);
+        Assert.Same(bookmarkBar, survivor.Parent);
+        Assert.Equal(new[] { survivor }, viewModel.CurrentBookmarks);
+        Assert.Empty(viewModel.SearchResults);
+        Assert.Equal(1, document.UrlCount);
+        Assert.Equal(3, document.FolderCount);
+        Assert.All(
+            descendantFolders,
+            folder => Assert.Same(subtree, folder.Parent));
+
+        for (var index = 0; index < bookmarks.Length; index++)
+        {
+            Assert.Same(
+                descendantFolders[index % folderCount],
+                bookmarks[index].Parent);
+        }
+
+        output.WriteLine(
+            $"SubtreeURLs={urlCount.ToString("N0", CultureInfo.InvariantCulture)}; " +
+            $"SubtreeFolders={folderCount.ToString("N0", CultureInfo.InvariantCulture)}; " +
+            $"RemainingURLs={document.UrlCount.ToString("N0", CultureInfo.InvariantCulture)}; " +
+            $"ActiveSearchResults={viewModel.SearchResults.Count.ToString("N0", CultureInfo.InvariantCulture)}; " +
+            $"Elapsed={stopwatch.Elapsed}");
+    }
+
     private static int ReadCount(
         string variableName,
         int defaultValue,
@@ -201,6 +305,15 @@ public sealed class BookmarkDeleteBatchScaleTests(ITestOutputHelper output)
         bytes[7] = 0x40;
         bytes[8] = 0x80;
         return new Guid(bytes);
+    }
+
+    private sealed class DelegateReader(BookmarkDocument document)
+        : IChromeBookmarksReader
+    {
+        public Task<BookmarkDocument> ReadFileAsync(
+            string path,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(document);
     }
 
     private static readonly IReadOnlyDictionary<string, JsonElement>

@@ -52,7 +52,7 @@ The current application supports:
 - batch bookmark deletion works across folders, removes duplicate selections once, and keeps surviving item order
 - batch Move to... preserves selected bookmark order across one or more source folders
 - delete confirmation defaults to Cancel and folder confirmation reports recursive URL/folder counts
-- named V0.7 DeleteBatchScale verification at 10,000 synthetic URLs plus 1,000 synthetic folders in normal CI
+- named V0.7 DeleteBatchScale verification for a 10,000-bookmark batch, a 10,000-bookmark folder subtree, active-search rebuild, and 1,000 synthetic folders in normal CI
 - V0.7 production-source safety gate rejects file-write/write-back primitives and File.Delete
 - batch edits remain in memory; no Save or source-file write-back path is available
 
@@ -202,7 +202,7 @@ The workflow at `.github/workflows/build-windows.yml` runs on Windows and perfor
 19. executable startup smoke test
 20. artifact upload
 
-The normal CI BrowserScale and SearchScale gates use synthetic 10,000-URL workloads. MoveScale and DeleteBatchScale use synthetic 10,000-URL plus 1,000-folder workloads. The 250,000-URL browser-state, search, move, and delete/batch measurements remain explicit release commands rather than permanent heavy normal CI steps.
+The normal CI BrowserScale and SearchScale gates use synthetic 10,000-URL workloads. MoveScale and DeleteBatchScale use synthetic 10,000-URL plus 1,000-folder workloads; DeleteBatchScale also verifies recursive subtree removal and active-search refresh. The 250,000-URL browser-state, search, move, and delete/batch measurements remain explicit release commands rather than permanent heavy normal CI steps.
 
 The downloadable workflow artifact is named:
 

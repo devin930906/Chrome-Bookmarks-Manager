@@ -34,4 +34,9 @@ public interface IBookmarkMoveService
         BookmarkDocument document,
         BookmarkNode node,
         BookmarkFolder targetParent);
+
+    BookmarkBatchMoveResult MoveBookmarksToEnd(
+        BookmarkDocument document,
+        IReadOnlyList<BookmarkUrl> bookmarks,
+        BookmarkFolder targetParent);
 }

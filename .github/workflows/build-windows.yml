@@ -57,6 +57,10 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V05EditingUi.ps1
 
+      - name: Verify V0.6 Move UI contract
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-V06MoveUi.ps1
+
       - name: Verify browser scale
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=BrowserScale" --logger "console;verbosity=normal"

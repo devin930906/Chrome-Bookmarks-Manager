@@ -4,9 +4,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.8 Undo / Redo owner acceptance passed; merge closeout in progress**
+**Pre-release — V0.8 Undo / Redo completed**
 
-V0.8 adds reversible in-memory command history across the completed V0.5 editing, V0.6 movement, and V0.7 delete/batch mutation surfaces. Automated release-candidate validation and Windows 10 owner acceptance are complete; merge closeout remains.
+V0.8 adds reversible in-memory command history across the completed V0.5 editing, V0.6 movement, and V0.7 delete/batch mutation surfaces. Automated validation, Windows 10 owner acceptance, PR #8 merge, and post-merge main verification are complete.
 
 The current application supports:
 
@@ -399,7 +399,9 @@ V0.8 implementation now covers the core history engine, reversible mutation entr
 - Actions #198 passed the complete V0.8 release-candidate Windows pipeline at `606e1f7d6dc7080542f9c13358fddbcf3ed3c180`.
 - Final whole-branch review found no Critical or Important defects.
 - Windows 10 owner acceptance passed on 2026-09-20; SHA-256, byte length, and LastWriteTimeUtc were all unchanged.
-- **Current stage: PR #8 merge closeout and post-merge verification.**
+- PR #8 merged to `main` at `1529600255614398f7b8b1193ea21d4649c1d569`.
+- Post-merge `main` Actions #204 passed the complete Windows pipeline.
+- **V0.8 is completed. Next milestone: V0.9 — Safe Chrome Write.**
 - V0.8 remains strictly in-memory. Safe Chrome source-file persistence remains deferred to V0.9.
 
 
@@ -413,7 +415,7 @@ V0.8 implementation now covers the core history engine, reversible mutation entr
 - **V0.5 — Editing: completed** — in-memory add/rename/edit URL, dirty-state tracking, explicit discard protection, Windows 10 owner acceptance, PR #5 merge, and post-merge verification complete
 - **V0.6 — Move / Drag & Drop: completed** — bookmark/folder Move to..., reorder, Drag & Drop, hierarchy protection, MoveScale, no-write safety gates, Windows 10 owner acceptance, PR #6 merge, and post-merge verification complete
 - **V0.7 — Delete / Batch: completed** — single and recursive deletion, bookmark multi-selection, batch delete/Move to..., DeleteBatchScale, no-write/no-file-delete safety, Windows 10 owner acceptance, PR #7 merge, and post-merge verification complete
-- **V0.8 — Undo / Redo: owner acceptance passed** — bounded reversible command history covers V0.5–V0.7 mutations with history-position dirty state and Ctrl+Z/Ctrl+Y/Ctrl+Shift+Z; automated validation, whole-branch review, and Windows 10 owner acceptance are complete
+- **V0.8 — Undo / Redo: completed** — bounded reversible command history covers V0.5–V0.7 mutations with history-position dirty state and Ctrl+Z/Ctrl+Y/Ctrl+Shift+Z; automated validation, whole-branch review, Windows 10 owner acceptance, PR #8 merge, and post-merge verification are complete
 - **V0.9 — Safe Chrome Write:** checksum, backup, atomic replace, Chrome compatibility verification
 - **V1.0 — Stable personal-use release**
 

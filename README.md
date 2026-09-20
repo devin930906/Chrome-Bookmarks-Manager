@@ -4,9 +4,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.4 Search / Index (completed)**
+**Pre-release — V0.5 Editing (engineering verified; Windows 10 owner acceptance pending)**
 
-V0.4 adds fast, read-only in-memory search and result navigation on top of the completed V0.3 browser.
+V0.5 adds safe in-memory bookmark editing and explicit Discard / Cancel protection on top of the V0.4 browser and search features.
 
 The current application supports:
 
@@ -33,10 +33,14 @@ The current application supports:
 - result navigation back to the existing parent folder and original bookmark instance
 - synthetic SearchScale verification at 10,000 URLs in normal CI
 - explicit SearchScale release measurement at 250,000 synthetic URLs
+- in-memory add bookmark and folder, rename ordinary folders/bookmarks, and edit bookmark URLs
+- dirty-state tracking after successful edits
+- Discard / Cancel confirmation before dirty-document reload or application close
+- Cancel preserves the current in-memory document; Discard never writes the source file
 
-V0.4 is still strictly read-only. It does **not** provide add, rename, edit URL, delete, move, reorder, drag/drop, Undo/Redo, save, overwrite, repair, or production Chrome write-back.
+V0.5 editing is limited to the in-memory document. Delete, move, reorder, drag/drop, Undo/Redo, Save, overwrite, repair, and production Chrome write-back are not available. Dirty-document reload and app close require explicit Discard / Cancel confirmation; there is no Save path.
 
-Editing begins in V0.5. Direct Chrome profile write-back remains disabled until the V0.9 Safe Chrome Write milestone passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
+Direct Chrome profile write-back remains disabled until the V0.9 Safe Chrome Write milestone passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
 
 ## Target
 
@@ -53,7 +57,7 @@ Real Chrome `Bookmarks` files are private user data and must never be committed 
 
 Only synthetic fixtures under `samples/` are permitted in Git. Generated scale data use reserved example domains and do not contain the owner's real bookmark titles, URLs, queries, or raw file contents.
 
-V0.4 remains strictly read-only. Search runs against the already loaded in-memory document/index and does not reread or modify the source Chrome `Bookmarks` file. Production Chrome profile write-back remains intentionally out of scope until V0.9.
+V0.5 editing changes only the in-memory bookmark graph. Opening a file reads the source; search and editing do not write to it. A dirty reload or app close requires an explicit Discard choice, and no Save/write path exists. Production Chrome profile write-back remains intentionally out of scope until V0.9.
 
 ## Build
 
@@ -241,13 +245,45 @@ Windows 10 owner acceptance completed successfully on 2026-09-19 using the owner
 - source-file SHA-256, length, and last-write timestamp remained unchanged before/after acceptance
 - no private bookmark titles, URLs, raw file contents, private queries, or screenshots were committed or uploaded to the repository
 
+## V0.5 owner acceptance
+
+Status: pending on the owner's Windows 10 machine. Download `ChromeBookmarksManager-win-x64` from the latest successful PR Actions run. The EXE artifact is retained for one day.
+
+Close Chrome completely before capturing the source-file baseline, so Chrome itself cannot change the file during the check. Set `$bookmarksPath` to the active profile's `Bookmarks` file and record its integrity values in the same PowerShell session:
+
+```powershell
+$bookmarksPath = "C:\Path\To\Chrome\User Data\Default\Bookmarks"
+$before = Get-Item -LiteralPath $bookmarksPath
+$beforeHash = (Get-FileHash -LiteralPath $bookmarksPath -Algorithm SHA256).Hash
+$beforeLength = $before.Length
+$beforeWriteUtc = $before.LastWriteTimeUtc
+```
+
+Open the EXE and load that file. Add a bookmark and folder named `V0.5 acceptance bookmark` and `V0.5 acceptance folder`, rename both, edit the test bookmark URL to `https://example.com/v05-acceptance-updated`, and confirm search finds the updated title or URL. Check that the dirty state is visible.
+
+While the document is dirty, open the same file again and choose **Cancel** in the discard prompt; verify the in-memory edits remain. Repeat and choose **Discard**; verify the file reloads and the unsaved edits disappear. Make one new test edit, click the window close button, choose **Cancel** and verify the app stays open; close again and choose **Discard**.
+
+After the app closes, compare the source file:
+
+```powershell
+$after = Get-Item -LiteralPath $bookmarksPath
+$afterHash = (Get-FileHash -LiteralPath $bookmarksPath -Algorithm SHA256).Hash
+[pscustomobject]@{
+    SHA256Unchanged = $beforeHash -ceq $afterHash
+    LengthUnchanged = $beforeLength -eq $after.Length
+    LastWriteTimeUtcUnchanged = $beforeWriteUtc -eq $after.LastWriteTimeUtc
+}
+```
+
+All three values must be `True`. Report only pass/fail and the three comparison results. Do not commit or upload the private file, its bookmark titles or URLs, private search queries, or screenshots.
+
 ## Roadmap
 
 - **V0.1 — Bootstrap: completed** — project shell, tests, privacy guardrails, CI, single EXE
 - **V0.2 — Chrome Bookmarks Reader: completed** — native bookmark parsing, validation, cancellation, metadata preservation, read-only WPF loading; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.3 — Browser UI: completed** — folder tree, selected-folder bookmark list, status summaries, virtualization/recycling; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.4 — Search / Index: completed** — in-memory indexing, read-only search, result navigation; automated release gates, Windows 10 owner acceptance, merge, and post-merge verification complete
-- **V0.5 — Editing:** add, rename, edit URL, dirty-state tracking
+- **V0.5 — Editing: implementation and CI verified; Windows 10 owner acceptance pending** — in-memory add/rename/edit URL, dirty-state tracking, and explicit discard protection
 - **V0.6 — Move / Drag & Drop:** movement, reordering, hierarchy protection
 - **V0.7 — Delete / Batch:** multi-select and batch operations
 - **V0.8 — Undo / Redo:** reversible command history
@@ -261,6 +297,7 @@ Windows 10 owner acceptance completed successfully on 2026-09-19 using the owner
 - [V0.2 implementation plan](docs/superpowers/plans/2026-09-19-v0.2-chrome-bookmarks-reader.md)
 - [V0.3 implementation plan](docs/superpowers/plans/2026-09-19-v0.3-browser-ui.md)
 - [V0.4 implementation plan](docs/superpowers/plans/2026-09-19-v0.4-search-index.md)
+- [V0.5 implementation plan](docs/superpowers/plans/2026-09-19-v0.5-editing.md)
 
 ## Development principles
 

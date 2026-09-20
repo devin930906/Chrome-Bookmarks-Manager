@@ -4,7 +4,7 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.6 Move / Reorder / Drag & Drop (implementation, automated release gates, and Windows 10 owner acceptance complete; merge pending)**
+**Pre-release — V0.6 Move / Reorder / Drag & Drop completed**
 
 V0.6 adds browser-style in-memory bookmark and folder movement, reordering, Drag & Drop, and Move to... on top of the completed V0.5 editing milestone.
 
@@ -318,7 +318,7 @@ All three values must be `True`. Report only pass/fail and the three comparison 
 
 ## V0.6 automated verification status
 
-V0.6 implementation, automated release-candidate gates, final author review, and Windows 10 owner acceptance are complete. PR #6 is ready for merge pending the final post-documentation CI check.
+V0.6 implementation, automated release-candidate gates, final author review, Windows 10 owner acceptance, PR #6 merge, and post-merge `main` verification are complete.
 
 Automated evidence includes:
 
@@ -338,6 +338,8 @@ Automated evidence includes:
 - Actions #152 passed after partial owner-acceptance documentation was recorded, confirming the complete Windows pipeline remained green
 - Windows 10 owner acceptance passed on 2026-09-20 using the owner's private Chrome Bookmarks file: bookmark/folder reorder, cross-folder Drag & Drop, bookmark/folder Move to..., invalid self/descendant protection, protected roots, search coherence, and dirty Discard/Cancel behavior all passed
 - source-file SHA-256, byte length, and LastWriteTimeUtc were unchanged before/after acceptance; all three comparisons returned `True`; no private bookmark content was committed or uploaded
+- PR #6 merged to `main` as `ca11a95127d639d28ceaad8cab251c00a1ede840`
+- post-merge `main` Actions #156 passed the complete Windows pipeline
 
 MoveScale timing is recorded as diagnostic evidence only and is not encoded as a correctness threshold. The final release-candidate fixture intentionally mixes a large bookmark list with many folder slots so bookmark and folder reordering exercise the real mixed-child model.
 
@@ -351,7 +353,7 @@ V0.6 remains strictly in-memory. The source Chrome `Bookmarks` file is not saved
 - **V0.3 — Browser UI: completed** — folder tree, selected-folder bookmark list, status summaries, virtualization/recycling; Windows 10 owner acceptance passed with the private source file unchanged
 - **V0.4 — Search / Index: completed** — in-memory indexing, read-only search, result navigation; automated release gates, Windows 10 owner acceptance, merge, and post-merge verification complete
 - **V0.5 — Editing: completed** — in-memory add/rename/edit URL, dirty-state tracking, explicit discard protection, Windows 10 owner acceptance, PR #5 merge, and post-merge verification complete
-- **V0.6 — Move / Drag & Drop: implementation, automated release gates, final review, and Windows 10 owner acceptance complete; merge pending** — bookmark/folder Move to..., reorder, Drag & Drop, hierarchy protection, MoveScale, and no-write safety gates
+- **V0.6 — Move / Drag & Drop: completed** — bookmark/folder Move to..., reorder, Drag & Drop, hierarchy protection, MoveScale, no-write safety gates, Windows 10 owner acceptance, PR #6 merge, and post-merge verification complete
 - **V0.7 — Delete / Batch:** multi-select and batch operations
 - **V0.8 — Undo / Redo:** reversible command history
 - **V0.9 — Safe Chrome Write:** checksum, backup, atomic replace, Chrome compatibility verification

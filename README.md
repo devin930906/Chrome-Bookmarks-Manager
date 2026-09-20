@@ -4,7 +4,7 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.7 Delete / Batch release validation in progress**
+**Pre-release — V0.7 Delete / Batch completed**
 
 V0.7 adds safe in-memory single and batch deletion plus multi-select Move to... on top of the completed V0.6 movement milestone.
 
@@ -367,11 +367,17 @@ MoveScale timing is recorded as diagnostic evidence only and is not encoded as a
 
 V0.6 remains strictly in-memory. The source Chrome `Bookmarks` file is not saved, replaced, repaired, checksummed, backed up, or otherwise modified by V0.6 code.
 
-## V0.7 release-candidate status
+## V0.7 verification status
 
-V0.7 implementation and automated release-candidate validation are complete. Tasks 1–7 cover domain removal counts, single and batch delete services, batch Move to..., ViewModel orchestration, WPF multi-select/delete commands, release safety and scale gates, and release documentation. Windows Actions #177 passed the complete Windows pipeline at commit `f0e6012b2760373c47d958e2b75b61e2e22a15cc`, including the expanded DeleteBatchScale cases, full tests, Windows x64 publish, executable smoke test, and artifact upload. Final whole-branch review found no Critical or Important defects.
+V0.7 implementation, automated release-candidate validation, Windows 10 owner acceptance, PR #7 merge, and post-merge `main` verification are complete.
 
-**Current stage: Task 8 — Windows 10 owner acceptance.** Test the release candidate with the owner's private Chrome Bookmarks file, then confirm the source file's SHA-256, byte length, and LastWriteTimeUtc are unchanged. Keep that private file and its contents off Git and CI. PR #7 remains open as a draft; it has not been merged.
+- Tasks 1–7 completed domain removal accounting, single and batch delete services, batch Move to..., ViewModel orchestration, WPF multi-select/delete commands, release safety and scale gates, and documentation.
+- Actions #177 passed the complete Windows pipeline at implementation commit `f0e6012b2760373c47d958e2b75b61e2e22a15cc`.
+- Actions #178 passed the complete Windows pipeline at the final PR head `b3a4be35ce41652eb90b77a0cc713e17caaf4fdb`.
+- Windows 10 owner acceptance passed on 2026-09-20 against the owner's private Chrome Bookmarks file. The owner confirmed the complete Task 8 checklist passed, including single and batch deletion, ordinary-folder subtree deletion, protected-root rejection, Ctrl/Shift/Ctrl+A selection, batch Move to..., search-result mutation/coherence, count refresh, dirty Discard/Cancel behavior, V0.6 Drag & Drop regression coverage, and the required source-file integrity checks.
+- No private bookmark content was committed or uploaded.
+- PR #7 merged to `main` as `3d45217d7df540a40a1af0a388d858c0dab3f0c6`.
+- Post-merge `main` Actions #179 passed the complete Windows pipeline, including V0.7 UI, delete safety, DeleteBatchScale, full tests, publish, single-file verification, smoke test, and artifact upload.
 
 
 ## Roadmap
@@ -382,7 +388,7 @@ V0.7 implementation and automated release-candidate validation are complete. Tas
 - **V0.4 — Search / Index: completed** — in-memory indexing, read-only search, result navigation; automated release gates, Windows 10 owner acceptance, merge, and post-merge verification complete
 - **V0.5 — Editing: completed** — in-memory add/rename/edit URL, dirty-state tracking, explicit discard protection, Windows 10 owner acceptance, PR #5 merge, and post-merge verification complete
 - **V0.6 — Move / Drag & Drop: completed** — bookmark/folder Move to..., reorder, Drag & Drop, hierarchy protection, MoveScale, no-write safety gates, Windows 10 owner acceptance, PR #6 merge, and post-merge verification complete
-- **V0.7 — Delete / Batch: Windows acceptance pending** — implementation, release gates, and final whole-branch review complete; Windows 10 owner acceptance and PR closeout remain
+- **V0.7 — Delete / Batch: completed** — single and recursive deletion, bookmark multi-selection, batch delete/Move to..., DeleteBatchScale, no-write/no-file-delete safety, Windows 10 owner acceptance, PR #7 merge, and post-merge verification complete
 - **V0.8 — Undo / Redo:** reversible command history
 - **V0.9 — Safe Chrome Write:** checksum, backup, atomic replace, Chrome compatibility verification
 - **V1.0 — Stable personal-use release**

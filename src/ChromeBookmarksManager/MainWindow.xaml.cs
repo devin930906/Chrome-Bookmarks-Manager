@@ -17,6 +17,8 @@ public partial class MainWindow : Window
 {
     private Point? _bookmarkDragStartPoint;
     private BookmarkUrl? _bookmarkDragCandidate;
+    private Point? _folderDragStartPoint;
+    private BookmarkFolder? _folderDragCandidate;
     private ListViewItem? _bookmarkDropIndicatorItem;
     private TreeViewItem? _folderDropIndicatorItem;
 
@@ -88,6 +90,73 @@ public partial class MainWindow : Window
         RoutedPropertyChangedEventArgs<object> e)
     {
         ViewModel.SelectFolder(e.NewValue as FolderTreeItemViewModel);
+    }
+
+    private void FolderTree_PreviewMouseLeftButtonDown(
+        object sender,
+        MouseButtonEventArgs e)
+    {
+        var item = FindVisualParent<TreeViewItem>(
+            e.OriginalSource as DependencyObject);
+
+        if (item?.DataContext is FolderTreeItemViewModel folderItem &&
+            DragDropRules.CanStartFolderDrag(
+                folderItem.Folder.Parent is null))
+        {
+            item.IsSelected = true;
+            item.Focus();
+            _folderDragCandidate = folderItem.Folder;
+            _folderDragStartPoint = e.GetPosition(FolderTree);
+            return;
+        }
+
+        ResetFolderDragSource();
+    }
+
+    private void FolderTree_PreviewMouseMove(
+        object sender,
+        MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed ||
+            _folderDragCandidate is not { } folder ||
+            _folderDragStartPoint is not { } startPoint)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                ResetFolderDragSource();
+            }
+
+            return;
+        }
+
+        var currentPoint = e.GetPosition(FolderTree);
+        var deltaX = currentPoint.X - startPoint.X;
+        var deltaY = currentPoint.Y - startPoint.Y;
+
+        if (!DragDropRules.HasExceededDragThreshold(
+                deltaX,
+                deltaY,
+                SystemParameters.MinimumHorizontalDragDistance,
+                SystemParameters.MinimumVerticalDragDistance))
+        {
+            return;
+        }
+
+        var payload = new BookmarkDragPayload(folder);
+        ResetFolderDragSource();
+
+        try
+        {
+            System.Windows.DragDrop.DoDragDrop(
+                FolderTree,
+                payload,
+                DragDropEffects.Move);
+        }
+        finally
+        {
+            ClearBookmarkDropIndicator();
+            ClearFolderDropIndicator();
+        }
     }
 
     private void FolderTree_PreviewMouseRightButtonDown(
@@ -284,22 +353,52 @@ public partial class MainWindow : Window
         ClearFolderDropIndicator();
         e.Effects = DragDropEffects.None;
 
-        if (GetBookmarkDragPayload(e)?.Node is not BookmarkUrl)
-        {
-            e.Handled = true;
-            return;
-        }
-
+        var draggedNode = GetBookmarkDragPayload(e)?.Node;
         var targetItem = FindVisualParent<TreeViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (targetItem?.DataContext is not FolderTreeItemViewModel)
+        if (draggedNode is null ||
+            targetItem?.DataContext is not FolderTreeItemViewModel target)
         {
             e.Handled = true;
             return;
         }
 
-        SetFolderDropIndicator(targetItem);
+        if (draggedNode is BookmarkUrl)
+        {
+            SetFolderDropIndicator(targetItem, DropPlacement.Into);
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+            return;
+        }
+
+        if (draggedNode is not BookmarkFolder movingFolder ||
+            targetItem.ActualHeight <= 0)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var placement = DragDropRules.GetFolderRowPlacement(
+            e.GetPosition(targetItem).Y,
+            targetItem.ActualHeight,
+            target.Folder.Parent is null);
+
+        var valid = placement == DropPlacement.Into
+            ? DragDropRules.CanMoveFolderInto(
+                movingFolder,
+                target.Folder)
+            : DragDropRules.CanMoveFolderRelativeTo(
+                movingFolder,
+                target.Folder);
+
+        if (!valid)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        SetFolderDropIndicator(targetItem, placement);
         e.Effects = DragDropEffects.Move;
         e.Handled = true;
     }
@@ -318,16 +417,12 @@ public partial class MainWindow : Window
         ClearFolderDropIndicator();
         e.Effects = DragDropEffects.None;
 
-        if (GetBookmarkDragPayload(e)?.Node is not BookmarkUrl bookmark)
-        {
-            e.Handled = true;
-            return;
-        }
-
+        var draggedNode = GetBookmarkDragPayload(e)?.Node;
         var targetItem = FindVisualParent<TreeViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (targetItem?.DataContext is not FolderTreeItemViewModel target)
+        if (draggedNode is null ||
+            targetItem?.DataContext is not FolderTreeItemViewModel target)
         {
             e.Handled = true;
             return;
@@ -335,10 +430,61 @@ public partial class MainWindow : Window
 
         try
         {
-            await ViewModel.MoveBookmarkToEndAsync(
-                bookmark,
-                target.Folder);
-            e.Effects = DragDropEffects.Move;
+            bool changed;
+
+            if (draggedNode is BookmarkUrl bookmark)
+            {
+                changed = await ViewModel.MoveBookmarkToEndAsync(
+                    bookmark,
+                    target.Folder);
+            }
+            else if (draggedNode is BookmarkFolder movingFolder &&
+                     targetItem.ActualHeight > 0)
+            {
+                var placement = DragDropRules.GetFolderRowPlacement(
+                    e.GetPosition(targetItem).Y,
+                    targetItem.ActualHeight,
+                    target.Folder.Parent is null);
+
+                var valid = placement == DropPlacement.Into
+                    ? DragDropRules.CanMoveFolderInto(
+                        movingFolder,
+                        target.Folder)
+                    : DragDropRules.CanMoveFolderRelativeTo(
+                        movingFolder,
+                        target.Folder);
+
+                if (!valid)
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                changed = placement switch
+                {
+                    DropPlacement.Before =>
+                        await ViewModel.MoveFolderBeforeAsync(
+                            movingFolder,
+                            target.Folder),
+                    DropPlacement.After =>
+                        await ViewModel.MoveFolderAfterAsync(
+                            movingFolder,
+                            target.Folder),
+                    _ =>
+                        await ViewModel.MoveFolderToEndAsync(
+                            movingFolder,
+                            target.Folder)
+                };
+            }
+            else
+            {
+                e.Handled = true;
+                return;
+            }
+
+            e.Effects = changed
+                ? DragDropEffects.Move
+                : DragDropEffects.None;
         }
         catch (BookmarkMoveException exception)
         {
@@ -788,12 +934,19 @@ public partial class MainWindow : Window
         _bookmarkDropIndicatorItem = null;
     }
 
-    private void SetFolderDropIndicator(TreeViewItem item)
+    private void SetFolderDropIndicator(
+        TreeViewItem item,
+        DropPlacement placement)
     {
         ClearFolderDropIndicator();
 
         item.BorderBrush = SystemColors.HighlightBrush;
-        item.BorderThickness = new Thickness(1);
+        item.BorderThickness = placement switch
+        {
+            DropPlacement.Before => new Thickness(0, 2, 0, 0),
+            DropPlacement.After => new Thickness(0, 0, 0, 2),
+            _ => new Thickness(1)
+        };
         _folderDropIndicatorItem = item;
     }
 
@@ -813,6 +966,12 @@ public partial class MainWindow : Window
     {
         _bookmarkDragStartPoint = null;
         _bookmarkDragCandidate = null;
+    }
+
+    private void ResetFolderDragSource()
+    {
+        _folderDragStartPoint = null;
+        _folderDragCandidate = null;
     }
 
     private static T? FindVisualParent<T>(DependencyObject? source)

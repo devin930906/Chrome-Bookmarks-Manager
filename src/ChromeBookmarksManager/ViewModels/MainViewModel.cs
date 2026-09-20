@@ -623,7 +623,8 @@ public sealed class MainViewModel : ViewModelBase
             return false;
         }
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkBatchDeleteHistoryEntry(result));
         ClearBookmarkSelection();
 
         await RefreshProjectionsAfterEditAsync(
@@ -650,7 +651,8 @@ public sealed class MainViewModel : ViewModelBase
             document,
             folder);
 
-        MarkDirty();
+        RecordHistory(
+            new BookmarkDeleteHistoryEntry(result));
         ClearBookmarkSelection();
 
         await RefreshProjectionsAfterEditAsync(

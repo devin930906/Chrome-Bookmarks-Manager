@@ -9,4 +9,29 @@ public interface IBookmarkMoveService
         BookmarkNode node,
         BookmarkFolder targetParent,
         int targetIndex);
+
+    BookmarkMoveResult MoveBookmarkBefore(
+        BookmarkDocument document,
+        BookmarkUrl bookmark,
+        BookmarkUrl target);
+
+    BookmarkMoveResult MoveBookmarkAfter(
+        BookmarkDocument document,
+        BookmarkUrl bookmark,
+        BookmarkUrl target);
+
+    BookmarkMoveResult MoveFolderBefore(
+        BookmarkDocument document,
+        BookmarkFolder folder,
+        BookmarkFolder target);
+
+    BookmarkMoveResult MoveFolderAfter(
+        BookmarkDocument document,
+        BookmarkFolder folder,
+        BookmarkFolder target);
+
+    BookmarkMoveResult MoveToEnd(
+        BookmarkDocument document,
+        BookmarkNode node,
+        BookmarkFolder targetParent);
 }

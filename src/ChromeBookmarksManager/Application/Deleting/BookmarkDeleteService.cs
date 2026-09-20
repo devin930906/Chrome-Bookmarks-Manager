@@ -131,8 +131,7 @@ public sealed class BookmarkDeleteService : IBookmarkDeleteService
 
         var groups = snapshots
             .GroupBy(
-                snapshot => snapshot.SourceParent,
-                ReferenceEqualityComparer.Instance)
+                snapshot => snapshot.SourceParent)
             .ToArray();
 
         try

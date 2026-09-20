@@ -39,7 +39,7 @@ if (Require-File $mainWindowXaml) {
 
     Require-Text $xaml 'Header="Move to..."' "Move to... must be exposed from context menus."
     Require-Text $xaml 'IsEnabled="{Binding CanMoveSelectedFolder}"' "Folder Move to... must follow CanMoveSelectedFolder."
-    Require-Text $xaml 'IsEnabled="{Binding CanMoveSelectedBookmark}"' "Bookmark Move to... must follow CanMoveSelectedBookmark."
+    Require-Text $xaml 'IsEnabled="{Binding CanMoveSelectedBookmarks}"' "Bookmark Move to... must follow the selected-bookmark-set capability."
     Require-Text $xaml 'Click="MoveFolder_Click"' "Folder context menu must route Move to... through MoveFolder_Click."
     Require-Text $xaml 'Click="MoveBookmark_Click"' "Bookmark context menu must route Move to... through MoveBookmark_Click."
     Require-Text $xaml 'VirtualizingPanel.IsVirtualizing="True"' "V0.6 Move UI must preserve virtualization."

@@ -4,9 +4,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.6 Move / Reorder / Drag & Drop completed**
+**Pre-release — V0.7 Delete / Batch release validation in progress**
 
-V0.6 adds browser-style in-memory bookmark and folder movement, reordering, Drag & Drop, and Move to... on top of the completed V0.5 editing milestone.
+V0.7 adds safe in-memory single and batch deletion plus multi-select Move to... on top of the completed V0.6 movement milestone.
 
 The current application supports:
 
@@ -47,8 +47,16 @@ The current application supports:
 - active search remains coherent after cross-folder moves without rebuilding the search index
 - named V0.6 MoveScale verification at 10,000 synthetic URLs plus 1,000 synthetic folders in normal CI
 - V0.6 production-source safety gate rejects file-write/write-back primitives
+- bookmark list supports Ctrl/Shift multi-selection and Ctrl+A for the displayed results
+- Delete key and bookmark/folder context menus support confirmed single and batch deletion
+- batch bookmark deletion works across folders, removes duplicate selections once, and keeps surviving item order
+- batch Move to... preserves selected bookmark order across one or more source folders
+- delete confirmation defaults to Cancel and folder confirmation reports recursive URL/folder counts
+- named V0.7 DeleteBatchScale verification at 10,000 synthetic URLs plus 1,000 synthetic folders in normal CI
+- V0.7 production-source safety gate rejects file-write/write-back primitives and File.Delete
+- batch edits remain in memory; no Save or source-file write-back path is available
 
-V0.6 editing and movement are limited to the in-memory document. Delete/batch operations, Undo/Redo, Save, overwrite, repair, and production Chrome write-back are not available. Dirty-document reload and app close require explicit Discard / Cancel confirmation; there is no Save path.
+V0.5 editing, V0.6 movement, and V0.7 deletion/batch operations change only the in-memory document. Undo/Redo, Save, overwrite, repair, and production Chrome write-back are not available. Dirty-document reload and app close require explicit Discard / Cancel confirmation; there is no Save path.
 
 Direct Chrome profile write-back remains disabled until the V0.9 Safe Chrome Write milestone passes its compatibility, backup, checksum, recovery, and atomic-replace gates.
 
@@ -67,7 +75,7 @@ Real Chrome `Bookmarks` files are private user data and must never be committed 
 
 Only synthetic fixtures under `samples/` are permitted in Git. Generated scale data use reserved example domains and do not contain the owner's real bookmark titles, URLs, queries, or raw file contents.
 
-V0.6 editing and movement change only the in-memory bookmark graph. Opening a file reads the source; search, editing, Move to..., and Drag & Drop do not write to it. A dirty reload or app close requires an explicit Discard choice, and no Save/write path exists. Production Chrome profile write-back remains intentionally out of scope until V0.9.
+V0.5 editing, V0.6 movement, and V0.7 deletion change only the in-memory bookmark graph. Opening a file reads the source; search, editing, Move to..., Drag & Drop, and Delete do not write to or delete the source file. A dirty reload or app close requires an explicit Discard choice, and no Save/write path exists. Production Chrome profile write-back remains intentionally out of scope until V0.9.
 
 ## Build
 
@@ -112,6 +120,16 @@ Remove-Item Env:CBM_MOVE_URL_COUNT
 Remove-Item Env:CBM_MOVE_FOLDER_COUNT
 ```
 
+Run the V0.7 batch deletion scale gate with a larger synthetic workload when preparing a release:
+
+```powershell
+$env:CBM_DELETE_URL_COUNT = "250000"
+$env:CBM_DELETE_FOLDER_COUNT = "4000"
+dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --filter "Category=DeleteBatchScale"
+Remove-Item Env:CBM_DELETE_URL_COUNT
+Remove-Item Env:CBM_DELETE_FOLDER_COUNT
+```
+
 Verify the production WPF browser and search controls still enforce their UI contracts:
 
 ```powershell
@@ -122,6 +140,8 @@ pwsh -NoProfile -File scripts/Verify-V06MoveUi.ps1
 pwsh -NoProfile -File scripts/Verify-V06BookmarkDragDrop.ps1
 pwsh -NoProfile -File scripts/Verify-V06FolderDragDrop.ps1
 pwsh -NoProfile -File scripts/Verify-V06MoveSafety.ps1
+node scripts/Verify-V07DeleteUi.mjs
+pwsh -NoProfile -File scripts/Verify-V07DeleteSafety.ps1
 ```
 
 The generated workloads use synthetic reserved-domain data only.
@@ -171,16 +191,18 @@ The workflow at `.github/workflows/build-windows.yml` runs on Windows and perfor
 8. V0.6 bookmark Drag & Drop contract verification
 9. V0.6 folder Drag & Drop contract verification
 10. V0.6 production-source move/write-safety verification
-11. named BrowserScale gate
-12. named SearchScale gate
-13. named V0.6 MoveScale gate with 10,000 synthetic URLs plus 1,000 synthetic folders
-14. full xUnit test suite
-15. self-contained Windows x64 publish
-16. single-file output verification
-17. executable startup smoke test
-18. artifact upload
+11. V0.7 production-source no-write/no-file-delete safety verification
+12. named BrowserScale gate
+13. named SearchScale gate
+14. named V0.6 MoveScale gate with 10,000 synthetic URLs plus 1,000 synthetic folders
+15. named V0.7 DeleteBatchScale gate with 10,000 synthetic URLs plus 1,000 synthetic folders
+16. full xUnit test suite
+17. self-contained Windows x64 publish
+18. single-file output verification
+19. executable startup smoke test
+20. artifact upload
 
-The normal CI BrowserScale and SearchScale gates use synthetic 10,000-URL workloads. The 250,000-URL browser-state and search measurements remain explicit release commands rather than permanent heavy normal CI steps.
+The normal CI BrowserScale and SearchScale gates use synthetic 10,000-URL workloads. MoveScale and DeleteBatchScale use synthetic 10,000-URL plus 1,000-folder workloads. The 250,000-URL browser-state, search, move, and delete/batch measurements remain explicit release commands rather than permanent heavy normal CI steps.
 
 The downloadable workflow artifact is named:
 
@@ -345,6 +367,10 @@ MoveScale timing is recorded as diagnostic evidence only and is not encoded as a
 
 V0.6 remains strictly in-memory. The source Chrome `Bookmarks` file is not saved, replaced, repaired, checksummed, backed up, or otherwise modified by V0.6 code.
 
+## V0.7 release-candidate status
+
+V0.7 Tasks 1–6 implement domain removal counts, single and batch delete services, batch Move to..., ViewModel orchestration, and WPF multi-select/delete commands on draft PR #7. Task 7 adds the release safety and scale gates and updates these instructions. Windows 10 owner acceptance is still pending; V0.7 remains a draft and has not been merged.
+
 
 ## Roadmap
 
@@ -354,7 +380,7 @@ V0.6 remains strictly in-memory. The source Chrome `Bookmarks` file is not saved
 - **V0.4 — Search / Index: completed** — in-memory indexing, read-only search, result navigation; automated release gates, Windows 10 owner acceptance, merge, and post-merge verification complete
 - **V0.5 — Editing: completed** — in-memory add/rename/edit URL, dirty-state tracking, explicit discard protection, Windows 10 owner acceptance, PR #5 merge, and post-merge verification complete
 - **V0.6 — Move / Drag & Drop: completed** — bookmark/folder Move to..., reorder, Drag & Drop, hierarchy protection, MoveScale, no-write safety gates, Windows 10 owner acceptance, PR #6 merge, and post-merge verification complete
-- **V0.7 — Delete / Batch:** multi-select and batch operations
+- **V0.7 — Delete / Batch: release validation in progress** — in-memory single/folder/batch deletion, multi-select batch Move to..., safety gate, and DeleteBatchScale; Windows 10 owner acceptance and PR closeout remain
 - **V0.8 — Undo / Redo:** reversible command history
 - **V0.9 — Safe Chrome Write:** checksum, backup, atomic replace, Chrome compatibility verification
 - **V1.0 — Stable personal-use release**
@@ -369,6 +395,8 @@ V0.6 remains strictly in-memory. The source Chrome `Bookmarks` file is not saved
 - [V0.5 implementation plan](docs/superpowers/plans/2026-09-19-v0.5-editing.md)
 - [V0.6 approved design spec](docs/superpowers/specs/2026-09-20-v0.6-move-drag-drop-design.md)
 - [V0.6 implementation plan](docs/superpowers/plans/2026-09-20-v0.6-move-drag-drop.md)
+- [V0.7 design spec](docs/superpowers/specs/2026-09-20-v0.7-delete-batch-design.md)
+- [V0.7 implementation plan](docs/superpowers/plans/2026-09-20-v0.7-delete-batch.md)
 
 ## Development principles
 

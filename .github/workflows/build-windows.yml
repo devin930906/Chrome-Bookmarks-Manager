@@ -61,6 +61,10 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V06MoveUi.ps1
 
+      - name: Verify V0.7 Delete/Batch UI contract
+        shell: pwsh
+        run: node scripts/Verify-V07DeleteUi.mjs
+
       - name: Verify V0.6 bookmark Drag & Drop contract
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V06BookmarkDragDrop.ps1

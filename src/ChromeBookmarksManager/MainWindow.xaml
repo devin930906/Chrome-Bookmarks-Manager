@@ -39,6 +39,11 @@
                           InputGestureText="Ctrl+E"
                           IsEnabled="{Binding CanEditSelectedBookmarkUrl}"
                           Click="EditUrl_Click" />
+                <Separator />
+                <MenuItem Header="Delete Bookmark(s)..."
+                          InputGestureText="Delete"
+                          IsEnabled="{Binding CanDeleteSelectedBookmarks}"
+                          Click="DeleteSelectedBookmarks_Click" />
             </MenuItem>
             <MenuItem Header="_View" />
             <MenuItem Header="_Tools" IsEnabled="False" />
@@ -167,6 +172,11 @@
                             <MenuItem Header="Move to..."
                                       IsEnabled="{Binding CanMoveSelectedFolder}"
                                       Click="MoveFolder_Click" />
+                            <Separator />
+                            <MenuItem Header="Delete Folder..."
+                                      InputGestureText="Delete"
+                                      IsEnabled="{Binding CanDeleteSelectedFolder}"
+                                      Click="DeleteSelectedFolder_Click" />
                         </ContextMenu>
                     </TreeView.ContextMenu>
                     <TreeView.ItemTemplate>
@@ -193,6 +203,7 @@
                 <ListView x:Name="BookmarksList"
                           ItemsSource="{Binding DisplayedBookmarks}"
                           SelectedItem="{Binding SelectedBookmark, Mode=TwoWay}"
+                          SelectionChanged="BookmarksList_SelectionChanged"
                           MouseDoubleClick="BookmarksList_MouseDoubleClick"
                           KeyDown="BookmarksList_KeyDown"
                           PreviewMouseLeftButtonDown="BookmarksList_PreviewMouseLeftButtonDown"
@@ -202,7 +213,7 @@
                           DragOver="BookmarksList_DragOver"
                           DragLeave="BookmarksList_DragLeave"
                           Drop="BookmarksList_Drop"
-                          SelectionMode="Single"
+                          SelectionMode="Extended"
                           IsEnabled="{Binding CanBrowseDocument}"
                           VirtualizingPanel.IsVirtualizing="True"
                           VirtualizingPanel.VirtualizationMode="Recycling"
@@ -218,8 +229,13 @@
                                       IsEnabled="{Binding CanEditSelectedBookmarkUrl}"
                                       Click="EditUrl_Click" />
                             <MenuItem Header="Move to..."
-                                      IsEnabled="{Binding CanMoveSelectedBookmark}"
+                                      IsEnabled="{Binding CanMoveSelectedBookmarks}"
                                       Click="MoveBookmark_Click" />
+                            <Separator />
+                            <MenuItem Header="Delete Bookmark(s)..."
+                                      InputGestureText="Delete"
+                                      IsEnabled="{Binding CanDeleteSelectedBookmarks}"
+                                      Click="DeleteSelectedBookmarks_Click" />
                         </ContextMenu>
                     </ListView.ContextMenu>
                     <ListView.View>

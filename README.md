@@ -369,7 +369,9 @@ V0.6 remains strictly in-memory. The source Chrome `Bookmarks` file is not saved
 
 ## V0.7 release-candidate status
 
-V0.7 Tasks 1–6 implement domain removal counts, single and batch delete services, batch Move to..., ViewModel orchestration, and WPF multi-select/delete commands on draft PR #7. Task 7 adds the release safety and scale gates and updates these instructions. Windows 10 owner acceptance is still pending; V0.7 remains a draft and has not been merged.
+V0.7 implementation and automated release-candidate validation are complete. Tasks 1–7 cover domain removal counts, single and batch delete services, batch Move to..., ViewModel orchestration, WPF multi-select/delete commands, release safety and scale gates, and release documentation. Windows Actions #177 passed the complete Windows pipeline at commit `f0e6012b2760373c47d958e2b75b61e2e22a15cc`, including the expanded DeleteBatchScale cases, full tests, Windows x64 publish, executable smoke test, and artifact upload. Final whole-branch review found no Critical or Important defects.
+
+**Current stage: Task 8 — Windows 10 owner acceptance.** Test the release candidate with the owner's private Chrome Bookmarks file, then confirm the source file's SHA-256, byte length, and LastWriteTimeUtc are unchanged. Keep that private file and its contents off Git and CI. PR #7 remains open as a draft; it has not been merged.
 
 
 ## Roadmap
@@ -380,7 +382,7 @@ V0.7 Tasks 1–6 implement domain removal counts, single and batch delete servic
 - **V0.4 — Search / Index: completed** — in-memory indexing, read-only search, result navigation; automated release gates, Windows 10 owner acceptance, merge, and post-merge verification complete
 - **V0.5 — Editing: completed** — in-memory add/rename/edit URL, dirty-state tracking, explicit discard protection, Windows 10 owner acceptance, PR #5 merge, and post-merge verification complete
 - **V0.6 — Move / Drag & Drop: completed** — bookmark/folder Move to..., reorder, Drag & Drop, hierarchy protection, MoveScale, no-write safety gates, Windows 10 owner acceptance, PR #6 merge, and post-merge verification complete
-- **V0.7 — Delete / Batch: release validation in progress** — in-memory single/folder/batch deletion, multi-select batch Move to..., safety gate, and DeleteBatchScale; Windows 10 owner acceptance and PR closeout remain
+- **V0.7 — Delete / Batch: Windows acceptance pending** — implementation, release gates, and final whole-branch review complete; Windows 10 owner acceptance and PR closeout remain
 - **V0.8 — Undo / Redo:** reversible command history
 - **V0.9 — Safe Chrome Write:** checksum, backup, atomic replace, Chrome compatibility verification
 - **V1.0 — Stable personal-use release**

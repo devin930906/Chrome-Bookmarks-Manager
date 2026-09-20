@@ -54,8 +54,9 @@ if (Require-File $mainWindowXaml) {
     Require-Text $xaml 'IsEnabled="{Binding CanEditSelectedBookmarkUrl}"' "URL edit enablement must flow from MainViewModel."
     Require-Text $xaml 'VirtualizingPanel.IsVirtualizing="True"' "Editing UI must preserve virtualization."
     Require-Text $xaml 'VirtualizingPanel.VirtualizationMode="Recycling"' "Editing UI must preserve recycling virtualization."
-    Require-Text $xaml 'in-memory only' "UI must explicitly state that V0.5 edits are in-memory only."
-    Require-Text $xaml 'Save is not available' "UI must explicitly state that Save is not available in V0.5."
+    # V0.5 originally required an in-memory-only/no-Save banner because
+    # persistence did not exist yet. V0.9 supersedes that temporary product
+    # limitation while preserving the editing and dirty-document safety boundary.
     Require-Text $xaml 'Closing="Window_Closing"' "Main window must guard close while a document is dirty."
 }
 
@@ -75,11 +76,11 @@ if (Require-File $mainWindowCode) {
     Require-Text $code 'Key.F2' "MainWindow must route F2 rename."
     Require-Text $code 'BookmarkEditDialog' "MainWindow must use the shared compact editing dialog."
     Require-Text $code 'BookmarkEditException' "MainWindow must surface editing validation failures."
-    Require-Text $code 'private bool ConfirmDiscardChanges()' "MainWindow must use one explicit discard confirmation dialog."
-    Require-Text $code 'if (!ConfirmDiscardChanges())' "Cancel must stop a dirty-document reload before any state is cleared."
-    Require-Text $code 'discardDirtyChanges: true' "Opening another file must pass discard authorization only after confirmation."
-    Require-Text $code 'e.Cancel = !ConfirmDiscardChanges()' "Cancel must keep the application open while the document is dirty."
-    Require-Text $code 'return dialog.ShowDialog() == true' "Only an explicit Discard result may authorize replacement or closing."
+    Require-Text $code 'PromptDirtyDocumentAsync' "Dirty-document replacement/close must use one shared prompt."
+    Require-Text $code 'SaveDiscardCancel.Cancel' "Cancel must remain an explicit safe dirty-document outcome."
+    Require-Text $code 'discardDirtyChanges' "Opening another file must pass discard authorization only after explicit user choice."
+    Require-Text $code 'e.Cancel = true' "Dirty close must be canceled before asynchronous Save/Discard/Cancel resolution."
+    Require-Text $code 'ViewModel.IsDirty' "Dirty-document protection must remain driven by MainViewModel state."
 
     foreach ($forbidden in @(
         ".SetName(",

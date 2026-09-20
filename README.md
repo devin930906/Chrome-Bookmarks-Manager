@@ -247,9 +247,18 @@ Windows 10 owner acceptance completed successfully on 2026-09-19 using the owner
 
 ## V0.5 owner acceptance
 
-Status: pending on the owner's Windows 10 machine. Download `ChromeBookmarksManager-win-x64` from the latest successful PR Actions run. The EXE artifact is retained for one day.
+Status: **Passed on Windows 10 on 2026-09-20** using the owner's private Chrome Bookmarks file. The owner confirmed the documented V0.5 edit, search, reload, and close flows passed; SHA-256, length, and LastWriteTimeUtc comparisons all returned `True`.
 
-Close Chrome completely before capturing the source-file baseline, so Chrome itself cannot change the file during the check. Set `$bookmarksPath` to the active profile's `Bookmarks` file and record its integrity values in the same PowerShell session:
+- The Windows x64 artifact from [Actions #119](https://github.com/devin930906/Chrome-Bookmarks-Manager/actions/runs/35488919731) opened and loaded the file; 209,382 URLs and 3,404 folders were visible.
+- Temporary in-memory bookmark/folder creation, rename, URL edit, and search passed.
+- Dirty reload: Cancel preserved edits; Discard reloaded the file and removed them.
+- Dirty close: Cancel kept the app open; Discard closed it.
+- The source file's SHA-256, byte length, and LastWriteTimeUtc remained unchanged.
+- No private bookmark content was committed or uploaded.
+
+### Reproduction procedure
+
+Close Chrome completely before capturing the source-file baseline, so Chrome itself cannot change the file during the check. Set `$bookmarksPath` to the exact `Bookmarks` file loaded in the app and record its integrity values in the same PowerShell session:
 
 ```powershell
 $bookmarksPath = "C:\Path\To\Chrome\User Data\Default\Bookmarks"

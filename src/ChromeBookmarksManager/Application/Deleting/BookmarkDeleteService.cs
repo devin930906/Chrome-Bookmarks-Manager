@@ -65,6 +65,116 @@ public sealed class BookmarkDeleteService : IBookmarkDeleteService
             removedFolders);
     }
 
+    public BookmarkBatchDeleteResult DeleteBookmarks(
+        BookmarkDocument document,
+        IReadOnlyList<BookmarkUrl> bookmarks)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(bookmarks);
+
+        if (bookmarks.Count == 0)
+        {
+            return new BookmarkBatchDeleteResult(
+                false,
+                Array.Empty<BookmarkDeleteResult>(),
+                0);
+        }
+
+        var seen = new HashSet<BookmarkUrl>(
+            ReferenceEqualityComparer.Instance);
+        var unique = new List<BookmarkUrl>(bookmarks.Count);
+
+        foreach (var bookmark in bookmarks)
+        {
+            ArgumentNullException.ThrowIfNull(bookmark);
+
+            if (seen.Add(bookmark))
+            {
+                unique.Add(bookmark);
+            }
+        }
+
+        var snapshots = new List<BookmarkDeleteResult>(
+            unique.Count);
+
+        foreach (var bookmark in unique)
+        {
+            EnsureBelongsToDocument(document, bookmark);
+
+            var parent = bookmark.Parent
+                ?? throw new BookmarkDeleteException(
+                    BookmarkDeleteError.MissingParent,
+                    "The bookmark has no deletable parent.");
+
+            var index = parent.IndexOfChild(bookmark);
+            if (index < 0)
+            {
+                throw new BookmarkDeleteException(
+                    BookmarkDeleteError.NodeNotInDocument,
+                    "The bookmark is not present in its recorded parent.");
+            }
+
+            snapshots.Add(
+                new BookmarkDeleteResult(
+                    bookmark,
+                    parent,
+                    index,
+                    1,
+                    0));
+        }
+
+        if (unique.Count > document.UrlCount)
+        {
+            throw new InvalidOperationException(
+                "Deleting the requested bookmarks would make bookmark document counts invalid.");
+        }
+
+        var groups = snapshots
+            .GroupBy(
+                snapshot => snapshot.SourceParent,
+                ReferenceEqualityComparer.Instance)
+            .ToArray();
+
+        try
+        {
+            foreach (var group in groups)
+            {
+                foreach (var snapshot in group
+                    .OrderByDescending(item => item.SourceIndex))
+                {
+                    group.Key.RemoveChildAt(snapshot.SourceIndex);
+                }
+            }
+
+            document.RecordRemovedSubtree(
+                unique.Count,
+                0);
+        }
+        catch
+        {
+            foreach (var group in groups)
+            {
+                foreach (var snapshot in group
+                    .OrderBy(item => item.SourceIndex))
+                {
+                    if (snapshot.Node.Parent is null)
+                    {
+                        snapshot.SourceParent.InsertChild(
+                            snapshot.SourceIndex,
+                            snapshot.Node);
+                    }
+                }
+            }
+
+            throw;
+        }
+
+        return new BookmarkBatchDeleteResult(
+            true,
+            snapshots,
+            unique.Count);
+    }
+
     private static (int UrlCount, int FolderCount) CountSubtree(
         BookmarkNode node)
     {

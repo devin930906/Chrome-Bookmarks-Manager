@@ -18,6 +18,17 @@
                 <MenuItem Header="E_xit" IsEnabled="False" />
             </MenuItem>
             <MenuItem Header="_Edit">
+                <MenuItem Header="_Undo"
+                          InputGestureText="Ctrl+Z"
+                          IsEnabled="{Binding CanUndo}"
+                          ToolTip="{Binding UndoDescription}"
+                          Click="Undo_Click" />
+                <MenuItem Header="_Redo"
+                          InputGestureText="Ctrl+Y / Ctrl+Shift+Z"
+                          IsEnabled="{Binding CanRedo}"
+                          ToolTip="{Binding RedoDescription}"
+                          Click="Redo_Click" />
+                <Separator />
                 <MenuItem Header="Add _Bookmark..."
                           InputGestureText="Ctrl+Shift+B"
                           IsEnabled="{Binding CanAddBookmark}"
@@ -57,6 +68,8 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="320" />
                     <ColumnDefinition Width="Auto" />
@@ -77,15 +90,31 @@
                         Click="CancelLoad_Click"
                         ToolTip="Cancel the current Bookmarks load." />
 
-                <TextBlock Grid.Column="2"
+                <Button Grid.Column="2"
+                        Margin="8,0,0,0"
+                        Content="Undo"
+                        Padding="12,6"
+                        IsEnabled="{Binding CanUndo}"
+                        Click="Undo_Click"
+                        ToolTip="{Binding UndoDescription}" />
+
+                <Button Grid.Column="3"
+                        Margin="8,0,0,0"
+                        Content="Redo"
+                        Padding="12,6"
+                        IsEnabled="{Binding CanRedo}"
+                        Click="Redo_Click"
+                        ToolTip="{Binding RedoDescription}" />
+
+                <TextBlock Grid.Column="4"
                            Margin="16,0,8,0"
                            VerticalAlignment="Center"
-                           Text="V0.6 editing and moving are in-memory only; Save is not available yet."
+                           Text="V0.8 Undo/Redo is in-memory only; Save is not available yet."
                            TextTrimming="CharacterEllipsis"
-                           ToolTip="Edits and moves are kept in memory only. Closing or replacing the document will require discarding them until safe save support is added." />
+                           ToolTip="Edits, moves, deletes, Undo, and Redo are kept in memory only. Closing or replacing the document will require discarding them until safe save support is added." />
 
                 <TextBox x:Name="SearchBox"
-                         Grid.Column="3"
+                         Grid.Column="5"
                          Margin="12,0,0,0"
                          Height="30"
                          VerticalContentAlignment="Center"
@@ -93,7 +122,7 @@
                          Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          ToolTip="Search bookmark names and URLs. Ctrl+F focuses search; Escape clears it." />
 
-                <ComboBox Grid.Column="4"
+                <ComboBox Grid.Column="6"
                           Margin="8,0,0,0"
                           MinWidth="130"
                           Height="30"

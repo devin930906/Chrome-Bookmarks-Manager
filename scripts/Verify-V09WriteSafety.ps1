@@ -144,7 +144,9 @@ foreach ($pair in @(
 }
 
 Require-Text $mainWindow 'await ViewModel.SaveAsync' "WPF Save must flow through MainViewModel.SaveAsync."
-Require-Text $viewModel '_saveService.SaveAsync' "MainViewModel Save must flow through IChromeBookmarksSaveService."
+if (-not [regex]::IsMatch($viewModel, '_saveService\s*\.\s*SaveAsync\s*\(')) {
+    $errors.Add("MainViewModel Save must flow through IChromeBookmarksSaveService.")
+}
 
 if ($errors.Count -gt 0) {
     foreach ($errorMessage in $errors) {

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using ChromeBookmarksManager.Application;
+using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Application.Search;
@@ -18,6 +19,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IBookmarkSearchService _searchService;
     private readonly IBookmarkEditingService _editingService;
     private readonly IBookmarkMoveService _moveService;
+    private readonly IBookmarkDeleteService _deleteService;
     private readonly TimeSpan _searchDebounce;
     private CancellationTokenSource? _loadCancellation;
     private CancellationTokenSource? _searchCancellation;
@@ -37,6 +39,8 @@ public sealed class MainViewModel : ViewModelBase
     private IReadOnlyList<BookmarkUrl> _currentBookmarks =
         Array.Empty<BookmarkUrl>();
     private BookmarkUrl? _selectedBookmark;
+    private IReadOnlyList<BookmarkUrl> _selectedBookmarks =
+        Array.Empty<BookmarkUrl>();
     private string _documentSummaryText = string.Empty;
     private string _selectionSummaryText = string.Empty;
     private string _searchText = string.Empty;
@@ -53,6 +57,7 @@ public sealed class MainViewModel : ViewModelBase
             new BookmarkSearchService(),
             new BookmarkEditingService(),
             new BookmarkMoveService(),
+            new BookmarkDeleteService(),
             DefaultSearchDebounce)
     {
     }
@@ -66,6 +71,7 @@ public sealed class MainViewModel : ViewModelBase
             searchService,
             new BookmarkEditingService(),
             new BookmarkMoveService(),
+            new BookmarkDeleteService(),
             searchDebounce)
     {
     }
@@ -80,6 +86,7 @@ public sealed class MainViewModel : ViewModelBase
             searchService,
             editingService,
             new BookmarkMoveService(),
+            new BookmarkDeleteService(),
             searchDebounce)
     {
     }
@@ -90,6 +97,23 @@ public sealed class MainViewModel : ViewModelBase
         IBookmarkEditingService editingService,
         IBookmarkMoveService moveService,
         TimeSpan searchDebounce)
+        : this(
+            reader,
+            searchService,
+            editingService,
+            moveService,
+            new BookmarkDeleteService(),
+            searchDebounce)
+    {
+    }
+
+    internal MainViewModel(
+        IChromeBookmarksReader reader,
+        IBookmarkSearchService searchService,
+        IBookmarkEditingService editingService,
+        IBookmarkMoveService moveService,
+        IBookmarkDeleteService deleteService,
+        TimeSpan searchDebounce)
     {
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));
         _searchService = searchService
@@ -98,6 +122,8 @@ public sealed class MainViewModel : ViewModelBase
             ?? throw new ArgumentNullException(nameof(editingService));
         _moveService = moveService
             ?? throw new ArgumentNullException(nameof(moveService));
+        _deleteService = deleteService
+            ?? throw new ArgumentNullException(nameof(deleteService));
 
         if (searchDebounce < TimeSpan.Zero)
         {
@@ -131,6 +157,15 @@ public sealed class MainViewModel : ViewModelBase
         get => _selectedBookmark;
         set => SetSelectedBookmark(value);
     }
+
+    public IReadOnlyList<BookmarkUrl> SelectedBookmarks =>
+        _selectedBookmarks;
+
+    public int SelectedBookmarkCount =>
+        _selectedBookmarks.Count;
+
+    public bool HasMultipleSelectedBookmarks =>
+        _selectedBookmarks.Count > 1;
 
     public string DocumentSummaryText => _documentSummaryText;
 
@@ -177,18 +212,39 @@ public sealed class MainViewModel : ViewModelBase
         !IsPermanentRoot(SelectedFolder);
 
     public bool CanRenameSelectedBookmark =>
-        CanBrowseDocument && SelectedBookmark is not null;
+        CanBrowseDocument &&
+        SelectedBookmark is not null &&
+        !HasMultipleSelectedBookmarks;
 
     public bool CanEditSelectedBookmarkUrl =>
-        CanBrowseDocument && SelectedBookmark is not null;
+        CanBrowseDocument &&
+        SelectedBookmark is not null &&
+        !HasMultipleSelectedBookmarks;
 
     public bool CanMoveSelectedBookmark =>
-        CanBrowseDocument && SelectedBookmark is not null;
+        CanBrowseDocument &&
+        SelectedBookmark is not null &&
+        !HasMultipleSelectedBookmarks;
 
     public bool CanMoveSelectedFolder =>
         CanBrowseDocument &&
         SelectedFolder is not null &&
         !IsPermanentRoot(SelectedFolder);
+
+    public bool CanDeleteSelectedBookmarks =>
+        CanBrowseDocument &&
+        (_selectedBookmarks.Count > 0 ||
+         SelectedBookmark is not null);
+
+    public bool CanDeleteSelectedFolder =>
+        CanBrowseDocument &&
+        SelectedFolder is not null &&
+        !IsPermanentRoot(SelectedFolder);
+
+    public bool CanMoveSelectedBookmarks =>
+        CanBrowseDocument &&
+        (_selectedBookmarks.Count > 0 ||
+         SelectedBookmark is not null);
 
     public bool CanOpenBookmarks =>
         State is not DocumentState.Loading and not DocumentState.Saving;
@@ -426,6 +482,136 @@ public sealed class MainViewModel : ViewModelBase
         return true;
     }
 
+    public void UpdateSelectedBookmarks(
+        IEnumerable<BookmarkUrl> bookmarks)
+    {
+        ArgumentNullException.ThrowIfNull(bookmarks);
+
+        var requested = new HashSet<BookmarkUrl>(
+            ReferenceEqualityComparer.Instance);
+
+        foreach (var bookmark in bookmarks)
+        {
+            ArgumentNullException.ThrowIfNull(bookmark);
+            requested.Add(bookmark);
+        }
+
+        var ordered = DisplayedBookmarks
+            .Where(requested.Contains)
+            .ToArray();
+
+        SetSelectedBookmarks(ordered);
+
+        var primary =
+            _selectedBookmark is not null &&
+            ordered.Any(
+                bookmark => ReferenceEquals(
+                    bookmark,
+                    _selectedBookmark))
+                ? _selectedBookmark
+                : ordered.FirstOrDefault();
+
+        SetSelectedBookmark(primary);
+    }
+
+    public async Task<bool> DeleteSelectedBookmarksAsync()
+    {
+        var document = RequireEditableDocument();
+        var selected = GetEffectiveSelectedBookmarks();
+
+        if (selected.Count == 0)
+        {
+            return false;
+        }
+
+        var preferredFolder =
+            SelectedFolder ??
+            document.Roots.BookmarkBar;
+
+        var result = _deleteService.DeleteBookmarks(
+            document,
+            selected);
+
+        if (!result.Changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        ClearBookmarkSelection();
+
+        await RefreshProjectionsAfterEditAsync(
+                preferredFolder: preferredFolder)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> DeleteSelectedFolderAsync()
+    {
+        var document = RequireEditableDocument();
+        var folder = SelectedFolder
+            ?? throw new InvalidOperationException(
+                "Select a folder before deleting it.");
+
+        if (!CanDeleteSelectedFolder)
+        {
+            throw new InvalidOperationException(
+                "Permanent Chrome root folders cannot be deleted.");
+        }
+
+        var result = _deleteService.DeleteNode(
+            document,
+            folder);
+
+        MarkDirty();
+        ClearBookmarkSelection();
+
+        await RefreshProjectionsAfterEditAsync(
+                preferredFolder: result.SourceParent)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
+    public async Task<bool> MoveSelectedBookmarksToEndAsync(
+        BookmarkFolder targetParent)
+    {
+        ArgumentNullException.ThrowIfNull(targetParent);
+
+        var document = RequireEditableDocument();
+        var selected = GetEffectiveSelectedBookmarks();
+
+        if (selected.Count == 0)
+        {
+            return false;
+        }
+
+        var searchWasActive = IsSearchActive;
+        var selectedFolderBeforeMove = SelectedFolder;
+
+        var result = _moveService.MoveBookmarksToEnd(
+            document,
+            selected,
+            targetParent);
+
+        if (!result.Changed)
+        {
+            return false;
+        }
+
+        MarkDirty();
+        ClearBookmarkSelection();
+
+        await RefreshProjectionsAfterMoveAsync(
+                preferredFolder: searchWasActive
+                    ? selectedFolderBeforeMove
+                    : targetParent)
+            .ConfigureAwait(true);
+
+        return true;
+    }
+
     public async Task<bool> MoveBookmarkToEndAsync(
         BookmarkUrl bookmark,
         BookmarkFolder targetParent)
@@ -621,6 +807,7 @@ public sealed class MainViewModel : ViewModelBase
             _selectedFolderItem.IsSelected = false;
         }
 
+        ClearBookmarkSelection();
         _selectedFolderItem = item;
 
         if (item is null)
@@ -897,6 +1084,9 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanEditSelectedBookmarkUrl));
         OnPropertyChanged(nameof(CanMoveSelectedBookmark));
         OnPropertyChanged(nameof(CanMoveSelectedFolder));
+        OnPropertyChanged(nameof(CanDeleteSelectedBookmarks));
+        OnPropertyChanged(nameof(CanDeleteSelectedFolder));
+        OnPropertyChanged(nameof(CanMoveSelectedBookmarks));
     }
 
     private void BuildBrowserState(BookmarkDocument document)
@@ -949,7 +1139,7 @@ public sealed class MainViewModel : ViewModelBase
         _folderLookup.Clear();
         SetFolderRoots(Array.Empty<FolderTreeItemViewModel>());
         SetSelectedFolder(null);
-        SetSelectedBookmark(null);
+        ClearBookmarkSelection();
         SetCurrentBookmarks(Array.Empty<BookmarkUrl>());
         SetDocumentSummaryText(string.Empty);
         SetSelectionSummaryText(string.Empty);
@@ -963,6 +1153,7 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         _searchText = value;
+        ClearBookmarkSelection();
         OnPropertyChanged(nameof(SearchText));
         OnPropertyChanged(nameof(IsSearchActive));
         OnPropertyChanged(nameof(DisplayedBookmarks));
@@ -996,6 +1187,7 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         _searchScope = value;
+        ClearBookmarkSelection();
         OnPropertyChanged(nameof(SearchScope));
 
         if (IsSearchActive)
@@ -1279,6 +1471,67 @@ public sealed class MainViewModel : ViewModelBase
         _selectedBookmark = value;
         OnPropertyChanged(nameof(SelectedBookmark));
         NotifyEditingAvailabilityChanged();
+    }
+
+    private void SetSelectedBookmarks(
+        IReadOnlyList<BookmarkUrl> value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (ReferenceSequenceEqual(
+                _selectedBookmarks,
+                value))
+        {
+            return;
+        }
+
+        _selectedBookmarks = value;
+        OnPropertyChanged(nameof(SelectedBookmarks));
+        OnPropertyChanged(nameof(SelectedBookmarkCount));
+        OnPropertyChanged(nameof(HasMultipleSelectedBookmarks));
+        NotifyEditingAvailabilityChanged();
+    }
+
+    private IReadOnlyList<BookmarkUrl>
+        GetEffectiveSelectedBookmarks()
+    {
+        if (_selectedBookmarks.Count > 0)
+        {
+            return _selectedBookmarks;
+        }
+
+        return _selectedBookmark is null
+            ? Array.Empty<BookmarkUrl>()
+            : new[] { _selectedBookmark };
+    }
+
+    private void ClearBookmarkSelection()
+    {
+        SetSelectedBookmarks(
+            Array.Empty<BookmarkUrl>());
+        SetSelectedBookmark(null);
+    }
+
+    private static bool ReferenceSequenceEqual(
+        IReadOnlyList<BookmarkUrl> left,
+        IReadOnlyList<BookmarkUrl> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < left.Count; index++)
+        {
+            if (!ReferenceEquals(
+                    left[index],
+                    right[index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void SetDocumentSummaryText(string value)

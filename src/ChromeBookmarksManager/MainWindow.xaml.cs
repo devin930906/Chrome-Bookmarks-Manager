@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Chrome;
@@ -90,6 +91,19 @@ public partial class MainWindow : Window
         RoutedPropertyChangedEventArgs<object> e)
     {
         ViewModel.SelectFolder(e.NewValue as FolderTreeItemViewModel);
+    }
+
+    private void BookmarksList_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        viewModel.UpdateSelectedBookmarks(
+            BookmarksList.SelectedItems.OfType<BookmarkUrl>());
     }
 
     private void FolderTree_PreviewMouseLeftButtonDown(
@@ -246,7 +260,12 @@ public partial class MainWindow : Window
 
         if (item is not null)
         {
-            item.IsSelected = true;
+            if (!item.IsSelected)
+            {
+                BookmarksList.UnselectAll();
+                item.IsSelected = true;
+            }
+
             item.Focus();
         }
     }
@@ -551,6 +570,20 @@ public partial class MainWindow : Window
         await MoveBookmarkFromUiAsync();
     }
 
+    private async void DeleteSelectedBookmarks_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await DeleteSelectedBookmarksFromUiAsync();
+    }
+
+    private async void DeleteSelectedFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await DeleteSelectedFolderFromUiAsync();
+    }
+
     private async Task AddBookmarkFromUiAsync()
     {
         if (!ViewModel.CanAddBookmark)
@@ -734,14 +767,16 @@ public partial class MainWindow : Window
 
     private async Task MoveBookmarkFromUiAsync()
     {
-        if (!ViewModel.CanMoveSelectedBookmark ||
-            ViewModel.SelectedBookmark is not { } bookmark ||
+        var selectedBookmarks = GetSelectedBookmarks();
+
+        if (!ViewModel.CanMoveSelectedBookmarks ||
+            selectedBookmarks.Count == 0 ||
             ViewModel.Document is not { } document)
         {
             return;
         }
 
-        var dialog = CreateMoveDialog(document, bookmark);
+        var dialog = CreateMoveDialog(document, selectedBookmarks[0]);
         if (dialog.ShowDialog() != true ||
             dialog.SelectedTarget is not { } target)
         {
@@ -750,7 +785,16 @@ public partial class MainWindow : Window
 
         try
         {
-            await ViewModel.MoveBookmarkToEndAsync(bookmark, target);
+            if (selectedBookmarks.Count == 1)
+            {
+                await ViewModel.MoveBookmarkToEndAsync(
+                    selectedBookmarks[0],
+                    target);
+            }
+            else
+            {
+                await ViewModel.MoveSelectedBookmarksToEndAsync(target);
+            }
         }
         catch (BookmarkMoveException exception)
         {
@@ -815,9 +859,187 @@ public partial class MainWindow : Window
             MessageBoxImage.Warning);
     }
 
+    private void ShowDeleteError(BookmarkDeleteException exception)
+    {
+        MessageBox.Show(
+            this,
+            exception.Message,
+            "Delete bookmark item",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
+
+    private async Task DeleteSelectedBookmarksFromUiAsync()
+    {
+        if (!ViewModel.CanDeleteSelectedBookmarks)
+        {
+            return;
+        }
+
+        var selectedBookmarks = GetSelectedBookmarks();
+        if (selectedBookmarks.Count == 0)
+        {
+            return;
+        }
+
+        var targetDescription = selectedBookmarks.Count == 1
+            ? $"Delete bookmark \"{selectedBookmarks[0].Name}\"?"
+            : $"Delete {selectedBookmarks.Count:N0} selected bookmarks?";
+        var removalSubject = selectedBookmarks.Count == 1
+            ? "This bookmark"
+            : "These bookmarks";
+        var confirmation =
+            $"{targetDescription}\n\n" +
+            $"{removalSubject} will be removed from the currently loaded in-memory document only.\n" +
+            "V0.7 has no Save or write-back path; the source Chrome Bookmarks file remains unchanged.";
+
+        if (!ConfirmDestructiveOperation(
+                "Confirm bookmark deletion",
+                confirmation))
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.DeleteSelectedBookmarksAsync();
+        }
+        catch (BookmarkDeleteException exception)
+        {
+            ShowDeleteError(exception);
+        }
+    }
+
+    private async Task DeleteSelectedFolderFromUiAsync()
+    {
+        if (!ViewModel.CanDeleteSelectedFolder ||
+            ViewModel.SelectedFolder is not { } folder)
+        {
+            return;
+        }
+
+        var (bookmarkCount, folderCount) = CountFolderDescendants(folder);
+        var bookmarkSummary = bookmarkCount == 1
+            ? "1 bookmark"
+            : $"{bookmarkCount:N0} bookmarks";
+        var folderSummary = folderCount == 1
+            ? "1 nested folder"
+            : $"{folderCount:N0} nested folders";
+        var confirmation =
+            $"Delete folder \"{folder.Name}\" and its entire subtree?\n\n" +
+            $"This includes {bookmarkSummary} and {folderSummary}.\n\n" +
+            "The subtree will be removed from the currently loaded in-memory document only.\n" +
+            "V0.7 has no Save or write-back path; the source Chrome Bookmarks file remains unchanged.";
+
+        if (!ConfirmDestructiveOperation(
+                "Confirm folder deletion",
+                confirmation))
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.DeleteSelectedFolderAsync();
+        }
+        catch (BookmarkDeleteException exception)
+        {
+            ShowDeleteError(exception);
+        }
+    }
+
+    private bool ConfirmDestructiveOperation(
+        string title,
+        string message)
+    {
+        return MessageBox.Show(
+                this,
+                message,
+                title,
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning,
+                MessageBoxResult.Cancel) == MessageBoxResult.Yes;
+    }
+
+    private IReadOnlyList<BookmarkUrl> GetSelectedBookmarks()
+    {
+        if (ViewModel.SelectedBookmarks.Count > 0)
+        {
+            return ViewModel.SelectedBookmarks;
+        }
+
+        return ViewModel.SelectedBookmark is { } bookmark
+            ? new[] { bookmark }
+            : Array.Empty<BookmarkUrl>();
+    }
+
+    private static (int BookmarkCount, int FolderCount)
+        CountFolderDescendants(BookmarkFolder folder)
+    {
+        var bookmarkCount = 0;
+        var folderCount = 0;
+        var pending = new Stack<BookmarkNode>(folder.Children);
+
+        while (pending.TryPop(out var descendant))
+        {
+            switch (descendant)
+            {
+                case BookmarkUrl:
+                    bookmarkCount++;
+                    break;
+
+                case BookmarkFolder childFolder:
+                    folderCount++;
+                    foreach (var child in childFolder.Children)
+                    {
+                        pending.Push(child);
+                    }
+
+                    break;
+            }
+        }
+
+        return (bookmarkCount, folderCount);
+    }
+
     private async void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var modifiers = Keyboard.Modifiers;
+
+        if (e.Key == Key.A &&
+            modifiers == ModifierKeys.Control &&
+            BookmarksList.IsKeyboardFocusWithin)
+        {
+            BookmarksList.SelectAll();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Delete &&
+            modifiers == ModifierKeys.None)
+        {
+            if (BookmarksList.IsKeyboardFocusWithin)
+            {
+                e.Handled = true;
+                if (ViewModel.CanDeleteSelectedBookmarks)
+                {
+                    await DeleteSelectedBookmarksFromUiAsync();
+                }
+
+                return;
+            }
+
+            if (FolderTree.IsKeyboardFocusWithin)
+            {
+                e.Handled = true;
+                if (ViewModel.CanDeleteSelectedFolder)
+                {
+                    await DeleteSelectedFolderFromUiAsync();
+                }
+
+                return;
+            }
+        }
 
         if (e.Key == Key.B &&
             modifiers == (ModifierKeys.Control | ModifierKeys.Shift))

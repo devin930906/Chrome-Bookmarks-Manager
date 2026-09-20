@@ -1,0 +1,373 @@
+using System.Text.Json;
+using ChromeBookmarksManager.Application;
+using ChromeBookmarksManager.Application.Search;
+using ChromeBookmarksManager.Chrome;
+using ChromeBookmarksManager.Domain;
+using ChromeBookmarksManager.ViewModels;
+
+namespace ChromeBookmarksManager.Tests.Deleting;
+
+public sealed class MainViewModelDeleteTests
+{
+    [Fact]
+    public void Constructor_DeleteAndBatchCapabilitiesStartDisabled()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+
+        Assert.Empty(viewModel.SelectedBookmarks);
+        Assert.Equal(0, viewModel.SelectedBookmarkCount);
+        Assert.False(viewModel.HasMultipleSelectedBookmarks);
+        Assert.False(viewModel.CanDeleteSelectedBookmarks);
+        Assert.False(viewModel.CanDeleteSelectedFolder);
+        Assert.False(viewModel.CanMoveSelectedBookmarks);
+    }
+
+    [Fact]
+    public async Task MultiSelection_IsNormalizedToDisplayedOrderAndDisablesAmbiguousEditing()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        viewModel.UpdateSelectedBookmarks(
+            new[]
+            {
+                fixture.BarSecond,
+                fixture.BarFirst,
+                fixture.BarSecond
+            });
+
+        Assert.Equal(
+            new[] { fixture.BarFirst, fixture.BarSecond },
+            viewModel.SelectedBookmarks);
+        Assert.Equal(2, viewModel.SelectedBookmarkCount);
+        Assert.True(viewModel.HasMultipleSelectedBookmarks);
+        Assert.True(viewModel.CanDeleteSelectedBookmarks);
+        Assert.True(viewModel.CanMoveSelectedBookmarks);
+        Assert.False(viewModel.CanRenameSelectedBookmark);
+        Assert.False(viewModel.CanEditSelectedBookmarkUrl);
+        Assert.False(viewModel.CanMoveSelectedBookmark);
+    }
+
+    [Fact]
+    public async Task DeleteSelectedBookmarks_RebuildsIndexMarksDirtyAndClearsSelection()
+    {
+        var fixture = CreateFixture();
+        var search = new CountingSearchService();
+        var viewModel = CreateViewModel(fixture.Document, search);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        Assert.Equal(1, search.BuildIndexCalls);
+
+        viewModel.UpdateSelectedBookmarks(
+            new[] { fixture.BarFirst, fixture.BarSecond });
+
+        var changed = await viewModel.DeleteSelectedBookmarksAsync();
+
+        Assert.True(changed);
+        Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal(2, search.BuildIndexCalls);
+        Assert.Empty(viewModel.SelectedBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+        Assert.Empty(viewModel.CurrentBookmarks);
+        Assert.Equal("3 URLs | 4 folders", viewModel.DocumentSummaryText);
+        Assert.Equal(3, fixture.Document.UrlCount);
+    }
+
+    [Fact]
+    public async Task DeleteSelectedSearchResult_RemovesItFromActiveSearch()
+    {
+        var fixture = CreateFixture();
+        var search = new CountingSearchService();
+        var viewModel = CreateViewModel(fixture.Document, search);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        viewModel.SearchText = "https://example.com/first";
+        await viewModel.WaitForPendingSearchAsync();
+        var result = Assert.Single(viewModel.SearchResults);
+        viewModel.UpdateSelectedBookmarks(new[] { result });
+
+        var changed = await viewModel.DeleteSelectedBookmarksAsync();
+        await viewModel.WaitForPendingSearchAsync();
+
+        Assert.True(changed);
+        Assert.True(viewModel.IsSearchActive);
+        Assert.Empty(viewModel.SearchResults);
+        Assert.Equal(2, search.BuildIndexCalls);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.Empty(viewModel.SelectedBookmarks);
+    }
+
+    [Fact]
+    public async Task DeleteSelectedFolder_SelectsOriginalParentAndRebuildsIndex()
+    {
+        var fixture = CreateFixture();
+        var search = new CountingSearchService();
+        var viewModel = CreateViewModel(fixture.Document, search);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var childItem = Assert.Single(viewModel.FolderRoots[0].Children);
+        viewModel.SelectFolder(childItem);
+        Assert.Same(fixture.ChildFolder, viewModel.SelectedFolder);
+        Assert.True(viewModel.CanDeleteSelectedFolder);
+
+        var changed = await viewModel.DeleteSelectedFolderAsync();
+
+        Assert.True(changed);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal(2, search.BuildIndexCalls);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.Empty(viewModel.FolderRoots[0].Children);
+        Assert.Equal("4 URLs | 3 folders", viewModel.DocumentSummaryText);
+        Assert.Equal(4, fixture.Document.UrlCount);
+        Assert.Equal(3, fixture.Document.FolderCount);
+    }
+
+    [Fact]
+    public async Task PermanentRoot_DeleteRemainsDisabledAndRejected()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.False(viewModel.CanDeleteSelectedFolder);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => viewModel.DeleteSelectedFolderAsync());
+
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+    }
+
+    [Fact]
+    public async Task MoveSelectedBookmarksToEnd_UsesDisplayOrderWithoutIndexRebuild()
+    {
+        var fixture = CreateFixture();
+        var search = new CountingSearchService();
+        var viewModel = CreateViewModel(fixture.Document, search);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        viewModel.UpdateSelectedBookmarks(
+            new[]
+            {
+                fixture.BarSecond,
+                fixture.BarFirst
+            });
+
+        var changed = await viewModel.MoveSelectedBookmarksToEndAsync(
+            fixture.Other);
+
+        Assert.True(changed);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal(1, search.BuildIndexCalls);
+        Assert.Empty(viewModel.SelectedBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+        Assert.Same(fixture.Other, viewModel.SelectedFolder);
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.OtherFirst,
+                fixture.OtherSecond,
+                fixture.BarFirst,
+                fixture.BarSecond
+            },
+            fixture.Other.Children);
+    }
+
+    [Fact]
+    public async Task BatchMoveAlreadyAtEnd_IsNoOpAndDoesNotDirty()
+    {
+        var fixture = CreateFixture();
+        var search = new CountingSearchService();
+        var viewModel = CreateViewModel(fixture.Document, search);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        viewModel.SelectFolder(viewModel.FolderRoots[1]);
+
+        viewModel.UpdateSelectedBookmarks(
+            new[]
+            {
+                fixture.OtherFirst,
+                fixture.OtherSecond
+            });
+
+        var changed = await viewModel.MoveSelectedBookmarksToEndAsync(
+            fixture.Other);
+
+        Assert.False(changed);
+        Assert.False(viewModel.IsDirty);
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Equal(1, search.BuildIndexCalls);
+        Assert.Equal(2, viewModel.SelectedBookmarkCount);
+    }
+
+    [Fact]
+    public async Task FolderAndSearchChanges_ClearBatchSelection()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        viewModel.UpdateSelectedBookmarks(
+            new[] { fixture.BarFirst, fixture.BarSecond });
+        Assert.Equal(2, viewModel.SelectedBookmarkCount);
+
+        viewModel.SearchText = "example.com";
+        Assert.Empty(viewModel.SelectedBookmarks);
+
+        viewModel.SearchText = string.Empty;
+        viewModel.UpdateSelectedBookmarks(
+            new[] { fixture.BarFirst, fixture.BarSecond });
+        viewModel.SelectFolder(viewModel.FolderRoots[1]);
+
+        Assert.Empty(viewModel.SelectedBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+    }
+
+    private static MainViewModel CreateViewModel(
+        BookmarkDocument document,
+        IBookmarkSearchService? searchService = null) =>
+        new(
+            new DelegateReader((_, _) => Task.FromResult(document)),
+            searchService ?? new BookmarkSearchService(),
+            TimeSpan.Zero);
+
+    private static Fixture CreateFixture()
+    {
+        var barFirst = Url("10", "First", "https://example.com/first");
+        var nested = Url("12", "Nested", "https://example.com/nested");
+        var childFolder = Folder("20", "Child folder", nested);
+        var barSecond = Url("11", "Second", "https://example.com/second");
+        var bookmarkBar = Folder(
+            "1",
+            "Bookmarks bar",
+            barFirst,
+            childFolder,
+            barSecond);
+
+        var otherFirst = Url("13", "Other first", "https://other.example/first");
+        var otherSecond = Url("14", "Other second", "https://other.example/second");
+        var other = Folder(
+            "2",
+            "Other bookmarks",
+            otherFirst,
+            otherSecond);
+        var synced = Folder("3", "Mobile bookmarks");
+
+        var document = new BookmarkDocument(
+            1,
+            null,
+            null,
+            new BookmarkRoots(
+                bookmarkBar,
+                other,
+                synced,
+                EmptyProperties),
+            EmptyProperties);
+
+        return new Fixture(
+            document,
+            bookmarkBar,
+            other,
+            synced,
+            childFolder,
+            barFirst,
+            barSecond,
+            nested,
+            otherFirst,
+            otherSecond);
+    }
+
+    private static BookmarkFolder Folder(
+        string id,
+        string name,
+        params BookmarkNode[] children) =>
+        new(
+            id,
+            GuidFor(int.Parse(id)),
+            name,
+            null,
+            null,
+            null,
+            null,
+            EmptyProperties,
+            children);
+
+    private static BookmarkUrl Url(
+        string id,
+        string name,
+        string url) =>
+        new(
+            id,
+            GuidFor(int.Parse(id)),
+            name,
+            url,
+            null,
+            null,
+            null,
+            null,
+            EmptyProperties);
+
+    private static Guid GuidFor(int value)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        BitConverter.TryWriteBytes(bytes, value);
+        bytes[7] = 0x40;
+        bytes[8] = 0x80;
+        return new Guid(bytes);
+    }
+
+    private sealed class DelegateReader(
+        Func<string, CancellationToken, Task<BookmarkDocument>> read)
+        : IChromeBookmarksReader
+    {
+        public Task<BookmarkDocument> ReadFileAsync(
+            string path,
+            CancellationToken cancellationToken = default) =>
+            read(path, cancellationToken);
+    }
+
+    private sealed class CountingSearchService : IBookmarkSearchService
+    {
+        private readonly BookmarkSearchService _inner = new();
+
+        public int BuildIndexCalls { get; private set; }
+
+        public Task<BookmarkSearchIndex> BuildIndexAsync(
+            BookmarkDocument document,
+            CancellationToken cancellationToken)
+        {
+            BuildIndexCalls++;
+            return _inner.BuildIndexAsync(document, cancellationToken);
+        }
+
+        public Task<IReadOnlyList<BookmarkUrl>> SearchAsync(
+            BookmarkSearchIndex index,
+            string query,
+            BookmarkSearchScope scope,
+            BookmarkFolder? currentFolder,
+            CancellationToken cancellationToken) =>
+            _inner.SearchAsync(
+                index,
+                query,
+                scope,
+                currentFolder,
+                cancellationToken);
+    }
+
+    private sealed record Fixture(
+        BookmarkDocument Document,
+        BookmarkFolder BookmarkBar,
+        BookmarkFolder Other,
+        BookmarkFolder Synced,
+        BookmarkFolder ChildFolder,
+        BookmarkUrl BarFirst,
+        BookmarkUrl BarSecond,
+        BookmarkUrl Nested,
+        BookmarkUrl OtherFirst,
+        BookmarkUrl OtherSecond);
+
+    private static readonly IReadOnlyDictionary<string, JsonElement>
+        EmptyProperties = new Dictionary<string, JsonElement>();
+}

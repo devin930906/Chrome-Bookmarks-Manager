@@ -86,6 +86,37 @@ public sealed class BookmarkDocument
         return guid;
     }
 
+    internal void RecordRemovedSubtree(
+        int removedUrlCount,
+        int removedFolderCount)
+    {
+        if (removedUrlCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(removedUrlCount),
+                removedUrlCount,
+                "Removed URL count cannot be negative.");
+        }
+
+        if (removedFolderCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(removedFolderCount),
+                removedFolderCount,
+                "Removed folder count cannot be negative.");
+        }
+
+        if (removedUrlCount > UrlCount ||
+            removedFolderCount > FolderCount)
+        {
+            throw new InvalidOperationException(
+                "Removing the requested subtree would make bookmark document counts negative.");
+        }
+
+        UrlCount -= removedUrlCount;
+        FolderCount -= removedFolderCount;
+    }
+
     internal void RecordAddedNode(BookmarkNode node)
     {
         ArgumentNullException.ThrowIfNull(node);

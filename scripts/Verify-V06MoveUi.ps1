@@ -70,7 +70,8 @@ if (Require-File $dialogXaml) {
 
     Require-Text $dialog 'x:Name="TargetTree"' "Move dialog must contain a stable TargetTree."
     Require-Text $dialog 'ItemsSource="{Binding Roots}"' "Move dialog TreeView must bind to destination roots."
-    Require-Text $dialog 'IsEnabled="{Binding IsValidTarget}"' "Invalid move destinations must be disabled."
+    Require-Text $dialog '<Setter Property="IsEnabled"' "Move dialog must control TreeViewItem enablement."
+    Require-Text $dialog 'Value="{Binding IsValidTarget}"' "Invalid move destinations must be disabled."
     Require-Text $dialog 'IsDefault="True"' "Move dialog must provide an Enter/default action."
     Require-Text $dialog 'IsCancel="True"' "Move dialog must provide an Escape/cancel action."
 }

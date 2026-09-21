@@ -4,9 +4,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Pre-release — V0.8 Undo / Redo completed**
+**Pre-release — V0.9 Safe Chrome Write completed**
 
-V0.8 adds reversible in-memory command history across the completed V0.5 editing, V0.6 movement, and V0.7 delete/batch mutation surfaces. Automated validation, Windows 10 owner acceptance, PR #8 merge, and post-merge main verification are complete.
+V0.9 adds the first guarded persistence path for Chrome's native clear-text `Bookmarks` file. Automated safety/scale validation, disposable-profile Chrome compatibility, Windows 10 production owner acceptance, PR #9 merge, and post-merge `main` verification are complete. The next milestone is V1.0 — Stable personal-use release.
 
 The current application supports:
 
@@ -16,7 +16,7 @@ The current application supports:
 - exact bookmark and folder counts
 - raw Chrome timestamp strings
 - `meta_info` in object or legacy serialized-string form
-- `checksum` and `checksum_sha256` as read-only metadata
+- Chromium-compatible `checksum` and `checksum_sha256` parsing plus regeneration during explicit Safe Save
 - retention of unsupported/unknown JSON properties in memory
 - typed validation failures for malformed or structurally unsafe data
 - asynchronous file loading and cancellation
@@ -54,16 +54,16 @@ The current application supports:
 - delete confirmation defaults to Cancel and folder confirmation reports recursive URL/folder counts
 - named V0.7 DeleteBatchScale verification for a 10,000-bookmark batch, a 10,000-bookmark folder subtree, active-search rebuild, and 1,000 synthetic folders in normal CI
 - V0.7 production-source safety gate rejects file-write/write-back primitives and File.Delete
-- V0.5–V0.8 batch edits were intentionally in-memory only; V0.9 adds an explicit guarded Save path on this pre-release branch
+- V0.5–V0.8 mutations remain in memory until the user explicitly invokes the V0.9 guarded Save path
 - V0.8 bounded 200-operation Undo/Redo history spans add, rename, URL edit, move/reorder, batch move, single/batch delete, and recursive folder delete
 - Undo/Redo preserves original node identity, exact mixed-child placement, document counts, and search/index coherence
 - Undoing all reachable changes back to the loaded baseline returns the document to clean state; a divergent new edit clears the redo branch
 - Undo is available through Ctrl+Z; Redo through Ctrl+Y or Ctrl+Shift+Z, with visible menu/toolbar controls
 - V0.8 history remains graph-local and in memory; it does not serialize or write the Chrome source file
 
-V0.5 editing, V0.6 movement, V0.7 deletion/batch operations, and V0.8 Undo/Redo were intentionally in-memory-only milestones. On this V0.9 pre-release branch, those changes can now be persisted only through the explicit guarded Save flow described below; automatic write-back and repair remain unavailable.
+V0.5 editing, V0.6 movement, V0.7 deletion/batch operations, and V0.8 Undo/Redo were intentionally in-memory-only milestones. V0.9 can now persist those changes through an explicit guarded Save flow; automatic write-back and repair remain unavailable.
 
-**Production-profile approval remains disabled.** V0.9 Save is test-profile-only until the disposable Chrome compatibility gate and Windows 10 production-owner acceptance pass. Do not use the real Chrome profile yet.
+**V0.9 production-owner acceptance is complete.** Direct Save to the owner's production Chrome `Bookmarks` file passed independent-backup verification, Chrome read/rewrite compatibility, second-save verification, Undo/Redo clean-checkpoint validation, Chrome-running blocking, and stale-source conflict blocking on Windows 10.
 
 ## Target
 
@@ -80,7 +80,7 @@ Real Chrome `Bookmarks` files are private user data and must never be committed 
 
 Only synthetic fixtures under `samples/` are permitted in Git. Generated scale data use reserved example domains and do not contain the owner's real bookmark titles, URLs, queries, or raw file contents.
 
-V0.5–V0.8 editing/move/delete/history operations were intentionally in-memory only. On the V0.9 pre-release branch, search, editing, Move to..., Drag & Drop, Delete, Undo, and Redo still never write automatically; only an explicit Save enters the guarded persistence transaction. That Save path remains approved only for disposable/test profiles until the V0.9 compatibility and production-owner gates pass.
+V0.5–V0.8 editing/move/delete/history operations were intentionally in-memory only. In V0.9, search, editing, Move to..., Drag & Drop, Delete, Undo, and Redo still never write automatically; only an explicit Save enters the guarded persistence transaction. The V0.9 Save path completed disposable-profile compatibility and Windows 10 production-owner acceptance on 2026-09-21.
 
 ## Build
 
@@ -407,9 +407,9 @@ V0.8 implementation now covers the core history engine, reversible mutation entr
 
 
 
-## V0.9 Safe Chrome Write — pre-release safety status
+## V0.9 Safe Chrome Write — completed
 
-V0.9 introduces the first explicit write-back path to the loaded clear-text Chrome `Bookmarks` file. **This branch is still pre-release and test-profile-only until the disposable Chrome profile compatibility gate and Windows 10 production owner acceptance are completed.**
+V0.9 introduces the first explicit write-back path to the loaded clear-text Chrome `Bookmarks` file. Automated validation, disposable Chrome profile compatibility, Windows 10 production owner acceptance, PR #9 merge, and post-merge `main` verification are complete.
 
 The Save path is intentionally conservative:
 
@@ -462,11 +462,22 @@ Remove-Item Env:CBM_WRITE_URL_COUNT
 
 Timing and memory values are diagnostic evidence, not correctness thresholds.
 
-### Do not use the production Chrome profile yet
+### V0.9 production acceptance
 
-Before production-profile acceptance, V0.9 must first pass the disposable Chrome test-profile sequence in the implementation plan: save synthetic bookmarks, open the result in Chrome, let Chrome rewrite the file, reload it in the app, verify Unicode/nesting/checksums, and repeat the save cycle. Only after that gate passes will production owner acceptance begin with an independent external backup of the real `Bookmarks` file.
+Windows 10 production owner acceptance passed on 2026-09-21 after the disposable Chrome compatibility gate passed.
 
-No real bookmark titles, URLs, raw private `Bookmarks` files, backups, test-profile private data, or screenshots containing private bookmark data may be committed or uploaded.
+- an independent external backup was created outside the Chrome profile and verified against the exact pre-save source;
+- the first controlled production Save created an application backup matching the pre-save source and produced valid JSON/checksum fields;
+- normal Chrome opened the application-written production file without corruption/recovery warnings and successfully rewrote it;
+- the application reopened Chrome's rewritten file and the second controlled Save verified its backup against the Chrome rewrite baseline;
+- Undo after Save became dirty and Redo back to the saved checkpoint became clean;
+- Save was blocked while Chrome was running;
+- stale-source overwrite was blocked using an externally modified synthetic copy rather than the live production file;
+- no private bookmark titles, URLs, raw private `Bookmarks` files, backups, or screenshots containing private bookmark data were committed or uploaded;
+- PR #9 merged to `main` as `bc8ed044973dfc677266f63dfceaf0ced94c476b`;
+- post-merge `main` Actions #285 completed successfully with the complete Windows pipeline.
+
+The application still does not write automatically: production persistence occurs only through explicit Save and remains subject to the Chrome-process, source-baseline, verified-backup, atomic-replace, and post-write validation gates.
 
 ## Roadmap
 
@@ -478,8 +489,8 @@ No real bookmark titles, URLs, raw private `Bookmarks` files, backups, test-prof
 - **V0.6 — Move / Drag & Drop: completed** — bookmark/folder Move to..., reorder, Drag & Drop, hierarchy protection, MoveScale, no-write safety gates, Windows 10 owner acceptance, PR #6 merge, and post-merge verification complete
 - **V0.7 — Delete / Batch: completed** — single and recursive deletion, bookmark multi-selection, batch delete/Move to..., DeleteBatchScale, no-write/no-file-delete safety, Windows 10 owner acceptance, PR #7 merge, and post-merge verification complete
 - **V0.8 — Undo / Redo: completed** — bounded reversible command history covers V0.5–V0.7 mutations with history-position dirty state and Ctrl+Z/Ctrl+Y/Ctrl+Shift+Z; automated validation, whole-branch review, Windows 10 owner acceptance, PR #8 merge, and post-merge verification are complete
-- **V0.9 — Safe Chrome Write: in development / test-profile-only** — checksum, deterministic writer, external-change detection, Chrome-process guard, verified backup, atomic replace, Save UI, persistence safety/scale gates, then disposable-profile and production owner acceptance
-- **V1.0 — Stable personal-use release**
+- **V0.9 — Safe Chrome Write: completed** — Chromium-compatible checksums, deterministic writer, external-change detection, Chrome-process guard, verified backup, atomic replace, explicit Save UI, persistence safety/scale gates, disposable-profile compatibility, Windows 10 production owner acceptance, PR #9 merge, and post-merge verification complete
+- **V1.0 — Stable personal-use release: next milestone**
 
 ## Design and implementation documents
 

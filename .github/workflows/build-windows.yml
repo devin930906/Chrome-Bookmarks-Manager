@@ -49,6 +49,7 @@ jobs:
             throw "Version mismatch failed for an unexpected reason: $text"
           }
           Write-Host "Mismatched release tag correctly rejected."
+          exit 0
 
       - name: Restore
         shell: pwsh

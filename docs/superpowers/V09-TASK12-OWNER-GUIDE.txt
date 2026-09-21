@@ -1,0 +1,191 @@
+ChromeBookmarksManager V0.9 — Task 12 Disposable Chrome Profile Acceptance Guide
+
+PURPOSE
+This gate proves that V0.9 can safely save a Chrome Bookmarks file that Chrome itself can open and rewrite.
+It MUST use a disposable synthetic Chrome profile. Do NOT use your real Chrome profile in Task 12.
+
+WHAT IS IN THIS TEST KIT
+- ChromeBookmarksManager.exe
+- V09-Task12DisposableProfile.ps1
+- V09-TASK12-OWNER-GUIDE.txt
+
+SAFETY RULES
+1. Do not sign in to Google in the disposable profile.
+2. Do not enable Chrome Sync in the disposable profile.
+3. Use only synthetic bookmark names and URLs.
+4. Close every chrome.exe process before each app Save or integrity verification step.
+5. Do not point the helper at your normal Chrome User Data directory.
+6. Do not proceed to production Task 13 unless every Task 12 check passes.
+
+DEFAULT DISPOSABLE PROFILE
+%TEMP%\ChromeBookmarksManager-V09-Task12
+
+STEP 1 — CREATE THE DISPOSABLE CHROME PROFILE
+Open PowerShell in the extracted test-kit folder and run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task12DisposableProfile.ps1 -Mode Prepare
+
+Chrome opens with an isolated --user-data-dir under TEMP.
+
+Inside this disposable Chrome profile, create synthetic data such as:
+- Bookmark: CBM测试-中文-星标
+  URL: https://example.com/alpha
+- Folder: 测试文件夹A
+- Nested folder: 嵌套文件夹B
+- Bookmark inside nested folder:
+  URL: https://example.org/test?lang=zh
+- Add at least one more bookmark so reordering can be tested.
+
+Do not sign in. Do not enable Sync.
+
+Close ALL Chrome windows/processes when finished.
+
+STEP 2 — CAPTURE THE PRE-SAVE BASELINE
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task12DisposableProfile.ps1 -Mode CapturePreSave
+
+The helper prints:
+- BookmarksPath
+- SHA256
+- Length
+- LastWriteTimeUtc
+
+The baseline is also stored only inside the disposable profile.
+
+STEP 3 — FIRST APP EDIT/SAVE
+Open ChromeBookmarksManager.exe.
+
+Load exactly the BookmarksPath printed in Step 2.
+
+Perform the Task 12 editing sequence using only synthetic data:
+1. add a synthetic bookmark;
+2. add a nested folder;
+3. rename a bookmark or folder;
+4. edit one URL;
+5. reorder within the same folder;
+6. move an item across folders;
+7. delete one item;
+8. test Undo;
+9. test Redo;
+10. Save.
+
+Expected:
+- Save succeeds.
+- App reports that a verified backup was created.
+- The document becomes clean after Save.
+- The app remains usable.
+
+Close ChromeBookmarksManager before the next helper phase if desired.
+Make sure Chrome itself is NOT running.
+
+STEP 4 — VERIFY FIRST APP SAVE
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task12DisposableProfile.ps1 -Mode VerifyAppSave
+
+Required automated PASS values:
+- BackupMatchesPreSave=True
+- SavedFileJsonValid=True
+- HasChecksum=True
+- HasChecksumSha256=True
+
+SavedFileChangedFromBaseline should normally be True because you deliberately changed the test data.
+
+If this phase throws an error or any required value is False:
+STOP. Task 12 failed. Do not touch the production profile.
+
+STEP 5 — OPEN THE APP-SAVED FILE IN REAL CHROME
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task12DisposableProfile.ps1 -Mode LaunchChrome
+
+Chrome again opens ONLY the disposable profile.
+
+Verify visually:
+- all expected app-made changes appear;
+- folder hierarchy is correct;
+- same-folder order is correct;
+- cross-folder move is correct;
+- deleted item is absent;
+- Chinese/Unicode bookmark titles display correctly;
+- Chrome shows no corruption/recovery warning.
+
+Then make ONE additional synthetic bookmark change directly inside Chrome.
+
+Close ALL Chrome windows/processes.
+
+STEP 6 — CAPTURE CHROME'S REWRITE
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task12DisposableProfile.ps1 -Mode CapturePostChrome
+
+Expected:
+- the helper accepts Chrome's rewritten Bookmarks file;
+- JSON is structurally valid;
+- a new post-Chrome baseline is recorded.
+
+STEP 7 — SECOND APP LOAD/SAVE
+Open ChromeBookmarksManager.exe again.
+
+Load the same disposable Bookmarks file.
+
+Required visual checks:
+- it loads normally;
+- Chrome's additional change is visible;
+- no corruption or recovery warning appears.
+
+Make ONE small synthetic app edit and Save again.
+
+Expected:
+- Save succeeds;
+- the file remains readable;
+- a new verified application backup is created.
+
+Close Chrome if it was opened separately. Chrome must not be running for the verification helper.
+
+STEP 8 — VERIFY SECOND APP SAVE
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task12DisposableProfile.ps1 -Mode VerifySecondSave
+
+Required automated PASS values:
+- BackupMatchesChromeRewrite=True
+- SavedFileJsonValid=True
+- HasChecksum=True
+- HasChecksumSha256=True
+
+SavedFileChangedFromChromeBaseline should normally be True because you made one additional app edit.
+
+STEP 9 — REPORT THE RESULT
+Send back:
+1. the True/False values printed by VerifyAppSave;
+2. whether Chrome displayed all expected app-made changes;
+3. whether Chinese/Unicode titles were correct;
+4. whether Chrome showed any corruption/recovery warning;
+5. whether the app reopened Chrome's rewritten file normally;
+6. the True/False values printed by VerifySecondSave.
+
+Do not send private production bookmark titles, URLs, screenshots, or raw Bookmarks data.
+
+OPTIONAL STATUS
+powershell -ExecutionPolicy Bypass -File .\V09-Task12DisposableProfile.ps1 -Mode Status
+
+OPTIONAL CLEANUP AFTER TASK 12 IS FULLY RECORDED
+This deletes ONLY the marked disposable profile under TEMP and requires an explicit safety switch:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task12DisposableProfile.ps1 -Mode Cleanup -IUnderstandThisDeletesTheDisposableProfile
+
+Do not run Cleanup until the Task 12 evidence has been reported and accepted.
+
+PASS RULE
+Task 12 passes only when:
+- the first app save backup exactly matches the pre-save source;
+- Chrome accepts and displays the app-saved file;
+- Chrome can rewrite the file;
+- the app can reopen Chrome's rewritten file;
+- the second app save backup exactly matches Chrome's rewrite;
+- both saved files remain structurally valid with checksum fields;
+- no corruption/recovery warning appears.
+
+Only then may V0.9 proceed to Task 13 production owner acceptance.

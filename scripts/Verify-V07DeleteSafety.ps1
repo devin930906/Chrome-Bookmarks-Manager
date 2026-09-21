@@ -43,10 +43,37 @@ $fileStreamCallPattern = '(?is)\b(?:new\s+)?(?:(?:global::)?System\.IO\.)?FileSt
 
 $violations = [System.Collections.Generic.List[string]]::new()
 
-$productionFiles = Get-ChildItem -LiteralPath $sourceRoot -Recurse -File |
-    Where-Object { $_.Extension -in @(".cs", ".xaml") }
+# V0.7 predates persistence and originally enforced a temporary global
+# "production code cannot write files" rule. V0.9 intentionally adds a
+# dedicated persistence layer. Keep the V0.7 contract strict where delete
+# behavior is owned: deleting/batch operations and the UI/view-model boundary
+# still may not perform direct file mutation.
+$protectedLocations = @(
+    (Join-Path $sourceRoot "Application/Deleting"),
+    (Join-Path $sourceRoot "ViewModels"),
+    (Join-Path $sourceRoot "MainWindow.xaml"),
+    (Join-Path $sourceRoot "MainWindow.xaml.cs")
+)
 
-foreach ($file in $productionFiles) {
+$productionFiles = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+
+foreach ($location in $protectedLocations) {
+    if (-not (Test-Path -LiteralPath $location)) {
+        continue
+    }
+
+    $item = Get-Item -LiteralPath $location
+    if ($item.PSIsContainer) {
+        Get-ChildItem -LiteralPath $location -Recurse -File |
+            Where-Object { $_.Extension -in @(".cs", ".xaml") } |
+            ForEach-Object { $productionFiles.Add($_) }
+    }
+    elseif ($item.Extension -in @(".cs", ".xaml")) {
+        $productionFiles.Add($item)
+    }
+}
+
+foreach ($file in $productionFiles | Sort-Object FullName -Unique) {
     $content = Get-Content -LiteralPath $file.FullName -Raw
 
     foreach ($pattern in $forbiddenTextPatterns) {
@@ -108,4 +135,4 @@ if ($violations.Count -gt 0) {
     exit 1
 }
 
-Write-Host "V0.7 delete safety contract verified: production source has no file-write or file-delete primitives beyond the explicit read-only Chrome input stream."
+Write-Host "V0.7 delete safety contract verified: delete/UI layers contain no direct file-write or file-delete primitives."

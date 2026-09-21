@@ -64,8 +64,8 @@ requireText(code, 'await DeleteSelectedFolderFromUiAsync()', 'Folder Delete must
 requireText(code, 'MessageBoxButton.YesNoCancel', 'Destructive confirmation must offer an explicit cancel path.');
 requireText(code, 'MessageBoxResult.Cancel', 'Destructive confirmation must default to Cancel.');
 requireText(code, 'MessageBoxResult.Yes', 'Deletion must proceed only after explicit Yes confirmation.');
-requireText(code, 'currently loaded in-memory document', 'Delete confirmation must explain that changes affect the loaded session only.');
-requireText(code, 'no Save or write-back path', 'Delete confirmation must state that V0.7 does not write back to Chrome.');
+requireText(code, 'removed from the loaded document', 'Delete confirmation must explain that deletion first affects the loaded document.');
+requireText(code, 'Use Save to write the change safely', 'Delete confirmation must explain that source write-back requires explicit Save.');
 requireText(code, 'MoveSelectedBookmarksToEndAsync', 'Move to... must dispatch multi-selection through the batch ViewModel method.');
 requireText(code, 'CountFolderDescendants(folder)', 'Folder confirmation must calculate descendant counts.');
 requireText(code, 'new BookmarkDragPayload(bookmark)', 'V0.6 drag-and-drop must remain a single-node gesture.');

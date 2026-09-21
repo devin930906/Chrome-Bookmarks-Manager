@@ -3,9 +3,14 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using ChromeBookmarksManager.Application;
 using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.Moving;
+using ChromeBookmarksManager.Infrastructure.Processes;
+using ChromeBookmarksManager.Infrastructure.Persistence;
+using ChromeBookmarksManager.Application.Saving;
+using ChromeBookmarksManager.Application.Search;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
 using ChromeBookmarksManager.DragDrop;
@@ -22,33 +27,147 @@ public partial class MainWindow : Window
     private BookmarkFolder? _folderDragCandidate;
     private ListViewItem? _bookmarkDropIndicatorItem;
     private TreeViewItem? _folderDropIndicatorItem;
+    private bool _allowClose;
 
     public MainWindow()
     {
         InitializeComponent();
-        DataContext = new MainViewModel(new ChromeBookmarksReader());
+
+        var reader = new ChromeBookmarksReader();
+        var baselineService = new BookmarkSourceBaselineService();
+        var transaction = new BookmarkFileTransaction(
+            new ChromeBookmarksWriter(),
+            reader,
+            baselineService,
+            new BookmarkFileSystem(),
+            TimeProvider.System);
+        var saveService = new ChromeBookmarksSaveService(
+            new ChromeProcessDetector(),
+            baselineService,
+            transaction);
+
+        DataContext = new MainViewModel(
+            reader,
+            new BookmarkSearchService(),
+            baselineService,
+            saveService,
+            TimeSpan.FromMilliseconds(250));
     }
 
     private MainViewModel ViewModel => (MainViewModel)DataContext;
 
-    private void Window_Closing(object? sender, CancelEventArgs e)
+    private enum SaveDiscardCancel
     {
+        Save,
+        Discard,
+        Cancel
+    }
+
+    private async void Window_Closing(object? sender, CancelEventArgs e)
+    {
+        if (_allowClose)
+        {
+            return;
+        }
+
+        if (ViewModel.State == DocumentState.Saving)
+        {
+            e.Cancel = true;
+            return;
+        }
+
         if (!ViewModel.IsDirty)
         {
             return;
         }
 
-        e.Cancel = !ConfirmDiscardChanges();
+        e.Cancel = true;
+
+        var decision = await PromptDirtyDocumentAsync("closing the application");
+        if (decision == SaveDiscardCancel.Cancel)
+        {
+            return;
+        }
+
+        if (decision == SaveDiscardCancel.Save &&
+            !await SaveCurrentDocumentAsync())
+        {
+            return;
+        }
+
+        _allowClose = true;
+        Close();
     }
 
-    private bool ConfirmDiscardChanges()
+    private Task<SaveDiscardCancel> PromptDirtyDocumentAsync(string action)
     {
-        var dialog = new DiscardChangesDialog
-        {
-            Owner = this
-        };
+        var result = MessageBox.Show(
+            this,
+            $"The current Bookmarks document has unsaved changes.\n\n" +
+            $"Save before {action}?\n\n" +
+            "Yes = Save\nNo = Discard\nCancel = Keep editing",
+            "Unsaved changes",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Warning,
+            MessageBoxResult.Cancel);
 
-        return dialog.ShowDialog() == true;
+        return Task.FromResult(result switch
+        {
+            MessageBoxResult.Yes => SaveDiscardCancel.Save,
+            MessageBoxResult.No => SaveDiscardCancel.Discard,
+            _ => SaveDiscardCancel.Cancel
+        });
+    }
+
+    private async Task<bool> SaveCurrentDocumentAsync()
+    {
+        try
+        {
+            await ViewModel.SaveAsync();
+            return true;
+        }
+        catch (ChromeBookmarksSaveException exception)
+        {
+            var recovery = exception.HasVerifiedRecoveryBackup
+                ? $"\n\nVerified recovery backup: {exception.BackupPath}"
+                : string.Empty;
+
+            MessageBox.Show(
+                this,
+                exception.Message + recovery,
+                "Save failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            MessageBox.Show(
+                this,
+                "Saving was canceled before the replacement critical section.",
+                "Save canceled",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return false;
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                $"Saving failed unexpectedly.\n\n{exception.Message}",
+                "Save failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return false;
+        }
+    }
+
+    private async void Save_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.CanSave)
+        {
+            await SaveCurrentDocumentAsync();
+        }
     }
 
     private async void OpenBookmarks_Click(object sender, RoutedEventArgs e)
@@ -65,20 +184,33 @@ public partial class MainWindow : Window
             return;
         }
 
+        var discardDirtyChanges = false;
         if (ViewModel.IsDirty)
         {
-            if (!ConfirmDiscardChanges())
+            var decision =
+                await PromptDirtyDocumentAsync("opening another Bookmarks file");
+
+            if (decision == SaveDiscardCancel.Cancel)
             {
                 return;
             }
 
-            await ViewModel.LoadBookmarksAsync(
-                dialog.FileName,
-                discardDirtyChanges: true);
-            return;
+            if (decision == SaveDiscardCancel.Save)
+            {
+                if (!await SaveCurrentDocumentAsync())
+                {
+                    return;
+                }
+            }
+            else
+            {
+                discardDirtyChanges = true;
+            }
         }
 
-        await ViewModel.LoadBookmarksAsync(dialog.FileName);
+        await ViewModel.LoadBookmarksAsync(
+            dialog.FileName,
+            discardDirtyChanges);
     }
 
     private void CancelLoad_Click(object sender, RoutedEventArgs e)
@@ -906,8 +1038,8 @@ public partial class MainWindow : Window
             : "These bookmarks";
         var confirmation =
             $"{targetDescription}\n\n" +
-            $"{removalSubject} will be removed from the currently loaded in-memory document only.\n" +
-            "V0.7 has no Save or write-back path; the source Chrome Bookmarks file remains unchanged.";
+            $"{removalSubject} will be removed from the loaded document.\n" +
+            "Use Save to write the change safely to the source Chrome Bookmarks file.";
 
         if (!ConfirmDestructiveOperation(
                 "Confirm bookmark deletion",
@@ -944,8 +1076,8 @@ public partial class MainWindow : Window
         var confirmation =
             $"Delete folder \"{folder.Name}\" and its entire subtree?\n\n" +
             $"This includes {bookmarkSummary} and {folderSummary}.\n\n" +
-            "The subtree will be removed from the currently loaded in-memory document only.\n" +
-            "V0.7 has no Save or write-back path; the source Chrome Bookmarks file remains unchanged.";
+            "The subtree will be removed from the loaded document.\n" +
+            "Use Save to write the change safely to the source Chrome Bookmarks file.";
 
         if (!ConfirmDestructiveOperation(
                 "Confirm folder deletion",
@@ -1022,6 +1154,18 @@ public partial class MainWindow : Window
     {
         var modifiers = Keyboard.Modifiers;
         var textInputOwnsFocus = Keyboard.FocusedElement is TextBox;
+
+        if (e.Key == Key.S &&
+            modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;
+            if (ViewModel.CanSave)
+            {
+                await SaveCurrentDocumentAsync();
+            }
+
+            return;
+        }
 
         if (!textInputOwnsFocus &&
             e.Key == Key.Z &&

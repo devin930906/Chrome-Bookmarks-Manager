@@ -157,8 +157,8 @@ function Find-NewestAppBackup([string]$BookmarksPath, [DateTime]$NotBeforeUtc) {
     $directory = Split-Path -Parent $BookmarksPath
     $candidates = @(
         Get-ChildItem -LiteralPath $directory -File -Filter "Bookmarks.ChromeBookmarksManager.*.bak" -ErrorAction SilentlyContinue |
-            Where-Object { $_.LastWriteTimeUtc -ge $NotBeforeUtc.AddSeconds(-2) } |
-            Sort-Object LastWriteTimeUtc -Descending
+            Where-Object { $_.CreationTimeUtc -ge $NotBeforeUtc.AddSeconds(-2) } |
+            Sort-Object CreationTimeUtc -Descending
     )
 
     if ($candidates.Count -eq 0) {
@@ -170,7 +170,7 @@ function Find-NewestAppBackup([string]$BookmarksPath, [DateTime]$NotBeforeUtc) {
 
 function Start-DisposableChrome([string]$Root, [string]$Executable) {
     $arguments = @(
-        "--user-data-dir=$Root",
+        "--user-data-dir=`"$Root`"",
         "--profile-directory=Default",
         "--no-first-run",
         "--no-default-browser-check",

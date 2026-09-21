@@ -33,6 +33,10 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-RepositorySafety.ps1
 
+      - name: Verify V1.0 normal CI contract
+        shell: pwsh
+        run: node scripts/Verify-V10NormalCiContract.mjs
+
       - name: Verify V1.0 project version
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag v1.0.0

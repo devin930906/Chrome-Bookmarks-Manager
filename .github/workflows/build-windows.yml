@@ -103,6 +103,10 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Invoke-V10ReleaseMeasurements.ps1 -UrlCount 10000 -FolderCount 1000 -HistoryEditCount 1000
 
+      - name: Smoke V1.0 release readiness
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Invoke-V10ReleaseReadiness.ps1 -UrlCount 10000 -FolderCount 1000 -HistoryEditCount 1000
+
       - name: Restore
         shell: pwsh
         run: dotnet restore ChromeBookmarksManager.slnx

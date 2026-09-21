@@ -55,6 +55,46 @@ jobs:
         shell: pwsh
         run: node scripts/Verify-V10UiContract.mjs
 
+      - name: Verify V1.0 release asset scripts
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP ("cbm-v10-assets-" + [guid]::NewGuid().ToString("N"))
+          New-Item -ItemType Directory -Path $root | Out-Null
+          try {
+            $valid = Join-Path $root "valid"
+            New-Item -ItemType Directory -Path $valid | Out-Null
+            $validExe = Join-Path $valid "ChromeBookmarksManager.exe"
+            Set-Content -LiteralPath $validExe -Value "synthetic-exe" -Encoding ascii
+            pwsh -NoProfile -File scripts/New-V10ReleaseChecksum.ps1 -ExecutablePath $validExe
+            if ($LASTEXITCODE -ne 0) { throw "Checksum generation failed." }
+            pwsh -NoProfile -File scripts/Verify-V10ReleaseAssets.ps1 -ReleaseDirectory $valid
+            if ($LASTEXITCODE -ne 0) { throw "Valid release asset pair was rejected." }
+
+            $tampered = Join-Path $root "tampered"
+            Copy-Item -LiteralPath $valid -Destination $tampered -Recurse
+            Add-Content -LiteralPath (Join-Path $tampered "ChromeBookmarksManager.exe") -Value "tampered"
+            $tamperedOutput = & pwsh -NoProfile -File scripts/Verify-V10ReleaseAssets.ps1 -ReleaseDirectory $tampered 2>&1
+            if ($LASTEXITCODE -eq 0) { throw "Tampered EXE was not rejected." }
+            if (($tamperedOutput | Out-String) -notmatch "SHA256") {
+              throw "Tampered EXE failed for an unexpected reason."
+            }
+
+            $extra = Join-Path $root "extra"
+            Copy-Item -LiteralPath $valid -Destination $extra -Recurse
+            Set-Content -LiteralPath (Join-Path $extra "unexpected.txt") -Value "unexpected" -Encoding ascii
+            $extraOutput = & pwsh -NoProfile -File scripts/Verify-V10ReleaseAssets.ps1 -ReleaseDirectory $extra 2>&1
+            if ($LASTEXITCODE -eq 0) { throw "Unexpected extra asset was not rejected." }
+            if (($extraOutput | Out-String) -notmatch "exactly two files|unexpected asset set") {
+              throw "Extra asset failed for an unexpected reason."
+            }
+
+            Write-Host "V1.0 release asset script self-test passed."
+            exit 0
+          }
+          finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Restore
         shell: pwsh
         run: dotnet restore ChromeBookmarksManager.slnx

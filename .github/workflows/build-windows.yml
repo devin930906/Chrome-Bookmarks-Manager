@@ -33,6 +33,23 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-RepositorySafety.ps1
 
+      - name: Verify V1.0 project version
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag v1.0.0
+
+      - name: Verify V1.0 version mismatch is rejected
+        shell: pwsh
+        run: |
+          $output = & pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag v1.0.1 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            throw "Expected mismatched tag v1.0.1 to be rejected."
+          }
+          $text = $output | Out-String
+          if ($text -notmatch "does not match project version") {
+            throw "Version mismatch failed for an unexpected reason: $text"
+          }
+          Write-Host "Mismatched release tag correctly rejected."
+
       - name: Restore
         shell: pwsh
         run: dotnet restore ChromeBookmarksManager.slnx

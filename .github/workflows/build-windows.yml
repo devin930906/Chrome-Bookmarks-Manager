@@ -97,6 +97,12 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V09WriteSafety.ps1
 
+      - name: Verify V0.9 Task 12 helper syntax
+        shell: pwsh
+        run: |
+          $source = Get-Content scripts/V09-Task12DisposableProfile.ps1 -Raw -Encoding UTF8
+          [void][scriptblock]::Create($source)
+
       - name: Verify browser scale
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --no-build --filter "Category=BrowserScale" --logger "console;verbosity=normal"
@@ -137,10 +143,16 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/SmokeTest-Windows.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe
 
+      - name: Package V0.9 Task 12 test kit
+        shell: pwsh
+        run: |
+          Copy-Item scripts/V09-Task12DisposableProfile.ps1 artifacts/win-x64/V09-Task12DisposableProfile.ps1
+          Copy-Item docs/superpowers/V09-TASK12-OWNER-GUIDE.txt artifacts/win-x64/V09-TASK12-OWNER-GUIDE.txt
+
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v7
         with:
           name: ChromeBookmarksManager-win-x64
-          path: artifacts/win-x64/ChromeBookmarksManager.exe
+          path: artifacts/win-x64/*
           if-no-files-found: error
           retention-days: 1

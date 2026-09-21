@@ -1,0 +1,48 @@
+name: Release Windows EXE
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Validate tag and project version
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag "${{ github.ref_name }}"
+
+      - name: Run V1.0 release readiness
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Invoke-V10ReleaseReadiness.ps1
+
+      - name: Verify final release assets
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-V10ReleaseAssets.ps1 -ReleaseDirectory artifacts/win-x64
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "artifacts/win-x64/ChromeBookmarksManager.exe" `
+            "artifacts/win-x64/ChromeBookmarksManager.exe.sha256" `
+            --title "Chrome Bookmarks Manager ${{ github.ref_name }}" `
+            --notes-file "docs/releases/v1.0.0.md" `
+            --verify-tag

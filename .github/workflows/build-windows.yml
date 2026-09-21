@@ -107,6 +107,29 @@ jobs:
         shell: pwsh
         run: node scripts/Verify-V10ReleaseWorkflow.mjs
 
+      - name: Verify V1.0 owner acceptance kit
+        shell: pwsh
+        run: |
+          if (-not (Test-Path -LiteralPath scripts/V10-OwnerAcceptance.ps1 -PathType Leaf)) {
+            throw "V1.0 owner acceptance helper is missing."
+          }
+          if (-not (Test-Path -LiteralPath docs/superpowers/V10-OWNER-ACCEPTANCE-GUIDE.txt -PathType Leaf)) {
+            throw "V1.0 owner acceptance guide is missing."
+          }
+          $source = Get-Content scripts/V10-OwnerAcceptance.ps1 -Raw -Encoding UTF8
+          [void][scriptblock]::Create($source)
+          foreach ($token in @("Prepare", "VerifyBackup", "VerifyFinal")) {
+            if ($source -notmatch [regex]::Escape($token)) {
+              throw "Owner acceptance helper is missing phase: $token"
+            }
+          }
+          $guide = Get-Content docs/superpowers/V10-OWNER-ACCEPTANCE-GUIDE.txt -Raw -Encoding UTF8
+          foreach ($token in @("Chrome-running", "stale-source", "Edit -> Save -> Clean", "private")) {
+            if ($guide -notmatch [regex]::Escape($token)) {
+              throw "Owner acceptance guide is missing required topic: $token"
+            }
+          }
+
       - name: Restore
         shell: pwsh
         run: dotnet restore ChromeBookmarksManager.slnx

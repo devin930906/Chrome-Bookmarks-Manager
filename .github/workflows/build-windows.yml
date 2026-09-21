@@ -51,6 +51,10 @@ jobs:
           Write-Host "Mismatched release tag correctly rejected."
           exit 0
 
+      - name: Verify V1.0 production UI contract
+        shell: pwsh
+        run: node scripts/Verify-V10UiContract.mjs
+
       - name: Restore
         shell: pwsh
         run: dotnet restore ChromeBookmarksManager.slnx

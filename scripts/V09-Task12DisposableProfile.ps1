@@ -34,8 +34,6 @@ function Test-IsSameOrChildPath([string]$Candidate, [string]$Parent) {
 
 function Assert-DisposableRoot([string]$Root) {
     $rootFull = Get-FullPath $Root
-    $programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
-
     $forbiddenRoots = @(
         (Join-Path $env:LOCALAPPDATA "Google\Chrome\User Data"),
         (Join-Path $env:LOCALAPPDATA "Google\Chrome Beta\User Data"),

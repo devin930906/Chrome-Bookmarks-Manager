@@ -95,6 +95,14 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Verify V1.0 release measurement contract
+        shell: pwsh
+        run: node scripts/Verify-V10ReleaseMeasurementsContract.mjs
+
+      - name: Smoke V1.0 release measurement runner
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Invoke-V10ReleaseMeasurements.ps1 -UrlCount 10000 -FolderCount 1000 -HistoryEditCount 1000
+
       - name: Restore
         shell: pwsh
         run: dotnet restore ChromeBookmarksManager.slnx

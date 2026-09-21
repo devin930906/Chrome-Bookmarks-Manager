@@ -103,13 +103,9 @@ jobs:
         shell: pwsh
         run: node scripts/Verify-V10ReleaseMeasurementsContract.mjs
 
-      - name: Smoke V1.0 release measurement runner
+      - name: Verify V1.0 release workflow contract
         shell: pwsh
-        run: pwsh -NoProfile -File scripts/Invoke-V10ReleaseMeasurements.ps1 -UrlCount 10000 -FolderCount 1000 -HistoryEditCount 1000
-
-      - name: Smoke V1.0 release readiness
-        shell: pwsh
-        run: pwsh -NoProfile -File scripts/Invoke-V10ReleaseReadiness.ps1 -UrlCount 10000 -FolderCount 1000 -HistoryEditCount 1000
+        run: node scripts/Verify-V10ReleaseWorkflow.mjs
 
       - name: Restore
         shell: pwsh
@@ -226,6 +222,10 @@ jobs:
       - name: Smoke test executable
         shell: pwsh
         run: pwsh -NoProfile -File scripts/SmokeTest-Windows.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe
+
+      - name: Verify V1.0 EXE version
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe
 
       - name: Package V0.9 owner acceptance kit
         shell: pwsh

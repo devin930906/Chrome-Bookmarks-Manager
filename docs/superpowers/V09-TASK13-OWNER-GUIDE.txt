@@ -1,0 +1,206 @@
+ChromeBookmarksManager V0.9 — Task 13 Production Owner Acceptance Guide
+
+PURPOSE
+This is the final owner acceptance gate for saving the real production Chrome Bookmarks file.
+
+PRECONDITION
+Task 12 disposable Chrome profile compatibility gate has PASSED.
+
+CRITICAL SAFETY RULES
+1. Close every chrome.exe process before every application Save or helper verification step.
+2. Create and verify an independent external backup BEFORE opening the production Bookmarks file in ChromeBookmarksManager.
+3. Keep the external backup outside the Chrome profile directory.
+4. Do not delete the Task 13 session directory or external backup until V0.9 is fully accepted and merged.
+5. Do not upload or commit raw production Bookmarks data, titles, URLs, screenshots, or exported contents.
+6. Do not deliberately induce filesystem replacement failure on the production file.
+7. If any integrity check fails, STOP immediately and keep the external backup.
+
+STEP 0 — IDENTIFY THE ACTIVE PRODUCTION BOOKMARKS FILE
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task13ProductionAcceptance.ps1 -Mode Discover
+
+The helper lists standard Chrome profile Bookmarks files using path/size/time metadata only.
+
+If only one candidate exists and it is your normal Chrome profile, use that path.
+
+If multiple profiles exist:
+- open your normal Chrome;
+- visit chrome://version;
+- note the "Profile Path";
+- append \Bookmarks to that profile path;
+- close ALL Chrome windows/processes.
+
+Do not continue until the exact active production Bookmarks path is known.
+
+STEP 1 — CREATE AND VERIFY THE INDEPENDENT EXTERNAL BACKUP
+With Chrome completely closed, run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task13ProductionAcceptance.ps1 -Mode Prepare -BookmarksPath "C:\exact\profile\path\Bookmarks"
+
+The helper:
+- verifies Chrome is not running;
+- captures the production source SHA-256, length, and LastWriteTimeUtc;
+- creates a separate backup under Documents\ChromeBookmarksManager-Backups\V09-Task13-...;
+- verifies the backup SHA-256 and length exactly match the source;
+- creates local session metadata containing integrity facts only.
+
+Required result:
+ExternalBackupMatchesSource=True
+
+Record the printed SessionDirectory. You will reuse it in later commands.
+
+STOP if Prepare throws any error.
+
+STEP 2 — FIRST CONTROLLED PRODUCTION APP EDIT
+Open ChromeBookmarksManager.exe.
+
+Load exactly the BookmarksPath from Step 1.
+
+Do not perform broad cleanup or many changes. Make ONE deliberately identifiable temporary test edit only, for example:
+- add one temporary bookmark in a harmless folder; or
+- rename one temporary test bookmark.
+
+Save using Ctrl+S or Save.
+
+Expected:
+- Save succeeds;
+- application reports a verified backup;
+- document returns to clean state;
+- app remains usable.
+
+Close ChromeBookmarksManager.
+Make sure Chrome is still completely closed.
+
+STEP 3 — VERIFY FIRST PRODUCTION SAVE INTEGRITY
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task13ProductionAcceptance.ps1 -Mode VerifyFirstSave -SessionDirectory "PASTE_THE_SESSION_DIRECTORY_HERE"
+
+Required PASS values:
+ExternalBackupStillMatchesPreSave=True
+AppBackupMatchesPreSave=True
+SavedFileChangedFromPreSave=True
+SavedFileJsonValid=True
+HasChecksum=True
+HasChecksumSha256=True
+
+If any required integrity value is False or the helper throws:
+STOP. Do not open Chrome against the changed file until the failure is reviewed.
+
+STEP 4 — OPEN NORMAL CHROME
+Open Chrome normally, using your real everyday profile.
+
+Verify:
+- Chrome starts normally;
+- there is no corruption/recovery warning;
+- the deliberate temporary edit made by ChromeBookmarksManager is visible;
+- your existing folders/bookmarks look normal.
+
+Then let Chrome itself perform one controlled bookmark change:
+- add one harmless temporary bookmark; or
+- edit the temporary acceptance bookmark.
+
+Close Chrome normally and make sure every chrome.exe process exits.
+
+STEP 5 — CAPTURE CHROME'S PRODUCTION REWRITE
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task13ProductionAcceptance.ps1 -Mode CapturePostChrome -SessionDirectory "PASTE_THE_SESSION_DIRECTORY_HERE"
+
+Required:
+ChromeRewriteJsonValid=True
+HasChecksum=True
+
+This records only integrity metadata, not bookmark content.
+
+STEP 6 — SECOND CONTROLLED APP SAVE
+Reopen ChromeBookmarksManager.exe.
+
+Load the same production Bookmarks file.
+
+Verify:
+- Chrome's most recent controlled change is visible;
+- structure and existing bookmarks look normal.
+
+Make one small controlled app edit and Save again.
+
+Then test the V0.8 clean-checkpoint behavior:
+1. after Save, document should be clean;
+2. Undo once -> document should become dirty;
+3. Redo back to the saved checkpoint -> document should become clean again.
+
+Close ChromeBookmarksManager.
+Confirm Chrome is fully closed.
+
+STEP 7 — VERIFY SECOND PRODUCTION SAVE
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\V09-Task13ProductionAcceptance.ps1 -Mode VerifySecondSave -SessionDirectory "PASTE_THE_SESSION_DIRECTORY_HERE"
+
+Required PASS values:
+ExternalBackupStillMatchesPreSave=True
+AppBackupMatchesChromeRewrite=True
+SavedFileChangedFromChromeRewrite=True
+SavedFileJsonValid=True
+HasChecksum=True
+HasChecksumSha256=True
+
+STEP 8 — VERIFY SAVE IS BLOCKED WHILE CHROME IS RUNNING
+Open normal Chrome and leave it running.
+
+Open ChromeBookmarksManager and load the production Bookmarks file.
+
+Make one harmless temporary in-memory edit, then attempt Save.
+
+Required:
+- Save is BLOCKED;
+- the UI tells you Chrome must be closed;
+- no source overwrite occurs;
+- the in-memory edit remains available/retryable.
+
+Do not force-close Chrome from the app.
+Close Chrome normally, then either discard the temporary in-memory edit or save it only after Chrome is fully closed.
+
+STEP 9 — STALE-SOURCE BLOCKING TEST
+Do NOT deliberately modify the live production Bookmarks file behind the app for this test.
+
+Use a synthetic COPY outside the Chrome profile instead:
+1. copy the production Bookmarks file to a disposable test folder;
+2. load that copied file in ChromeBookmarksManager;
+3. make an in-memory edit;
+4. externally alter the copied file after it has been loaded;
+5. attempt Save.
+
+Required:
+- Save is blocked as an external-source-change/stale-source conflict;
+- the copied source is not silently overwritten.
+
+This test must remain on the disposable copy, never the live production file.
+
+STEP 10 — REPORT ONLY NON-PRIVATE RESULTS
+Report:
+- Prepare: ExternalBackupMatchesSource=True/False
+- First Save verification True/False values
+- Chrome opened normally: Yes/No
+- Chrome corruption/recovery warning: Yes/No
+- Chrome-made change reopened in app: Yes/No
+- Undo after Save became dirty: Yes/No
+- Redo to saved checkpoint became clean: Yes/No
+- Second Save verification True/False values
+- Save blocked while Chrome running: Yes/No
+- Stale-source overwrite blocked on synthetic copy: Yes/No
+
+Do not send raw Bookmarks data, private URLs, private titles, or screenshots containing private bookmark content.
+
+PASS RULE
+Task 13 passes only when all production integrity checks and owner behavior checks pass.
+
+After Task 13 PASS:
+- record only non-private pass/fail/integrity evidence;
+- perform final branch review;
+- mark PR #9 ready;
+- merge V0.9 to main;
+- verify post-merge main CI;
+- mark V0.9 complete;
+- advance roadmap to V1.0.

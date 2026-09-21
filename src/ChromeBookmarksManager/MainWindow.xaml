@@ -21,7 +21,6 @@
                           IsEnabled="{Binding CanSave}"
                           Click="Save_Click" />
                 <Separator />
-                <MenuItem Header="E_xit" IsEnabled="False" />
             </MenuItem>
             <MenuItem Header="_Edit">
                 <MenuItem Header="_Undo"
@@ -62,8 +61,6 @@
                           IsEnabled="{Binding CanDeleteSelectedBookmarks}"
                           Click="DeleteSelectedBookmarks_Click" />
             </MenuItem>
-            <MenuItem Header="_View" />
-            <MenuItem Header="_Tools" IsEnabled="False" />
         </Menu>
 
         <Border DockPanel.Dock="Top"
@@ -86,7 +83,7 @@
                         Padding="16,6"
                         IsEnabled="{Binding CanOpenBookmarks}"
                         Click="OpenBookmarks_Click"
-                        ToolTip="Open a Chrome Bookmarks file. V0.6 edits and moves remain in memory." />
+                        ToolTip="Open a Chrome Bookmarks file for browsing and editing. Changes are written only when you explicitly choose Save." />
 
                 <Button Grid.Column="1"
                         Margin="8,0,0,0"

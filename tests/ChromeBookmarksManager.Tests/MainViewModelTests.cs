@@ -21,7 +21,9 @@ public sealed class MainViewModelTests
     {
         var viewModel = CreateViewModel();
 
-        Assert.Equal("Chrome Bookmarks Manager", viewModel.ApplicationTitle);
+        Assert.Equal(
+            "Chrome Bookmarks Manager 1.0.0",
+            viewModel.ApplicationTitle);
     }
 
     [Fact]

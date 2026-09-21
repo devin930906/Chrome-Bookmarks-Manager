@@ -190,7 +190,15 @@ public sealed class MainViewModel : ViewModelBase
         _searchDebounce = searchDebounce;
     }
 
-    public string ApplicationTitle => "Chrome Bookmarks Manager";
+    private static readonly string ApplicationVersion =
+        typeof(MainViewModel).Assembly
+            .GetName()
+            .Version?
+            .ToString(3)
+        ?? "0.0.0";
+
+    public string ApplicationTitle =>
+        $"Chrome Bookmarks Manager {ApplicationVersion}";
 
     public DocumentState State => _state;
 

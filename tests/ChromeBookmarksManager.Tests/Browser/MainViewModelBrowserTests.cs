@@ -613,7 +613,7 @@ public sealed class MainViewModelBrowserTests
         IExternalUrlLauncher launcher) =>
         new(
             new StubReader((_, _) => Task.FromResult(document)),
-            new Application.Search.BookmarkSearchService(),
+            new ChromeBookmarksManager.Application.Search.BookmarkSearchService(),
             launcher,
             TimeSpan.Zero);
 

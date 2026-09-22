@@ -4,6 +4,7 @@ using ChromeBookmarksManager.Application;
 using ChromeBookmarksManager.Application.Clipboard;
 using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
+using ChromeBookmarksManager.Application.Exporting;
 using ChromeBookmarksManager.Application.History;
 using ChromeBookmarksManager.Application.Launching;
 using ChromeBookmarksManager.Application.Moving;
@@ -27,6 +28,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IBookmarkMoveService _moveService;
     private readonly IBookmarkDeleteService _deleteService;
     private readonly BookmarkSortService _sortService = new();
+    private readonly BookmarkHtmlExportService _htmlExportService = new();
     private readonly IBookmarkClipboardService? _clipboardService;
     private readonly IBookmarkClipboardStore? _clipboardStore;
     private readonly IExternalUrlLauncher? _urlLauncher;
@@ -556,6 +558,9 @@ public sealed class MainViewModel : ViewModelBase
          (_selectedContentItems[0].Node is BookmarkUrl &&
           _urlLauncher is not null));
 
+    public bool CanExportBookmarksHtml =>
+        CanBrowseDocument && _document is not null;
+
     public bool CanOpenBookmarks =>
         State is not DocumentState.Loading and not DocumentState.Saving;
 
@@ -566,6 +571,37 @@ public sealed class MainViewModel : ViewModelBase
             DocumentState.LoadedDirty or
             DocumentState.SaveFailed or
             DocumentState.RecoveryRequired;
+
+    public async Task ExportBookmarksHtmlAsync(
+        TextWriter writer,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+
+        await _documentOperationGate
+            .WaitAsync(cancellationToken)
+            .ConfigureAwait(true);
+        try
+        {
+            var document = _document;
+            if (document is null || !CanBrowseDocument)
+            {
+                throw new InvalidOperationException(
+                    "A loaded bookmark document is required before export.");
+            }
+
+            await _htmlExportService
+                .ExportAsync(
+                    document,
+                    writer,
+                    cancellationToken)
+                .ConfigureAwait(true);
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
+    }
 
     public Task LoadBookmarksAsync(
         string path,
@@ -2807,6 +2843,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanOpenBookmarks));
         OnPropertyChanged(nameof(CanCancelLoad));
         OnPropertyChanged(nameof(CanBrowseDocument));
+        OnPropertyChanged(nameof(CanExportBookmarksHtml));
         OnPropertyChanged(nameof(CanSearchDocument));
         OnPropertyChanged(nameof(IsSearchActive));
         OnPropertyChanged(nameof(DisplayedBookmarks));

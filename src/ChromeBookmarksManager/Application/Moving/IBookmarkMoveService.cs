@@ -10,6 +10,16 @@ public interface IBookmarkMoveService
         BookmarkFolder targetParent,
         int targetIndex);
 
+    BookmarkMoveResult MoveNodeBefore(
+        BookmarkDocument document,
+        BookmarkNode node,
+        BookmarkNode target);
+
+    BookmarkMoveResult MoveNodeAfter(
+        BookmarkDocument document,
+        BookmarkNode node,
+        BookmarkNode target);
+
     BookmarkMoveResult MoveBookmarkBefore(
         BookmarkDocument document,
         BookmarkUrl bookmark,

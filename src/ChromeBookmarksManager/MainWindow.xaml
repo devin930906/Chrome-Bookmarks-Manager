@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:search="clr-namespace:ChromeBookmarksManager.Application.Search"
         Title="{Binding ApplicationTitle}"
+        Icon="Assets/ChromeBookmarksManager.ico"
         Width="1180"
         Height="760"
         MinWidth="900"
@@ -12,79 +13,89 @@
         Closing="Window_Closing">
     <DockPanel>
         <Menu DockPanel.Dock="Top">
-            <MenuItem Header="_File">
-                <MenuItem Header="_Open Bookmarks..."
+            <MenuItem Header="{DynamicResource MenuFile}">
+                <MenuItem Header="{DynamicResource MenuOpenBookmarks}"
                           IsEnabled="{Binding CanOpenBookmarks}"
                           Click="OpenBookmarks_Click" />
                 <Separator />
-                <MenuItem Header="_Import Bookmarks HTML..."
+                <MenuItem Header="{DynamicResource MenuImportBookmarksHtml}"
                           IsEnabled="{Binding CanImportBookmarksHtml}"
                           Click="ImportBookmarksHtml_Click" />
-                <MenuItem Header="_Export Bookmarks HTML..."
+                <MenuItem Header="{DynamicResource MenuExportBookmarksHtml}"
                           IsEnabled="{Binding CanExportBookmarksHtml}"
                           Click="ExportBookmarksHtml_Click" />
-                <MenuItem Header="_Save"
+                <MenuItem Header="{DynamicResource MenuSave}"
                           InputGestureText="Ctrl+S"
                           IsEnabled="{Binding CanSave}"
                           Click="Save_Click" />
                 <Separator />
-                <MenuItem Header="E_xit"
+                <MenuItem Header="{DynamicResource MenuExit}"
                           Click="Exit_Click" />
             </MenuItem>
-            <MenuItem Header="_Edit">
-                <MenuItem Header="_Undo"
+            <MenuItem Header="{DynamicResource MenuEdit}">
+                <MenuItem Header="{DynamicResource MenuUndo}"
                           InputGestureText="Ctrl+Z"
                           IsEnabled="{Binding CanUndo}"
                           ToolTip="{Binding UndoDescription}"
                           Click="Undo_Click" />
-                <MenuItem Header="_Redo"
+                <MenuItem Header="{DynamicResource MenuRedo}"
                           InputGestureText="Ctrl+Y / Ctrl+Shift+Z"
                           IsEnabled="{Binding CanRedo}"
                           ToolTip="{Binding RedoDescription}"
                           Click="Redo_Click" />
                 <Separator />
-                <MenuItem Header="_Cut"
+                <MenuItem Header="{DynamicResource MenuCut}"
                           InputGestureText="Ctrl+X"
                           IsEnabled="{Binding CanCutSelectedContentItems}"
                           Click="CutSelectedContentItems_Click" />
-                <MenuItem Header="_Copy"
+                <MenuItem Header="{DynamicResource MenuCopy}"
                           InputGestureText="Ctrl+C"
                           IsEnabled="{Binding CanCopySelectedContentItems}"
                           Click="CopySelectedContentItems_Click" />
-                <MenuItem Header="_Paste"
+                <MenuItem Header="{DynamicResource MenuPaste}"
                           InputGestureText="Ctrl+V"
                           IsEnabled="{Binding CanPasteClipboard}"
                           Click="PasteClipboard_Click" />
                 <Separator />
-                <MenuItem Header="Add _Bookmark..."
+                <MenuItem Header="{DynamicResource MenuAddBookmark}"
                           InputGestureText="Ctrl+Shift+B"
                           IsEnabled="{Binding CanAddBookmark}"
                           Click="AddBookmark_Click" />
-                <MenuItem Header="Add _Folder..."
+                <MenuItem Header="{DynamicResource MenuAddFolder}"
                           InputGestureText="Ctrl+Shift+F"
                           IsEnabled="{Binding CanAddFolder}"
                           Click="AddFolder_Click" />
-                <MenuItem Header="Sort by _Name"
+                <MenuItem Header="{DynamicResource MenuSortByName}"
                           IsEnabled="{Binding CanSortSelectedFolder}"
                           Click="SortSelectedFolder_Click" />
                 <Separator />
-                <MenuItem Header="_Rename Folder..."
+                <MenuItem Header="{DynamicResource MenuRenameFolder}"
                           InputGestureText="F2"
                           IsEnabled="{Binding CanRenameSelectedFolder}"
                           Click="RenameFolder_Click" />
-                <MenuItem Header="Rename _Bookmark..."
+                <MenuItem Header="{DynamicResource MenuRenameBookmark}"
                           InputGestureText="F2"
                           IsEnabled="{Binding CanRenameSelectedBookmark}"
                           Click="RenameBookmark_Click" />
-                <MenuItem Header="Edit _URL..."
+                <MenuItem Header="{DynamicResource MenuEditUrl}"
                           InputGestureText="Ctrl+E"
                           IsEnabled="{Binding CanEditSelectedBookmarkUrl}"
                           Click="EditUrl_Click" />
                 <Separator />
-                <MenuItem Header="_Delete Selected Item(s)..."
+                <MenuItem Header="{DynamicResource MenuDeleteSelectedItems}"
                           InputGestureText="Delete"
                           IsEnabled="{Binding CanDeleteSelectedContentItems}"
                           Click="DeleteSelectedContentItems_Click" />
+            </MenuItem>
+            <MenuItem Header="{DynamicResource MenuLanguage}">
+                <MenuItem x:Name="SimplifiedChineseMenuItem"
+                          Header="{DynamicResource LanguageSimplifiedChinese}"
+                          IsCheckable="True"
+                          Click="SwitchToSimplifiedChinese_Click" />
+                <MenuItem x:Name="EnglishMenuItem"
+                          Header="{DynamicResource LanguageEnglish}"
+                          IsCheckable="True"
+                          Click="SwitchToEnglish_Click" />
             </MenuItem>
         </Menu>
 
@@ -104,23 +115,23 @@
                 </Grid.ColumnDefinitions>
 
                 <Button Grid.Column="0"
-                        Content="Open Bookmarks"
+                        Content="{DynamicResource ToolbarOpenBookmarks}"
                         Padding="16,6"
                         IsEnabled="{Binding CanOpenBookmarks}"
                         Click="OpenBookmarks_Click"
-                        ToolTip="Open a Chrome Bookmarks file for browsing and editing. Changes are written only when you explicitly choose Save." />
+                        ToolTip="{DynamicResource TooltipOpenBookmarks}" />
 
                 <Button Grid.Column="1"
                         Margin="8,0,0,0"
-                        Content="Cancel"
+                        Content="{DynamicResource ToolbarCancel}"
                         Padding="16,6"
                         IsEnabled="{Binding CanCancelLoad}"
                         Click="CancelLoad_Click"
-                        ToolTip="Cancel the current Bookmarks load." />
+                        ToolTip="{DynamicResource TooltipCancelLoad}" />
 
                 <Button Grid.Column="2"
                         Margin="8,0,0,0"
-                        Content="Undo"
+                        Content="{DynamicResource ToolbarUndo}"
                         Padding="12,6"
                         IsEnabled="{Binding CanUndo}"
                         Click="Undo_Click"
@@ -128,7 +139,7 @@
 
                 <Button Grid.Column="3"
                         Margin="8,0,0,0"
-                        Content="Redo"
+                        Content="{DynamicResource ToolbarRedo}"
                         Padding="12,6"
                         IsEnabled="{Binding CanRedo}"
                         Click="Redo_Click"
@@ -136,11 +147,11 @@
 
                 <Button Grid.Column="4"
                         Margin="8,0,8,0"
-                        Content="Save"
+                        Content="{DynamicResource ToolbarSave}"
                         Padding="16,6"
                         IsEnabled="{Binding CanSave}"
                         Click="Save_Click"
-                        ToolTip="Safely save to the loaded Chrome Bookmarks file. Chrome must be fully closed; a verified backup is created before replacement." />
+                        ToolTip="{DynamicResource TooltipSave}" />
 
                 <TextBox x:Name="SearchBox"
                          Grid.Column="5"
@@ -149,7 +160,7 @@
                          VerticalContentAlignment="Center"
                          IsEnabled="{Binding CanSearchDocument}"
                          Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Search bookmark names and URLs. Ctrl+F focuses search; Escape clears it." />
+                         ToolTip="{DynamicResource TooltipSearch}" />
 
                 <ComboBox Grid.Column="6"
                           Margin="8,0,0,0"
@@ -159,10 +170,10 @@
                           IsEnabled="{Binding CanSearchDocument}"
                           SelectedValue="{Binding SearchScope, Mode=TwoWay}"
                           SelectedValuePath="Tag"
-                          ToolTip="Choose whether to search all bookmarks or only the selected folder.">
-                    <ComboBoxItem Content="All bookmarks"
+                          ToolTip="{DynamicResource TooltipSearchScope}">
+                    <ComboBoxItem Content="{DynamicResource SearchScopeAllBookmarks}"
                                   Tag="{x:Static search:BookmarkSearchScope.AllBookmarks}" />
-                    <ComboBoxItem Content="Current folder"
+                    <ComboBoxItem Content="{DynamicResource SearchScopeCurrentFolder}"
                                   Tag="{x:Static search:BookmarkSearchScope.CurrentFolder}" />
                 </ComboBox>
             </Grid>
@@ -199,7 +210,7 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <GroupBox Grid.Column="0" Header="Folders" Margin="8">
+            <GroupBox Grid.Column="0" Header="{DynamicResource PanelFolders}" Margin="8">
                 <TreeView x:Name="FolderTree"
                           ItemsSource="{Binding FolderRoots}"
                           IsEnabled="{Binding CanBrowseDocument}"
@@ -216,22 +227,22 @@
                           ScrollViewer.CanContentScroll="True">
                     <TreeView.ContextMenu>
                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                            <MenuItem Header="Add Bookmark..."
+                            <MenuItem Header="{DynamicResource ContextAddBookmark}"
                                       IsEnabled="{Binding CanAddBookmark}"
                                       Click="AddBookmark_Click" />
-                            <MenuItem Header="Add Folder..."
+                            <MenuItem Header="{DynamicResource ContextAddFolder}"
                                       IsEnabled="{Binding CanAddFolder}"
                                       Click="AddFolder_Click" />
                             <Separator />
-                            <MenuItem Header="Rename Folder..."
+                            <MenuItem Header="{DynamicResource ContextRenameFolder}"
                                       InputGestureText="F2"
                                       IsEnabled="{Binding CanRenameSelectedFolder}"
                                       Click="RenameFolder_Click" />
-                            <MenuItem Header="Move to..."
+                            <MenuItem Header="{DynamicResource ContextMoveTo}"
                                       IsEnabled="{Binding CanMoveSelectedFolder}"
                                       Click="MoveFolder_Click" />
                             <Separator />
-                            <MenuItem Header="Delete Folder..."
+                            <MenuItem Header="{DynamicResource ContextDeleteFolder}"
                                       InputGestureText="Delete"
                                       IsEnabled="{Binding CanDeleteSelectedFolder}"
                                       Click="DeleteSelectedFolder_Click" />
@@ -257,7 +268,7 @@
                           Width="5"
                           HorizontalAlignment="Stretch" />
 
-            <GroupBox Grid.Column="2" Header="Contents" Margin="8">
+            <GroupBox Grid.Column="2" Header="{DynamicResource PanelContents}" Margin="8">
                 <ListView x:Name="BookmarksList"
                           ItemsSource="{Binding DisplayedItems}"
                           SelectionChanged="BookmarksList_SelectionChanged"
@@ -279,70 +290,70 @@
                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
                                      Opened="BookmarksContextMenu_Opened">
                             <MenuItem x:Name="ContentOpenFolderMenuItem"
-                                      Header="Open Folder"
+                                      Header="{DynamicResource ContextOpenFolder}"
                                       IsEnabled="{Binding CanOpenSelectedContentItem}"
                                       Click="OpenContentFolder_Click" />
                             <MenuItem x:Name="ContentOpenBookmarkMenuItem"
-                                      Header="Open Bookmark"
+                                      Header="{DynamicResource ContextOpenBookmark}"
                                       IsEnabled="{Binding CanOpenSelectedContentItem}"
                                       Visibility="Collapsed"
                                       Click="OpenContentBookmark_Click" />
                             <Separator />
-                            <MenuItem Header="Cut"
+                            <MenuItem Header="{DynamicResource ContextCut}"
                                       InputGestureText="Ctrl+X"
                                       IsEnabled="{Binding CanCutSelectedContentItems}"
                                       Click="CutSelectedContentItems_Click" />
-                            <MenuItem Header="Copy"
+                            <MenuItem Header="{DynamicResource ContextCopy}"
                                       InputGestureText="Ctrl+C"
                                       IsEnabled="{Binding CanCopySelectedContentItems}"
                                       Click="CopySelectedContentItems_Click" />
-                            <MenuItem Header="Paste"
+                            <MenuItem Header="{DynamicResource ContextPaste}"
                                       InputGestureText="Ctrl+V"
                                       IsEnabled="{Binding CanPasteClipboard}"
                                       Click="PasteClipboard_Click" />
                             <Separator />
                             <MenuItem x:Name="ContentRenameFolderMenuItem"
-                                      Header="Rename Folder..."
+                                      Header="{DynamicResource ContextRenameFolder}"
                                       InputGestureText="F2"
                                       IsEnabled="{Binding CanRenameSelectedContentFolder}"
                                       Click="RenameContentFolder_Click" />
                             <MenuItem x:Name="ContentMoveFolderMenuItem"
-                                      Header="Move Folder to..."
+                                      Header="{DynamicResource ContextMoveFolderTo}"
                                       IsEnabled="{Binding CanMoveSelectedContentFolder}"
                                       Click="MoveContentFolder_Click" />
                             <MenuItem x:Name="ContentDeleteFolderMenuItem"
-                                      Header="Delete Folder..."
+                                      Header="{DynamicResource ContextDeleteFolder}"
                                       InputGestureText="Delete"
                                       IsEnabled="{Binding CanDeleteSelectedContentFolder}"
                                       Click="DeleteContentFolder_Click" />
                             <Separator x:Name="ContentFolderSeparator" />
                             <MenuItem x:Name="ContentRenameBookmarkMenuItem"
-                                      Header="Rename Bookmark..."
+                                      Header="{DynamicResource ContextRenameBookmark}"
                                       InputGestureText="F2"
                                       IsEnabled="{Binding CanRenameSelectedBookmark}"
                                       Click="RenameBookmark_Click" />
                             <MenuItem x:Name="ContentEditUrlMenuItem"
-                                      Header="Edit URL..."
+                                      Header="{DynamicResource ContextEditUrl}"
                                       InputGestureText="Ctrl+E"
                                       IsEnabled="{Binding CanEditSelectedBookmarkUrl}"
                                       Click="EditUrl_Click" />
                             <MenuItem x:Name="ContentMoveBookmarkMenuItem"
-                                      Header="Move to..."
+                                      Header="{DynamicResource ContextMoveTo}"
                                       IsEnabled="{Binding CanMoveSelectedBookmarks}"
                                       Click="MoveBookmark_Click" />
                             <MenuItem x:Name="ContentMoveSelectionMenuItem"
-                                      Header="Move Selected Item(s) to..."
+                                      Header="{DynamicResource ContextMoveSelectedItemsTo}"
                                       IsEnabled="{Binding CanMoveSelectedContentItems}"
                                       Visibility="Collapsed"
                                       Click="MoveSelectedContentItems_Click" />
                             <Separator x:Name="ContentBookmarkSeparator" />
                             <MenuItem x:Name="ContentDeleteBookmarkMenuItem"
-                                      Header="Delete Bookmark(s)..."
+                                      Header="{DynamicResource ContextDeleteBookmarks}"
                                       InputGestureText="Delete"
                                       IsEnabled="{Binding CanDeleteSelectedBookmarks}"
                                       Click="DeleteSelectedBookmarks_Click" />
                             <MenuItem x:Name="ContentDeleteSelectionMenuItem"
-                                      Header="Delete Selected Item(s)..."
+                                      Header="{DynamicResource ContextDeleteSelectedItems}"
                                       InputGestureText="Delete"
                                       IsEnabled="{Binding CanDeleteSelectedContentItems}"
                                       Visibility="Collapsed"
@@ -351,7 +362,7 @@
                     </ListView.ContextMenu>
                     <ListView.View>
                         <GridView>
-                            <GridViewColumn Header="Name"
+                            <GridViewColumn Header="{DynamicResource ColumnName}"
                                             Width="320">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
@@ -383,7 +394,7 @@
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
-                            <GridViewColumn Header="URL"
+                            <GridViewColumn Header="{DynamicResource ColumnUrl}"
                                             Width="520"
                                             DisplayMemberBinding="{Binding Url}" />
                         </GridView>

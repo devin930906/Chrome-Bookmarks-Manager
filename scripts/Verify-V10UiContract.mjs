@@ -9,8 +9,8 @@ const violations = [];
 
 const requiredXaml = [
   'Title="{Binding ApplicationTitle}"',
-  'Changes are written only when you explicitly choose Save.',
-  'Header="E_xit"',
+  'ToolTip="{DynamicResource TooltipOpenBookmarks}"',
+  'Header="{DynamicResource MenuExit}"',
   'Click="Exit_Click"'
 ];
 
@@ -22,13 +22,13 @@ const forbiddenXaml = [
 
 for (const text of requiredXaml) {
   if (!xaml.includes(text)) {
-    violations.push(`Missing V1.0 UI contract text: ${text}`);
+    violations.push(`Missing V1.1 UI contract text: ${text}`);
   }
 }
 
 for (const text of forbiddenXaml) {
   if (xaml.includes(text)) {
-    violations.push(`Forbidden V1.0 production UI residue: ${text}`);
+    violations.push(`Forbidden V1.1 production UI residue: ${text}`);
   }
 }
 
@@ -91,8 +91,8 @@ if (exitHandlerStart < 0) {
 
 if (violations.length > 0) {
   throw new Error(
-    "V1.0 UI contract violations:\n- " +
+    "V1.1 UI contract violations:\n- " +
     violations.join("\n- "));
 }
 
-console.log("V1.0 production UI contract verified.");
+console.log("V1.1 production UI contract verified.");

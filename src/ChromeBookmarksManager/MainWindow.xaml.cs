@@ -196,7 +196,7 @@ public partial class MainWindow : Window
 
             MessageBox.Show(
                 this,
-                exception.Message + recovery,
+                LocalizationService.LocalizeExceptionMessage(exception) + recovery,
                 L("TitleSaveFailed"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -321,7 +321,7 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                exception.Message,
+                LocalizationService.LocalizeExceptionMessage(exception),
                 L("TitleImportBookmarks"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
@@ -1116,7 +1116,7 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                exception.Message,
+                LocalizationService.LocalizeExceptionMessage(exception),
                 L("TitleOpenBookmark"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
@@ -1212,7 +1212,7 @@ public partial class MainWindow : Window
     {
         MessageBox.Show(
             this,
-            exception.Message,
+            LocalizationService.LocalizeExceptionMessage(exception),
             L("TitleClipboardOperation"),
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
@@ -1702,7 +1702,7 @@ public partial class MainWindow : Window
     {
         MessageBox.Show(
             this,
-            exception.Message,
+            LocalizationService.LocalizeExceptionMessage(exception),
             L("TitleBookmarkEditing"),
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
@@ -1712,7 +1712,7 @@ public partial class MainWindow : Window
     {
         MessageBox.Show(
             this,
-            exception.Message,
+            LocalizationService.LocalizeExceptionMessage(exception),
             L("TitleMoveBookmarkItem"),
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
@@ -1722,7 +1722,7 @@ public partial class MainWindow : Window
     {
         MessageBox.Show(
             this,
-            exception.Message,
+            LocalizationService.LocalizeExceptionMessage(exception),
             L("TitleDeleteBookmarkItem"),
             MessageBoxButton.OK,
             MessageBoxImage.Warning);

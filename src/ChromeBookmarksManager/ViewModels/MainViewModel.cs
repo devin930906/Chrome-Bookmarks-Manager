@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using ChromeBookmarksManager.Application;
+using ChromeBookmarksManager.Application.Clipboard;
 using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.History;
@@ -24,6 +25,8 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IBookmarkEditingService _editingService;
     private readonly IBookmarkMoveService _moveService;
     private readonly IBookmarkDeleteService _deleteService;
+    private readonly IBookmarkClipboardService? _clipboardService;
+    private readonly IBookmarkClipboardStore? _clipboardStore;
     private readonly IExternalUrlLauncher? _urlLauncher;
     private readonly IBookmarkSourceBaselineService? _baselineService;
     private readonly IChromeBookmarksSaveService? _saveService;
@@ -110,6 +113,26 @@ public sealed class MainViewModel : ViewModelBase
             urlLauncher,
             searchDebounce)
     {
+    }
+
+    internal MainViewModel(
+        IChromeBookmarksReader reader,
+        IBookmarkSearchService searchService,
+        IBookmarkClipboardService clipboardService,
+        IBookmarkClipboardStore clipboardStore,
+        TimeSpan searchDebounce)
+        : this(
+            reader,
+            searchService,
+            new BookmarkEditingService(),
+            new BookmarkMoveService(),
+            new BookmarkDeleteService(),
+            searchDebounce)
+    {
+        _clipboardService = clipboardService
+            ?? throw new ArgumentNullException(nameof(clipboardService));
+        _clipboardStore = clipboardStore
+            ?? throw new ArgumentNullException(nameof(clipboardStore));
     }
 
     internal MainViewModel(
@@ -242,6 +265,8 @@ public sealed class MainViewModel : ViewModelBase
             ?? throw new ArgumentNullException(nameof(moveService));
         _deleteService = deleteService
             ?? throw new ArgumentNullException(nameof(deleteService));
+        _clipboardService = null;
+        _clipboardStore = null;
         _urlLauncher = urlLauncher;
         _baselineService = baselineService;
         _saveService = saveService;
@@ -468,6 +493,28 @@ public sealed class MainViewModel : ViewModelBase
             item =>
                 item.Node is not BookmarkFolder folder ||
                 !IsPermanentRoot(folder));
+
+    public bool CanCopySelectedContentItems =>
+        CanBrowseDocument &&
+        _clipboardService is not null &&
+        _clipboardStore is not null &&
+        _selectedContentItems.Count > 0;
+
+    public bool CanCutSelectedContentItems =>
+        CanEditDocument &&
+        _clipboardService is not null &&
+        _clipboardStore is not null &&
+        _selectedContentItems.Count > 0 &&
+        _selectedContentItems.All(
+            item =>
+                item.Node is not BookmarkFolder folder ||
+                !IsPermanentRoot(folder));
+
+    public bool CanPasteClipboard =>
+        CanEditDocument &&
+        SelectedFolder is not null &&
+        _clipboardService is not null &&
+        _clipboardStore?.HasPayload == true;
 
     public bool CanOpenSelectedContentItem =>
         CanBrowseDocument &&
@@ -1111,6 +1158,123 @@ public sealed class MainViewModel : ViewModelBase
         {
             _documentOperationGate.Release();
         }
+    }
+
+    public bool CopySelectedContentItems() =>
+        CaptureSelectedContentItemsToClipboard(
+            BookmarkClipboardMode.Copy);
+
+    public bool CutSelectedContentItems() =>
+        CaptureSelectedContentItemsToClipboard(
+            BookmarkClipboardMode.Cut);
+
+    public async Task<bool> PasteClipboardIntoSelectedFolderAsync()
+    {
+        await _documentOperationGate
+            .WaitAsync()
+            .ConfigureAwait(true);
+        try
+        {
+            if (_clipboardService is null ||
+                _clipboardStore is null ||
+                SelectedFolder is null)
+            {
+                return false;
+            }
+
+            var document = RequireEditableDocument();
+            var payload = _clipboardStore.GetPayload();
+
+            if (payload is null)
+            {
+                return false;
+            }
+
+            var targetParent = SelectedFolder;
+            var result = _clipboardService.Paste(
+                document,
+                payload,
+                targetParent,
+                targetParent.Children.Count);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkClipboardPasteHistoryEntry(
+                    result));
+
+            if (payload.Mode == BookmarkClipboardMode.Cut)
+            {
+                _clipboardStore.Clear();
+            }
+
+            ClearContentSelection();
+            NotifyEditingAvailabilityChanged();
+
+            if (result.MovedOriginalNodes)
+            {
+                await RefreshProjectionsAfterMoveAsync(
+                        preferredFolder: targetParent)
+                    .ConfigureAwait(true);
+            }
+            else
+            {
+                await RefreshProjectionsAfterEditAsync(
+                        preferredFolder: targetParent)
+                    .ConfigureAwait(true);
+            }
+
+            return true;
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
+    }
+
+    private bool CaptureSelectedContentItemsToClipboard(
+        BookmarkClipboardMode mode)
+    {
+        if (_document is null ||
+            _clipboardService is null ||
+            _clipboardStore is null)
+        {
+            return false;
+        }
+
+        var allowed = mode switch
+        {
+            BookmarkClipboardMode.Copy =>
+                CanCopySelectedContentItems,
+            BookmarkClipboardMode.Cut =>
+                CanCutSelectedContentItems,
+            _ => false
+        };
+
+        if (!allowed)
+        {
+            return false;
+        }
+
+        var nodes = _selectedContentItems
+            .Select(item => item.Node)
+            .ToArray();
+
+        if (nodes.Length == 0)
+        {
+            return false;
+        }
+
+        var payload = _clipboardService.Capture(
+            _document,
+            nodes,
+            mode);
+        _clipboardStore.SetPayload(payload);
+        NotifyEditingAvailabilityChanged();
+        return true;
     }
 
     public async Task<bool> OpenSelectedContentItemAsync(
@@ -2261,6 +2425,9 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanDeleteSelectedContentItems));
         OnPropertyChanged(nameof(CanMoveSelectedContentBookmarks));
         OnPropertyChanged(nameof(CanMoveSelectedContentItems));
+        OnPropertyChanged(nameof(CanCopySelectedContentItems));
+        OnPropertyChanged(nameof(CanCutSelectedContentItems));
+        OnPropertyChanged(nameof(CanPasteClipboard));
         OnPropertyChanged(nameof(CanOpenSelectedContentItem));
     }
 

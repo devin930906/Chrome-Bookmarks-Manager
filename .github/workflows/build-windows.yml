@@ -67,6 +67,10 @@ jobs:
         shell: pwsh
         run: node scripts/Verify-V10RightPaneParity.mjs
 
+      - name: Verify V1.1 localization and icon contract
+        shell: pwsh
+        run: node scripts/Verify-V11LocalizationUi.mjs
+
 
       - name: Verify V1.0 release asset scripts
         shell: pwsh

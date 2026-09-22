@@ -247,8 +247,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        viewModel.UpdateSelectedBookmarks(
-            BookmarksList.SelectedItems.OfType<BookmarkUrl>());
+        viewModel.UpdateSelectedContentItems(
+            BookmarksList.SelectedItems
+                .OfType<BookmarkListItemViewModel>());
     }
 
     private void FolderTree_PreviewMouseLeftButtonDown(
@@ -339,7 +340,8 @@ public partial class MainWindow : Window
         var item = FindVisualParent<ListViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (item?.DataContext is BookmarkUrl bookmark)
+        if (item?.DataContext is BookmarkListItemViewModel listItem &&
+            listItem.Node is BookmarkUrl bookmark)
         {
             _bookmarkDragCandidate = bookmark;
             _bookmarkDragStartPoint = e.GetPosition(BookmarksList);
@@ -433,7 +435,8 @@ public partial class MainWindow : Window
         var targetItem = FindVisualParent<ListViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (targetItem?.DataContext is not BookmarkUrl target ||
+        if (targetItem?.DataContext is not BookmarkListItemViewModel targetItemViewModel ||
+            targetItemViewModel.Node is not BookmarkUrl target ||
             ReferenceEquals(bookmark, target) ||
             targetItem.ActualHeight <= 0)
         {
@@ -476,7 +479,8 @@ public partial class MainWindow : Window
         var targetItem = FindVisualParent<ListViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (targetItem?.DataContext is not BookmarkUrl target ||
+        if (targetItem?.DataContext is not BookmarkListItemViewModel targetItemViewModel ||
+            targetItemViewModel.Node is not BookmarkUrl target ||
             ReferenceEquals(bookmark, target) ||
             targetItem.ActualHeight <= 0)
         {
@@ -666,18 +670,96 @@ public partial class MainWindow : Window
             ViewModel.SelectedBookmark is { } bookmark)
         {
             ViewModel.NavigateToSearchResult(bookmark);
+            return;
+        }
+
+        if (ViewModel.SelectedContentFolder is { } folder)
+        {
+            ViewModel.NavigateToFolder(folder);
         }
     }
 
     private void BookmarksList_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter &&
-            ViewModel.IsSearchActive &&
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        if (ViewModel.IsSearchActive &&
             ViewModel.SelectedBookmark is { } bookmark)
         {
             ViewModel.NavigateToSearchResult(bookmark);
             e.Handled = true;
+            return;
         }
+
+        if (ViewModel.SelectedContentFolder is { } folder)
+        {
+            ViewModel.NavigateToFolder(folder);
+            e.Handled = true;
+        }
+    }
+
+    private void BookmarksContextMenu_Opened(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var folderSelected =
+            ViewModel.SelectedContentFolder is not null;
+
+        ContentOpenFolderMenuItem.Visibility =
+            folderSelected ? Visibility.Visible : Visibility.Collapsed;
+        ContentRenameFolderMenuItem.Visibility =
+            folderSelected ? Visibility.Visible : Visibility.Collapsed;
+        ContentMoveFolderMenuItem.Visibility =
+            folderSelected ? Visibility.Visible : Visibility.Collapsed;
+        ContentDeleteFolderMenuItem.Visibility =
+            folderSelected ? Visibility.Visible : Visibility.Collapsed;
+        ContentFolderSeparator.Visibility =
+            folderSelected ? Visibility.Visible : Visibility.Collapsed;
+
+        ContentRenameBookmarkMenuItem.Visibility =
+            folderSelected ? Visibility.Collapsed : Visibility.Visible;
+        ContentEditUrlMenuItem.Visibility =
+            folderSelected ? Visibility.Collapsed : Visibility.Visible;
+        ContentMoveBookmarkMenuItem.Visibility =
+            folderSelected ? Visibility.Collapsed : Visibility.Visible;
+        ContentBookmarkSeparator.Visibility =
+            folderSelected ? Visibility.Collapsed : Visibility.Visible;
+        ContentDeleteBookmarkMenuItem.Visibility =
+            folderSelected ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void OpenContentFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (ViewModel.SelectedContentFolder is { } folder)
+        {
+            ViewModel.NavigateToFolder(folder);
+        }
+    }
+
+    private async void RenameContentFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await RenameContentFolderFromUiAsync();
+    }
+
+    private async void MoveContentFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await MoveContentFolderFromUiAsync();
+    }
+
+    private async void DeleteContentFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await DeleteContentFolderFromUiAsync();
     }
 
     private async void Undo_Click(object sender, RoutedEventArgs e)
@@ -804,6 +886,90 @@ public partial class MainWindow : Window
         catch (BookmarkEditException exception)
         {
             ShowEditError(exception);
+        }
+    }
+
+    private async Task RenameContentFolderFromUiAsync()
+    {
+        if (!ViewModel.CanRenameSelectedContentFolder ||
+            ViewModel.SelectedContentFolder is not { } folder)
+        {
+            return;
+        }
+
+        var dialog = CreateEditDialog(
+            "Rename Folder",
+            name: folder.Name,
+            url: null,
+            showName: true,
+            showUrl: false,
+            requireUrl: false);
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.RenameFolderAsync(
+                folder,
+                dialog.NameValue);
+        }
+        catch (BookmarkEditException exception)
+        {
+            ShowEditError(exception);
+        }
+    }
+
+    private async Task MoveContentFolderFromUiAsync()
+    {
+        if (!ViewModel.CanMoveSelectedContentFolder ||
+            ViewModel.SelectedContentFolder is not { } folder ||
+            ViewModel.Document is not { } document)
+        {
+            return;
+        }
+
+        var dialog = CreateMoveDialog(document, folder);
+        if (dialog.ShowDialog() != true ||
+            dialog.SelectedTarget is not { } target)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.MoveFolderToEndAsync(
+                folder,
+                target);
+        }
+        catch (BookmarkMoveException exception)
+        {
+            ShowMoveError(exception);
+        }
+    }
+
+    private async Task DeleteContentFolderFromUiAsync()
+    {
+        if (!ViewModel.CanDeleteSelectedContentFolder ||
+            ViewModel.SelectedContentFolder is not { } folder)
+        {
+            return;
+        }
+
+        if (!ConfirmFolderDeletion(folder))
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.DeleteFolderAsync(folder);
+        }
+        catch (BookmarkDeleteException exception)
+        {
+            ShowDeleteError(exception);
         }
     }
 
@@ -1079,22 +1245,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var (bookmarkCount, folderCount) = CountFolderDescendants(folder);
-        var bookmarkSummary = bookmarkCount == 1
-            ? "1 bookmark"
-            : $"{bookmarkCount:N0} bookmarks";
-        var folderSummary = folderCount == 1
-            ? "1 nested folder"
-            : $"{folderCount:N0} nested folders";
-        var confirmation =
-            $"Delete folder \"{folder.Name}\" and its entire subtree?\n\n" +
-            $"This includes {bookmarkSummary} and {folderSummary}.\n\n" +
-            "The subtree will be removed from the loaded document.\n" +
-            "Use Save to write the change safely to the source Chrome Bookmarks file.";
-
-        if (!ConfirmDestructiveOperation(
-                "Confirm folder deletion",
-                confirmation))
+        if (!ConfirmFolderDeletion(folder))
         {
             return;
         }
@@ -1107,6 +1258,28 @@ public partial class MainWindow : Window
         {
             ShowDeleteError(exception);
         }
+    }
+
+    private bool ConfirmFolderDeletion(
+        BookmarkFolder folder)
+    {
+        var (bookmarkCount, folderCount) =
+            CountFolderDescendants(folder);
+        var bookmarkSummary = bookmarkCount == 1
+            ? "1 bookmark"
+            : $"{bookmarkCount:N0} bookmarks";
+        var folderSummary = folderCount == 1
+            ? "1 nested folder"
+            : $"{folderCount:N0} nested folders";
+        var confirmation =
+            $"Delete folder \"{folder.Name}\" and its entire subtree?\n\n" +
+            $"This includes {bookmarkSummary} and {folderSummary}.\n\n" +
+            "The subtree will be removed from the loaded document.\n" +
+            "Use Save to write the change safely to the source Chrome Bookmarks file.";
+
+        return ConfirmDestructiveOperation(
+            "Confirm folder deletion",
+            confirmation);
     }
 
     private bool ConfirmDestructiveOperation(
@@ -1223,7 +1396,12 @@ public partial class MainWindow : Window
             if (BookmarksList.IsKeyboardFocusWithin)
             {
                 e.Handled = true;
-                if (ViewModel.CanDeleteSelectedBookmarks)
+
+                if (ViewModel.CanDeleteSelectedContentFolder)
+                {
+                    await DeleteContentFolderFromUiAsync();
+                }
+                else if (ViewModel.CanDeleteSelectedBookmarks)
                 {
                     await DeleteSelectedBookmarksFromUiAsync();
                 }
@@ -1282,6 +1460,14 @@ public partial class MainWindow : Window
         if (e.Key == Key.F2 &&
             modifiers == ModifierKeys.None)
         {
+            if (BookmarksList.IsKeyboardFocusWithin &&
+                ViewModel.CanRenameSelectedContentFolder)
+            {
+                await RenameContentFolderFromUiAsync();
+                e.Handled = true;
+                return;
+            }
+
             if (BookmarksList.IsKeyboardFocusWithin &&
                 ViewModel.CanRenameSelectedBookmark)
             {

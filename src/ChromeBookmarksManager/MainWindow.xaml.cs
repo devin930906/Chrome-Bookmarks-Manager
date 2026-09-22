@@ -602,17 +602,17 @@ public partial class MainWindow : Window
                             draggedNode,
                             targetNode),
                     DropPlacement.Into when
-                        targetNode is BookmarkFolder targetFolder &&
+                        targetNode is BookmarkFolder bookmarkTargetFolder &&
                         draggedNode is BookmarkUrl bookmark =>
                             await ViewModel.MoveBookmarkToEndAsync(
                                 bookmark,
-                                targetFolder),
+                                bookmarkTargetFolder),
                     DropPlacement.Into when
-                        targetNode is BookmarkFolder targetFolder &&
+                        targetNode is BookmarkFolder folderTargetFolder &&
                         draggedNode is BookmarkFolder folder =>
                             await ViewModel.MoveFolderToEndAsync(
                                 folder,
-                                targetFolder),
+                                folderTargetFolder),
                     _ => false
                 };
             }

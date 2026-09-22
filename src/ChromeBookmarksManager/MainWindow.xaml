@@ -16,6 +16,10 @@
                 <MenuItem Header="_Open Bookmarks..."
                           IsEnabled="{Binding CanOpenBookmarks}"
                           Click="OpenBookmarks_Click" />
+                <Separator />
+                <MenuItem Header="_Import Bookmarks HTML..."
+                          IsEnabled="{Binding CanImportBookmarksHtml}"
+                          Click="ImportBookmarksHtml_Click" />
                 <MenuItem Header="_Export Bookmarks HTML..."
                           IsEnabled="{Binding CanExportBookmarksHtml}"
                           Click="ExportBookmarksHtml_Click" />
@@ -39,6 +43,19 @@
                           ToolTip="{Binding RedoDescription}"
                           Click="Redo_Click" />
                 <Separator />
+                <MenuItem Header="_Cut"
+                          InputGestureText="Ctrl+X"
+                          IsEnabled="{Binding CanCutSelectedContentItems}"
+                          Click="CutSelectedContentItems_Click" />
+                <MenuItem Header="_Copy"
+                          InputGestureText="Ctrl+C"
+                          IsEnabled="{Binding CanCopySelectedContentItems}"
+                          Click="CopySelectedContentItems_Click" />
+                <MenuItem Header="_Paste"
+                          InputGestureText="Ctrl+V"
+                          IsEnabled="{Binding CanPasteClipboard}"
+                          Click="PasteClipboard_Click" />
+                <Separator />
                 <MenuItem Header="Add _Bookmark..."
                           InputGestureText="Ctrl+Shift+B"
                           IsEnabled="{Binding CanAddBookmark}"
@@ -47,6 +64,9 @@
                           InputGestureText="Ctrl+Shift+F"
                           IsEnabled="{Binding CanAddFolder}"
                           Click="AddFolder_Click" />
+                <MenuItem Header="Sort by _Name"
+                          IsEnabled="{Binding CanSortSelectedFolder}"
+                          Click="SortSelectedFolder_Click" />
                 <Separator />
                 <MenuItem Header="_Rename Folder..."
                           InputGestureText="F2"
@@ -61,10 +81,10 @@
                           IsEnabled="{Binding CanEditSelectedBookmarkUrl}"
                           Click="EditUrl_Click" />
                 <Separator />
-                <MenuItem Header="Delete Bookmark(s)..."
+                <MenuItem Header="_Delete Selected Item(s)..."
                           InputGestureText="Delete"
-                          IsEnabled="{Binding CanDeleteSelectedBookmarks}"
-                          Click="DeleteSelectedBookmarks_Click" />
+                          IsEnabled="{Binding CanDeleteSelectedContentItems}"
+                          Click="DeleteSelectedContentItems_Click" />
             </MenuItem>
         </Menu>
 

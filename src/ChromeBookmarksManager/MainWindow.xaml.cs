@@ -22,7 +22,7 @@ namespace ChromeBookmarksManager;
 public partial class MainWindow : Window
 {
     private Point? _bookmarkDragStartPoint;
-    private BookmarkUrl? _bookmarkDragCandidate;
+    private BookmarkNode? _bookmarkDragCandidate;
     private Point? _folderDragStartPoint;
     private BookmarkFolder? _folderDragCandidate;
     private ListViewItem? _bookmarkDropIndicatorItem;
@@ -341,9 +341,17 @@ public partial class MainWindow : Window
             e.OriginalSource as DependencyObject);
 
         if (item?.DataContext is BookmarkListItemViewModel listItem &&
-            listItem.Node is BookmarkUrl bookmark)
+            listItem.Node.Parent is not null)
         {
-            _bookmarkDragCandidate = bookmark;
+            if (listItem.Node is BookmarkFolder folder &&
+                !DragDropRules.CanStartFolderDrag(
+                    folder.Parent is null))
+            {
+                ResetBookmarkDragSource();
+                return;
+            }
+
+            _bookmarkDragCandidate = listItem.Node;
             _bookmarkDragStartPoint = e.GetPosition(BookmarksList);
             return;
         }
@@ -356,7 +364,7 @@ public partial class MainWindow : Window
         MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed ||
-            _bookmarkDragCandidate is not { } bookmark ||
+            _bookmarkDragCandidate is not { } node ||
             _bookmarkDragStartPoint is not { } startPoint)
         {
             if (e.LeftButton != MouseButtonState.Pressed)
@@ -380,8 +388,24 @@ public partial class MainWindow : Window
             return;
         }
 
-        ViewModel.SelectedBookmark = bookmark;
-        var payload = new BookmarkDragPayload(bookmark);
+        if (node is BookmarkUrl bookmark)
+        {
+            ViewModel.SelectedBookmark = bookmark;
+        }
+        else if (node is BookmarkFolder)
+        {
+            var selectedItem = ViewModel.DisplayedItems
+                .FirstOrDefault(item =>
+                    ReferenceEquals(item.Node, node));
+
+            if (selectedItem is not null)
+            {
+                ViewModel.UpdateSelectedContentItems(
+                    new[] { selectedItem });
+            }
+        }
+
+        var payload = new BookmarkDragPayload(node);
         ResetBookmarkDragSource();
 
         try
@@ -426,7 +450,7 @@ public partial class MainWindow : Window
 
         if (!DragDropRules.CanPositionallyReorderBookmarks(
                 ViewModel.IsSearchActive) ||
-            GetBookmarkDragPayload(e)?.Node is not BookmarkUrl bookmark)
+            GetBookmarkDragPayload(e)?.Node is not { } draggedNode)
         {
             e.Handled = true;
             return;
@@ -435,19 +459,48 @@ public partial class MainWindow : Window
         var targetItem = FindVisualParent<ListViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (targetItem?.DataContext is not BookmarkListItemViewModel targetItemViewModel ||
-            targetItemViewModel.Node is not BookmarkUrl target ||
-            ReferenceEquals(bookmark, target) ||
+        if (targetItem is null)
+        {
+            if (ViewModel.SelectedFolder is { } currentFolder &&
+                DragDropRules.CanMoveContentNodeInto(
+                    draggedNode,
+                    currentFolder))
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        if (targetItem.DataContext is not BookmarkListItemViewModel targetItemViewModel ||
+            ReferenceEquals(draggedNode, targetItemViewModel.Node) ||
             targetItem.ActualHeight <= 0)
         {
             e.Handled = true;
             return;
         }
 
-        var pointer = e.GetPosition(targetItem);
-        var placement = DragDropRules.GetBookmarkRowPlacement(
-            pointer.Y,
-            targetItem.ActualHeight);
+        var targetNode = targetItemViewModel.Node;
+        var placement = DragDropRules.GetContentRowPlacement(
+            e.GetPosition(targetItem).Y,
+            targetItem.ActualHeight,
+            targetNode is BookmarkFolder);
+
+        var valid = placement == DropPlacement.Into
+            ? targetNode is BookmarkFolder targetFolder &&
+              DragDropRules.CanMoveContentNodeInto(
+                  draggedNode,
+                  targetFolder)
+            : DragDropRules.CanMoveContentNodeRelativeTo(
+                draggedNode,
+                targetNode);
+
+        if (!valid)
+        {
+            e.Handled = true;
+            return;
+        }
 
         SetBookmarkDropIndicator(targetItem, placement);
         e.Effects = DragDropEffects.Move;
@@ -470,7 +523,7 @@ public partial class MainWindow : Window
 
         if (!DragDropRules.CanPositionallyReorderBookmarks(
                 ViewModel.IsSearchActive) ||
-            GetBookmarkDragPayload(e)?.Node is not BookmarkUrl bookmark)
+            GetBookmarkDragPayload(e)?.Node is not { } draggedNode)
         {
             e.Handled = true;
             return;
@@ -479,32 +532,94 @@ public partial class MainWindow : Window
         var targetItem = FindVisualParent<ListViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (targetItem?.DataContext is not BookmarkListItemViewModel targetItemViewModel ||
-            targetItemViewModel.Node is not BookmarkUrl target ||
-            ReferenceEquals(bookmark, target) ||
-            targetItem.ActualHeight <= 0)
-        {
-            e.Handled = true;
-            return;
-        }
-
-        var pointer = e.GetPosition(targetItem);
-        var placement = DragDropRules.GetBookmarkRowPlacement(
-            pointer.Y,
-            targetItem.ActualHeight);
-
         try
         {
-            if (placement == DropPlacement.Before)
+            bool changed;
+
+            if (targetItem is null)
             {
-                await ViewModel.MoveBookmarkBeforeAsync(bookmark, target);
+                if (ViewModel.SelectedFolder is not { } currentFolder ||
+                    !DragDropRules.CanMoveContentNodeInto(
+                        draggedNode,
+                        currentFolder))
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                changed = draggedNode switch
+                {
+                    BookmarkUrl bookmark =>
+                        await ViewModel.MoveBookmarkToEndAsync(
+                            bookmark,
+                            currentFolder),
+                    BookmarkFolder folder =>
+                        await ViewModel.MoveFolderToEndAsync(
+                            folder,
+                            currentFolder),
+                    _ => false
+                };
             }
             else
             {
-                await ViewModel.MoveBookmarkAfterAsync(bookmark, target);
+                if (targetItem.DataContext is not BookmarkListItemViewModel targetItemViewModel ||
+                    ReferenceEquals(draggedNode, targetItemViewModel.Node) ||
+                    targetItem.ActualHeight <= 0)
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                var targetNode = targetItemViewModel.Node;
+                var placement = DragDropRules.GetContentRowPlacement(
+                    e.GetPosition(targetItem).Y,
+                    targetItem.ActualHeight,
+                    targetNode is BookmarkFolder);
+
+                var valid = placement == DropPlacement.Into
+                    ? targetNode is BookmarkFolder targetFolder &&
+                      DragDropRules.CanMoveContentNodeInto(
+                          draggedNode,
+                          targetFolder)
+                    : DragDropRules.CanMoveContentNodeRelativeTo(
+                        draggedNode,
+                        targetNode);
+
+                if (!valid)
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                changed = placement switch
+                {
+                    DropPlacement.Before =>
+                        await ViewModel.MoveNodeBeforeAsync(
+                            draggedNode,
+                            targetNode),
+                    DropPlacement.After =>
+                        await ViewModel.MoveNodeAfterAsync(
+                            draggedNode,
+                            targetNode),
+                    DropPlacement.Into when
+                        targetNode is BookmarkFolder targetFolder &&
+                        draggedNode is BookmarkUrl bookmark =>
+                            await ViewModel.MoveBookmarkToEndAsync(
+                                bookmark,
+                                targetFolder),
+                    DropPlacement.Into when
+                        targetNode is BookmarkFolder targetFolder &&
+                        draggedNode is BookmarkFolder folder =>
+                            await ViewModel.MoveFolderToEndAsync(
+                                folder,
+                                targetFolder),
+                    _ => false
+                };
             }
 
-            e.Effects = DragDropEffects.Move;
+            e.Effects = changed
+                ? DragDropEffects.Move
+                : DragDropEffects.None;
         }
         catch (BookmarkMoveException exception)
         {
@@ -1525,9 +1640,12 @@ public partial class MainWindow : Window
         ClearBookmarkDropIndicator();
 
         item.BorderBrush = SystemColors.HighlightBrush;
-        item.BorderThickness = placement == DropPlacement.Before
-            ? new Thickness(0, 2, 0, 0)
-            : new Thickness(0, 0, 0, 2);
+        item.BorderThickness = placement switch
+        {
+            DropPlacement.Before => new Thickness(0, 2, 0, 0),
+            DropPlacement.After => new Thickness(0, 0, 0, 2),
+            _ => new Thickness(1)
+        };
 
         _bookmarkDropIndicatorItem = item;
     }

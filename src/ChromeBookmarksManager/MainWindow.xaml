@@ -21,6 +21,8 @@
                           IsEnabled="{Binding CanSave}"
                           Click="Save_Click" />
                 <Separator />
+                <MenuItem Header="E_xit"
+                          Click="Exit_Click" />
             </MenuItem>
             <MenuItem Header="_Edit">
                 <MenuItem Header="_Undo"

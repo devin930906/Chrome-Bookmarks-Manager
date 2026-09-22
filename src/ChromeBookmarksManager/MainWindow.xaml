@@ -287,6 +287,11 @@
                                       Header="Move to..."
                                       IsEnabled="{Binding CanMoveSelectedBookmarks}"
                                       Click="MoveBookmark_Click" />
+                            <MenuItem x:Name="ContentMoveSelectionMenuItem"
+                                      Header="Move Selected Item(s) to..."
+                                      IsEnabled="{Binding CanMoveSelectedContentItems}"
+                                      Visibility="Collapsed"
+                                      Click="MoveSelectedContentItems_Click" />
                             <Separator x:Name="ContentBookmarkSeparator" />
                             <MenuItem x:Name="ContentDeleteBookmarkMenuItem"
                                       Header="Delete Bookmark(s)..."

@@ -125,6 +125,30 @@ public sealed class MainViewModelDeleteTests
     }
 
     [Fact]
+    public async Task DeleteFolderAsync_RightPaneChildDeletesChildAndKeepsParentSelected()
+    {
+        var fixture = CreateFixture();
+        var search = new CountingSearchService();
+        var viewModel = CreateViewModel(fixture.Document, search);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.Single(viewModel.FolderRoots[0].Children);
+
+        var changed = await viewModel.DeleteFolderAsync(
+            fixture.ChildFolder);
+
+        Assert.True(changed);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal(2, search.BuildIndexCalls);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.Empty(viewModel.FolderRoots[0].Children);
+        Assert.DoesNotContain(
+            fixture.BookmarkBar.Children,
+            node => ReferenceEquals(node, fixture.ChildFolder));
+    }
+
+    [Fact]
     public async Task PermanentRoot_DeleteRemainsDisabledAndRejected()
     {
         var fixture = CreateFixture();

@@ -66,7 +66,9 @@ public sealed class MainViewModel : ViewModelBase
     private string _selectionSummaryText = string.Empty;
     private string _searchText = string.Empty;
     private BookmarkSearchScope _searchScope = BookmarkSearchScope.AllBookmarks;
-    private IReadOnlyList<BookmarkUrl> _searchResults =
+    private IReadOnlyList<BookmarkNode> _searchResults =
+        Array.Empty<BookmarkNode>();
+    private IReadOnlyList<BookmarkUrl> _searchBookmarks =
         Array.Empty<BookmarkUrl>();
     private IReadOnlyList<BookmarkListItemViewModel> _searchItems =
         Array.Empty<BookmarkListItemViewModel>();
@@ -387,10 +389,10 @@ public sealed class MainViewModel : ViewModelBase
         set => SetSearchScope(value);
     }
 
-    public IReadOnlyList<BookmarkUrl> SearchResults => _searchResults;
+    public IReadOnlyList<BookmarkNode> SearchResults => _searchResults;
 
     public IReadOnlyList<BookmarkUrl> DisplayedBookmarks =>
-        IsSearchActive ? SearchResults : CurrentBookmarks;
+        IsSearchActive ? _searchBookmarks : CurrentBookmarks;
 
     public IReadOnlyList<BookmarkListItemViewModel> DisplayedItems =>
         IsSearchActive ? _searchItems : CurrentItems;
@@ -1358,6 +1360,14 @@ public sealed class MainViewModel : ViewModelBase
 
         if (node is BookmarkFolder folder)
         {
+            if (IsSearchActive &&
+                SearchResults.Any(
+                    result => ReferenceEquals(result, folder)))
+            {
+                NavigateToSearchResult(folder);
+                return ReferenceEquals(SelectedFolder, folder);
+            }
+
             return NavigateToFolder(folder);
         }
 
@@ -2056,11 +2066,27 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
-    public void NavigateToSearchResult(BookmarkUrl? bookmark)
+    public void NavigateToSearchResult(BookmarkNode? node)
     {
         if (!IsSearchActive ||
-            bookmark is null ||
-            !SearchResults.Any(result => ReferenceEquals(result, bookmark)) ||
+            node is null ||
+            !SearchResults.Any(result => ReferenceEquals(result, node)))
+        {
+            return;
+        }
+
+        if (node is BookmarkFolder folder)
+        {
+            if (!NavigateToFolder(folder))
+            {
+                return;
+            }
+
+            SearchText = string.Empty;
+            return;
+        }
+
+        if (node is not BookmarkUrl bookmark ||
             bookmark.Parent is null ||
             !_folderLookup.TryGetValue(bookmark.Parent, out var targetFolder))
         {
@@ -2183,7 +2209,7 @@ public sealed class MainViewModel : ViewModelBase
         ++_searchGeneration;
         CancelPendingSearch();
         _pendingSearchTask = Task.CompletedTask;
-        SetSearchResults(Array.Empty<BookmarkUrl>());
+        SetSearchResults(Array.Empty<BookmarkNode>());
         SetIsSearchBusy(false);
         SetSearchSummaryText(
             searchWasActive ? "Refreshing search index..." : string.Empty);
@@ -2283,7 +2309,7 @@ public sealed class MainViewModel : ViewModelBase
         ++_searchGeneration;
         CancelPendingSearch();
         _pendingSearchTask = Task.CompletedTask;
-        SetSearchResults(Array.Empty<BookmarkUrl>());
+        SetSearchResults(Array.Empty<BookmarkNode>());
         SetIsSearchBusy(false);
         SetSearchSummaryText(
             searchWasActive ? "Refreshing search..." : string.Empty);
@@ -2574,7 +2600,7 @@ public sealed class MainViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(value))
         {
             CancelPendingSearch();
-            SetSearchResults(Array.Empty<BookmarkUrl>());
+            SetSearchResults(Array.Empty<BookmarkNode>());
             SetIsSearchBusy(false);
             SetSearchSummaryText(string.Empty);
             _pendingSearchTask = Task.CompletedTask;
@@ -2632,7 +2658,7 @@ public sealed class MainViewModel : ViewModelBase
             _searchIndex is null ||
             string.IsNullOrWhiteSpace(SearchText))
         {
-            SetSearchResults(Array.Empty<BookmarkUrl>());
+            SetSearchResults(Array.Empty<BookmarkNode>());
             SetIsSearchBusy(false);
             SetSearchSummaryText(string.Empty);
             _pendingSearchTask = Task.CompletedTask;
@@ -2710,7 +2736,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             if (IsLatestSearch(generation, cancellation))
             {
-                SetSearchResults(Array.Empty<BookmarkUrl>());
+                SetSearchResults(Array.Empty<BookmarkNode>());
                 SetSearchSummaryText("Search failed.");
             }
         }
@@ -2762,7 +2788,7 @@ public sealed class MainViewModel : ViewModelBase
             SetSearchIndex(null);
         }
 
-        SetSearchResults(Array.Empty<BookmarkUrl>());
+        SetSearchResults(Array.Empty<BookmarkNode>());
         SetIsSearchBusy(false);
         SetSearchSummaryText(string.Empty);
         OnPropertyChanged(nameof(IsSearchActive));
@@ -3095,7 +3121,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectionSummaryText));
     }
 
-    private void SetSearchResults(IReadOnlyList<BookmarkUrl> value)
+    private void SetSearchResults(IReadOnlyList<BookmarkNode> value)
     {
         ArgumentNullException.ThrowIfNull(value);
 
@@ -3105,8 +3131,11 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         _searchResults = value;
+        _searchBookmarks = value
+            .OfType<BookmarkUrl>()
+            .ToArray();
         _searchItems = value
-            .Select(bookmark => new BookmarkListItemViewModel(bookmark))
+            .Select(node => new BookmarkListItemViewModel(node))
             .ToArray();
 
         OnPropertyChanged(nameof(SearchResults));

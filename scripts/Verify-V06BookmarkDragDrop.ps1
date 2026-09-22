@@ -57,17 +57,22 @@ if (Require-File $mainWindowXaml) {
 if (Require-File $mainWindowCode) {
     $code = Get-Content -LiteralPath $mainWindowCode -Raw
 
-    Require-Text $code 'BookmarkDragPayload' "Bookmark drag source must use the typed bookmark payload."
+    Require-Text $code 'BookmarkDragPayload.ForContentRow' "Right-pane drag source must build an ordered selected-node payload from the pointer-down row."
+    Require-Text $code 'GetBookmarkDragPayload(e)?.Nodes' "Right-pane drag targets must consume the ordered multi-node payload."
     Require-Text $code 'SystemParameters.MinimumHorizontalDragDistance' "Bookmark drag must respect the system horizontal drag threshold."
     Require-Text $code 'SystemParameters.MinimumVerticalDragDistance' "Bookmark drag must respect the system vertical drag threshold."
     Require-Text $code 'System.Windows.DragDrop.DoDragDrop' "Bookmark drag source must use WPF DragDrop.DoDragDrop."
     Require-Text $code 'DragDropRules.GetContentRowPlacement' "Mixed right-pane drops must use the tested content-row placement rule, which preserves bookmark Before/After halves and adds folder Before/Into/After thirds."
     Require-Text $code 'DragDropRules.CanPositionallyReorderBookmarks' "Search-result positional reorder must use the tested search guard."
-    Require-Text $code 'MoveNodeBeforeAsync' "Mixed Before drops must route through the generic MainViewModel node move path."
-    Require-Text $code 'MoveNodeAfterAsync' "Mixed After drops must route through the generic MainViewModel node move path."
-    Require-Text $code 'MoveBookmarkToEndAsync' "Bookmark-to-folder drops must route through MainViewModel."
+    Require-Text $code 'DragDropRules.CanMoveContentNodesInto' "Mixed Into/empty-space drops must validate the full dragged node set."
+    Require-Text $code 'DragDropRules.CanMoveContentNodesRelativeTo' "Mixed Before/After drops must validate the full dragged node set."
+    Require-Text $code 'MoveContentNodesAsync' "Before/After/Into/empty-space drops must route through generic batch MainViewModel movement."
     Require-Text $code 'SetBookmarkDropIndicator' "Bookmark positional drops must expose visual feedback."
     Require-Text $code 'SetFolderDropIndicator' "Folder Into drops must expose visual feedback."
+
+    if ($code.Contains('new BookmarkDragPayload(node)', [System.StringComparison]::Ordinal)) {
+        $errors.Add("V1.0 right-pane drag/drop must not collapse the gesture to a single-node payload.")
+    }
 
     foreach ($forbidden in @(
         ".RemoveChildAt(",

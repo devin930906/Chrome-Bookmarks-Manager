@@ -257,7 +257,13 @@
                                      Opened="BookmarksContextMenu_Opened">
                             <MenuItem x:Name="ContentOpenFolderMenuItem"
                                       Header="Open Folder"
+                                      IsEnabled="{Binding CanOpenSelectedContentItem}"
                                       Click="OpenContentFolder_Click" />
+                            <MenuItem x:Name="ContentOpenBookmarkMenuItem"
+                                      Header="Open Bookmark"
+                                      IsEnabled="{Binding CanOpenSelectedContentItem}"
+                                      Visibility="Collapsed"
+                                      Click="OpenContentBookmark_Click" />
                             <MenuItem x:Name="ContentRenameFolderMenuItem"
                                       Header="Rename Folder..."
                                       InputGestureText="F2"

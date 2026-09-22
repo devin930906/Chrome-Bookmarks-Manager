@@ -110,6 +110,26 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
             normalizedTargetIndex);
     }
 
+    public BookmarkMoveResult MoveNodeBefore(
+        BookmarkDocument document,
+        BookmarkNode node,
+        BookmarkNode target) =>
+        MoveNodeRelative(
+            document,
+            node,
+            target,
+            insertAfter: false);
+
+    public BookmarkMoveResult MoveNodeAfter(
+        BookmarkDocument document,
+        BookmarkNode node,
+        BookmarkNode target) =>
+        MoveNodeRelative(
+            document,
+            node,
+            target,
+            insertAfter: true);
+
     public BookmarkMoveResult MoveBookmarkBefore(
         BookmarkDocument document,
         BookmarkUrl bookmark,
@@ -329,6 +349,60 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
         }
 
         return true;
+    }
+
+    private BookmarkMoveResult MoveNodeRelative(
+        BookmarkDocument document,
+        BookmarkNode node,
+        BookmarkNode target,
+        bool insertAfter)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(target);
+
+        EnsureBelongsToDocument(
+            document,
+            node,
+            BookmarkMoveError.NodeNotInDocument,
+            "The bookmark node does not belong to the active document.");
+
+        EnsureBelongsToDocument(
+            document,
+            target,
+            BookmarkMoveError.TargetNotInDocument,
+            "The drop target does not belong to the active document.");
+
+        if (IsPermanentRoot(document, node))
+        {
+            throw new BookmarkMoveException(
+                BookmarkMoveError.ProtectedRoot,
+                "Permanent Chrome bookmark roots cannot be moved.");
+        }
+
+        var targetParent = target.Parent
+            ?? throw new BookmarkMoveException(
+                BookmarkMoveError.InvalidDropTarget,
+                "Permanent Chrome roots cannot be used as before/after sibling targets.");
+
+        var targetIndex = targetParent.IndexOfChild(target);
+        if (targetIndex < 0)
+        {
+            throw new BookmarkMoveException(
+                BookmarkMoveError.InvalidDropTarget,
+                "The drop target is not present in its recorded parent.");
+        }
+
+        if (insertAfter)
+        {
+            targetIndex++;
+        }
+
+        return MoveNode(
+            document,
+            node,
+            targetParent,
+            targetIndex);
     }
 
     private BookmarkMoveResult MoveRelative(

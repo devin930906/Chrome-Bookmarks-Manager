@@ -198,7 +198,7 @@ public sealed class MainViewModelSortTests
                 cancellationToken);
         }
 
-        public Task<IReadOnlyList<BookmarkUrl>> SearchAsync(
+        public Task<IReadOnlyList<BookmarkNode>> SearchAsync(
             BookmarkSearchIndex index,
             string query,
             BookmarkSearchScope scope,

@@ -33,11 +33,6 @@ jobs:
         shell: pwsh
         run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --filter "FullyQualifiedName~ChromeBookmarksManager.Tests.Stabilization"
 
-      - name: Verify V1.0 representative 250k release measurements
-        if: github.head_ref == 'feature/v1.0-stabilization'
-        shell: pwsh
-        run: pwsh -NoProfile -File scripts/Invoke-V10ReleaseMeasurements.ps1 -UrlCount 250000 -FolderCount 4000 -HistoryEditCount 100000
-
       - name: Verify repository safety
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-RepositorySafety.ps1

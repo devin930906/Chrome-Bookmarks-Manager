@@ -821,6 +821,11 @@ public partial class MainWindow : Window
         object sender,
         MouseButtonEventArgs e)
     {
+        if (TryNavigateSelectedSearchResultFromUi())
+        {
+            return;
+        }
+
         if (ViewModel.CanOpenSelectedContentItem)
         {
             await OpenSelectedContentItemFromUiAsync();
@@ -833,6 +838,12 @@ public partial class MainWindow : Window
     {
         if (e.Key != Key.Enter)
         {
+            return;
+        }
+
+        if (TryNavigateSelectedSearchResultFromUi())
+        {
+            e.Handled = true;
             return;
         }
 
@@ -967,7 +978,27 @@ public partial class MainWindow : Window
             return false;
         }
 
+        if (ViewModel.IsSearchActive)
+        {
+            ViewModel.NavigateToSearchResult(folder);
+            return !ViewModel.IsSearchActive;
+        }
+
         return ViewModel.NavigateToFolder(folder);
+    }
+
+    private bool TryNavigateSelectedSearchResultFromUi()
+    {
+        if (!ViewModel.IsSearchActive ||
+            ViewModel.SelectedContentItems.Count != 1)
+        {
+            return false;
+        }
+
+        ViewModel.NavigateToSearchResult(
+            ViewModel.SelectedContentItems[0].Node);
+
+        return !ViewModel.IsSearchActive;
     }
 
     private void CopySelectedContentItemsFromUi()

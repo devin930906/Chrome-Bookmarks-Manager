@@ -116,7 +116,7 @@ public sealed class MainViewModelSearchTests
         var service = new StubSearchService
         {
             Search = (_, query, _, _, _) =>
-                Task.FromResult<IReadOnlyList<BookmarkUrl>>(
+                Task.FromResult<IReadOnlyList<BookmarkNode>>(
                     query == "target"
                         ? new[] { fixture.OtherUrl }
                         : Array.Empty<BookmarkUrl>())
@@ -130,7 +130,9 @@ public sealed class MainViewModelSearchTests
         Assert.True(viewModel.IsSearchActive);
         var result = Assert.Single(viewModel.SearchResults);
         Assert.Same(fixture.OtherUrl, result);
-        Assert.Same(viewModel.SearchResults, viewModel.DisplayedBookmarks);
+        Assert.Same(
+            fixture.OtherUrl,
+            Assert.Single(viewModel.DisplayedBookmarks));
         var displayed = Assert.Single(viewModel.DisplayedItems);
         Assert.Same(fixture.OtherUrl, displayed.Node);
         Assert.True(displayed.IsBookmark);
@@ -145,7 +147,7 @@ public sealed class MainViewModelSearchTests
         var service = new StubSearchService
         {
             Search = (_, _, _, _, _) =>
-                Task.FromResult<IReadOnlyList<BookmarkUrl>>(
+                Task.FromResult<IReadOnlyList<BookmarkNode>>(
                     new[] { fixture.OtherUrl })
         };
         var viewModel = CreateViewModel(fixture, service);
@@ -195,9 +197,9 @@ public sealed class MainViewModelSearchTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         var newStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseOld = new TaskCompletionSource<IReadOnlyList<BookmarkUrl>>(
+        var releaseOld = new TaskCompletionSource<IReadOnlyList<BookmarkNode>>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseNew = new TaskCompletionSource<IReadOnlyList<BookmarkUrl>>(
+        var releaseNew = new TaskCompletionSource<IReadOnlyList<BookmarkNode>>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
         var service = new StubSearchService
@@ -243,7 +245,7 @@ public sealed class MainViewModelSearchTests
         var service = new StubSearchService
         {
             Search = (_, _, _, _, _) =>
-                Task.FromResult<IReadOnlyList<BookmarkUrl>>(
+                Task.FromResult<IReadOnlyList<BookmarkNode>>(
                     new[] { fixture.OtherUrl })
         };
         var viewModel = CreateViewModel(fixture, service);
@@ -368,7 +370,7 @@ public sealed class MainViewModelSearchTests
     public async Task SearchSummary_ExposesStateAndCountButNeverQueryText()
     {
         var fixture = CreateFixture();
-        var release = new TaskCompletionSource<IReadOnlyList<BookmarkUrl>>(
+        var release = new TaskCompletionSource<IReadOnlyList<BookmarkNode>>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var started = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -522,7 +524,7 @@ public sealed class MainViewModelSearchTests
             BookmarkSearchScope,
             BookmarkFolder?,
             CancellationToken,
-            Task<IReadOnlyList<BookmarkUrl>>>? Search { get; init; }
+            Task<IReadOnlyList<BookmarkNode>>>? Search { get; init; }
 
         public int BuildIndexCalls { get; private set; }
 
@@ -545,7 +547,7 @@ public sealed class MainViewModelSearchTests
                     new BookmarkSearchIndex(document, cancellationToken));
         }
 
-        public Task<IReadOnlyList<BookmarkUrl>> SearchAsync(
+        public Task<IReadOnlyList<BookmarkNode>> SearchAsync(
             BookmarkSearchIndex index,
             string query,
             BookmarkSearchScope scope,
@@ -563,7 +565,7 @@ public sealed class MainViewModelSearchTests
                     scope,
                     currentFolder,
                     cancellationToken)
-                ?? Task.FromResult<IReadOnlyList<BookmarkUrl>>(
+                ?? Task.FromResult<IReadOnlyList<BookmarkNode>>(
                     Array.Empty<BookmarkUrl>());
         }
 

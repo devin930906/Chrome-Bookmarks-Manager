@@ -37,12 +37,11 @@ public sealed class DocumentOperationSerializationTests
 
         searchService.ReleaseBlockedBuild(document);
 
-        await Task.WhenAll(firstMutation, secondMutation);
+        var completed = await Task.WhenAll(firstMutation, secondMutation);
 
-        Assert.Contains(
-            document.Roots.BookmarkBar.Children,
-            node => node is BookmarkFolder folder &&
-                    folder.Name == "Second queued folder");
+        Assert.Equal("First queued folder", completed[0].Name);
+        Assert.Equal("Second queued folder", completed[1].Name);
+        Assert.Same(completed[0], completed[1].Parent);
     }
 
     private static BookmarkDocument CreateDocument()

@@ -21,6 +21,7 @@ public sealed class MainViewModelSearchTests
         Assert.False(viewModel.IsSearchBusy);
         Assert.Empty(viewModel.SearchResults);
         Assert.Empty(viewModel.DisplayedBookmarks);
+        Assert.Empty(viewModel.DisplayedItems);
         Assert.Equal(string.Empty, viewModel.SearchSummaryText);
     }
 
@@ -91,7 +92,7 @@ public sealed class MainViewModelSearchTests
     }
 
     [Fact]
-    public async Task EmptySearch_DisplaysNormalCurrentFolderBookmarks()
+    public async Task EmptySearch_DisplaysNormalCurrentFolderMixedItems()
     {
         var fixture = CreateFixture();
         var viewModel = CreateViewModel(fixture);
@@ -100,9 +101,12 @@ public sealed class MainViewModelSearchTests
 
         Assert.False(viewModel.IsSearchActive);
         Assert.Same(viewModel.CurrentBookmarks, viewModel.DisplayedBookmarks);
-        Assert.Equal(2, viewModel.DisplayedBookmarks.Count);
-        Assert.Same(fixture.BarFirst, viewModel.DisplayedBookmarks[0]);
-        Assert.Same(fixture.BarSecond, viewModel.DisplayedBookmarks[1]);
+        Assert.Same(viewModel.CurrentItems, viewModel.DisplayedItems);
+        Assert.Collection(
+            viewModel.DisplayedItems,
+            item => Assert.Same(fixture.BarFirst, item.Node),
+            item => Assert.Same(fixture.ChildFolder, item.Node),
+            item => Assert.Same(fixture.BarSecond, item.Node));
     }
 
     [Fact]
@@ -112,7 +116,7 @@ public sealed class MainViewModelSearchTests
         var service = new StubSearchService
         {
             Search = (_, query, _, _, _) =>
-                Task.FromResult<IReadOnlyList<BookmarkUrl>>(
+                Task.FromResult<IReadOnlyList<BookmarkNode>>(
                     query == "target"
                         ? new[] { fixture.OtherUrl }
                         : Array.Empty<BookmarkUrl>())
@@ -126,8 +130,42 @@ public sealed class MainViewModelSearchTests
         Assert.True(viewModel.IsSearchActive);
         var result = Assert.Single(viewModel.SearchResults);
         Assert.Same(fixture.OtherUrl, result);
-        Assert.Same(viewModel.SearchResults, viewModel.DisplayedBookmarks);
+        Assert.Same(
+            fixture.OtherUrl,
+            Assert.Single(viewModel.DisplayedBookmarks));
+        var displayed = Assert.Single(viewModel.DisplayedItems);
+        Assert.Same(fixture.OtherUrl, displayed.Node);
+        Assert.True(displayed.IsBookmark);
+        Assert.False(displayed.IsFolder);
         Assert.False(viewModel.IsSearchBusy);
+    }
+
+    [Fact]
+    public async Task ActivatingSearch_ClearsRightPaneFolderSelection()
+    {
+        var fixture = CreateFixture();
+        var service = new StubSearchService
+        {
+            Search = (_, _, _, _, _) =>
+                Task.FromResult<IReadOnlyList<BookmarkNode>>(
+                    new[] { fixture.OtherUrl })
+        };
+        var viewModel = CreateViewModel(fixture, service);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        var folderRow = Assert.Single(
+            viewModel.CurrentItems,
+            item => item.IsFolder);
+        viewModel.UpdateSelectedContentItems(new[] { folderRow });
+        Assert.Same(fixture.ChildFolder, viewModel.SelectedContentFolder);
+
+        viewModel.SearchText = "target";
+        await viewModel.WaitForPendingSearchAsync();
+
+        Assert.Null(viewModel.SelectedContentFolder);
+        Assert.Null(viewModel.SelectedContentItem);
+        Assert.Empty(viewModel.SelectedContentItems);
+        Assert.Empty(viewModel.SelectedBookmarks);
     }
 
     [Fact]
@@ -159,9 +197,9 @@ public sealed class MainViewModelSearchTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         var newStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseOld = new TaskCompletionSource<IReadOnlyList<BookmarkUrl>>(
+        var releaseOld = new TaskCompletionSource<IReadOnlyList<BookmarkNode>>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseNew = new TaskCompletionSource<IReadOnlyList<BookmarkUrl>>(
+        var releaseNew = new TaskCompletionSource<IReadOnlyList<BookmarkNode>>(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
         var service = new StubSearchService
@@ -207,7 +245,7 @@ public sealed class MainViewModelSearchTests
         var service = new StubSearchService
         {
             Search = (_, _, _, _, _) =>
-                Task.FromResult<IReadOnlyList<BookmarkUrl>>(
+                Task.FromResult<IReadOnlyList<BookmarkNode>>(
                     new[] { fixture.OtherUrl })
         };
         var viewModel = CreateViewModel(fixture, service);
@@ -276,8 +314,9 @@ public sealed class MainViewModelSearchTests
         Assert.Equal(0, service.SearchCalls);
     }
 
+
     [Fact]
-    public async Task Reopen_ClearsPreviousSearchBeforeNextReaderCompletes()
+    public async Task Reopen_PreservesPreviousSearchUntilReplacementCommits()
     {
         var first = CreateFixture();
         var second = CreateFixture("Second bar");
@@ -307,26 +346,31 @@ public sealed class MainViewModelSearchTests
         await viewModel.WaitForPendingSearchAsync();
         Assert.True(viewModel.IsSearchActive);
 
+        var previousResult = Assert.Single(viewModel.SearchResults);
+
         var reopen = viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks-2");
         await secondReadEntered.Task;
 
-        Assert.Equal(string.Empty, viewModel.SearchText);
+        Assert.Equal(DocumentState.Loading, viewModel.State);
+        Assert.Equal("first", viewModel.SearchText);
         Assert.False(viewModel.IsSearchActive);
-        Assert.Empty(viewModel.SearchResults);
+        Assert.Same(previousResult, Assert.Single(viewModel.SearchResults));
         Assert.False(viewModel.CanSearchDocument);
 
         releaseSecond.SetResult(second.Document);
         await reopen;
 
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
         Assert.True(viewModel.CanSearchDocument);
         Assert.Equal(string.Empty, viewModel.SearchText);
+        Assert.False(viewModel.IsSearchActive);
+        Assert.Empty(viewModel.SearchResults);
     }
-
     [Fact]
     public async Task SearchSummary_ExposesStateAndCountButNeverQueryText()
     {
         var fixture = CreateFixture();
-        var release = new TaskCompletionSource<IReadOnlyList<BookmarkUrl>>(
+        var release = new TaskCompletionSource<IReadOnlyList<BookmarkNode>>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var started = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -480,7 +524,7 @@ public sealed class MainViewModelSearchTests
             BookmarkSearchScope,
             BookmarkFolder?,
             CancellationToken,
-            Task<IReadOnlyList<BookmarkUrl>>>? Search { get; init; }
+            Task<IReadOnlyList<BookmarkNode>>>? Search { get; init; }
 
         public int BuildIndexCalls { get; private set; }
 
@@ -503,7 +547,7 @@ public sealed class MainViewModelSearchTests
                     new BookmarkSearchIndex(document, cancellationToken));
         }
 
-        public Task<IReadOnlyList<BookmarkUrl>> SearchAsync(
+        public Task<IReadOnlyList<BookmarkNode>> SearchAsync(
             BookmarkSearchIndex index,
             string query,
             BookmarkSearchScope scope,
@@ -521,7 +565,7 @@ public sealed class MainViewModelSearchTests
                     scope,
                     currentFolder,
                     cancellationToken)
-                ?? Task.FromResult<IReadOnlyList<BookmarkUrl>>(
+                ?? Task.FromResult<IReadOnlyList<BookmarkNode>>(
                     Array.Empty<BookmarkUrl>());
         }
 

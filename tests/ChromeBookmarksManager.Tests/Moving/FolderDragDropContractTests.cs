@@ -90,6 +90,82 @@ public sealed class FolderDragDropContractTests
                 sibling));
     }
 
+    [Theory]
+    [InlineData(0, 30, true, "Before")]
+    [InlineData(9.99, 30, true, "Before")]
+    [InlineData(10, 30, true, "Into")]
+    [InlineData(20, 30, true, "Into")]
+    [InlineData(20.01, 30, true, "After")]
+    [InlineData(30, 30, true, "After")]
+    [InlineData(0, 30, false, "Before")]
+    [InlineData(14.99, 30, false, "Before")]
+    [InlineData(15, 30, false, "After")]
+    [InlineData(30, 30, false, "After")]
+    public void ContentRowPlacement_UsesFolderThirdsAndBookmarkHalves(
+        double pointerY,
+        double rowHeight,
+        bool targetIsFolder,
+        string expectedName)
+    {
+        Assert.Equal(
+            Enum.Parse<DropPlacement>(expectedName),
+            DragDropRules.GetContentRowPlacement(
+                pointerY,
+                rowHeight,
+                targetIsFolder));
+    }
+
+    [Fact]
+    public void ContentDropValidation_AllowsBookmarksButRejectsFolderCycles()
+    {
+        var deep = Folder("23", "Deep");
+        var child = Folder("22", "Child", deep);
+        var moving = Folder("20", "Moving", child);
+        var sibling = Folder("21", "Sibling");
+        var bookmark = Url("10", "Bookmark");
+        var bar = Folder(
+            "1",
+            "Bookmarks bar",
+            moving,
+            sibling,
+            bookmark);
+        _ = Document(bar);
+
+        Assert.False(
+            DragDropRules.CanMoveContentNodeInto(
+                moving,
+                child));
+        Assert.False(
+            DragDropRules.CanMoveContentNodeInto(
+                moving,
+                deep));
+        Assert.True(
+            DragDropRules.CanMoveContentNodeInto(
+                moving,
+                sibling));
+        Assert.True(
+            DragDropRules.CanMoveContentNodeInto(
+                bookmark,
+                moving));
+
+        Assert.False(
+            DragDropRules.CanMoveContentNodeRelativeTo(
+                moving,
+                child));
+        Assert.False(
+            DragDropRules.CanMoveContentNodeRelativeTo(
+                moving,
+                deep));
+        Assert.True(
+            DragDropRules.CanMoveContentNodeRelativeTo(
+                moving,
+                sibling));
+        Assert.True(
+            DragDropRules.CanMoveContentNodeRelativeTo(
+                bookmark,
+                sibling));
+    }
+
     [Fact]
     public void FolderIntoValidation_AllowsMovingAcrossChromeRoots()
     {
@@ -123,6 +199,20 @@ public sealed class FolderDragDropContractTests
                 EmptyProperties),
             EmptyProperties);
     }
+
+    private static BookmarkUrl Url(
+        string id,
+        string name) =>
+        new(
+            id,
+            GuidFor(int.Parse(id)),
+            name,
+            $"https://example.com/{id}",
+            null,
+            null,
+            null,
+            null,
+            EmptyProperties);
 
     private static BookmarkFolder Folder(
         string id,

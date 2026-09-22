@@ -51,7 +51,7 @@ requireText(xaml, 'IsEnabled="{Binding CanRenameSelectedBookmark}"', 'Bookmark r
 requireText(xaml, 'IsEnabled="{Binding CanEditSelectedBookmarkUrl}"', 'Bookmark URL editing must remain available through its guarded capability.');
 
 requireText(code, 'BookmarksList.SelectedItems', 'The WPF list selection must be sent to the ViewModel.');
-requireText(code, 'viewModel.UpdateSelectedBookmarks(', 'The ViewModel must own the selected bookmark set.');
+requireText(code, 'viewModel.UpdateSelectedContentItems(', 'The ViewModel must own the mixed right-pane selection and derive the selected bookmark set.');
 requireText(code, 'if (!item.IsSelected)', 'Right-click on an already-selected bookmark must preserve multi-selection.');
 requireText(code, 'BookmarksList.UnselectAll()', 'Right-click on an unselected bookmark must make it the only context-menu target.');
 requireText(code, 'BookmarksList.SelectAll()', 'Ctrl+A must select the displayed list rows.');
@@ -68,8 +68,9 @@ requireText(code, 'removed from the loaded document', 'Delete confirmation must 
 requireText(code, 'Use Save to write the change safely', 'Delete confirmation must explain that source write-back requires explicit Save.');
 requireText(code, 'MoveSelectedBookmarksToEndAsync', 'Move to... must dispatch multi-selection through the batch ViewModel method.');
 requireText(code, 'CountFolderDescendants(folder)', 'Folder confirmation must calculate descendant counts.');
-requireText(code, 'new BookmarkDragPayload(bookmark)', 'V0.6 drag-and-drop must remain a single-node gesture.');
-requireText(viewModel, '!HasMultipleSelectedBookmarks', 'Single-item rename/edit must be disabled when selection is ambiguous.');
+requireText(code, 'BookmarkDragPayload.ForContentRow(', 'V1.0 right-pane drag-and-drop must preserve the ordered selected node set when the pointer-down row is selected.');
+requireText(code, 'MoveContentNodesAsync', 'V1.0 mixed drag-and-drop must dispatch through the generic batch move path.');
+requireText(viewModel, 'HasUnambiguousSelectedBookmark()', 'Single-item bookmark rename/edit/move must use the mixed-selection ambiguity guard.');
 
 const bookmarkDeleteStart = code.indexOf('private async Task DeleteSelectedBookmarksFromUiAsync()');
 const folderDeleteStart = code.indexOf('private async Task DeleteSelectedFolderFromUiAsync()');
@@ -84,7 +85,7 @@ if (bookmarkDeleteStart >= 0 && folderDeleteStart > bookmarkDeleteStart) {
 if (folderDeleteStart >= 0 && confirmationStart > folderDeleteStart) {
   requireBefore(
     code.slice(folderDeleteStart, confirmationStart),
-    'ConfirmDestructiveOperation(',
+    'ConfirmFolderDeletion(',
     'await ViewModel.DeleteSelectedFolderAsync()',
     'Cancelling folder confirmation must return before any ViewModel mutation.');
 }

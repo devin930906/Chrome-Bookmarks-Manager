@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ChromeBookmarksManager.Application;
+using ChromeBookmarksManager.Application.Launching;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
 using ChromeBookmarksManager.ViewModels;
@@ -16,6 +17,8 @@ public sealed class MainViewModelBrowserTests
 
         Assert.Empty(viewModel.FolderRoots);
         Assert.Null(viewModel.SelectedFolder);
+        Assert.Empty(viewModel.CurrentItems);
+        Assert.Empty(viewModel.DisplayedItems);
         Assert.Empty(viewModel.CurrentBookmarks);
         Assert.Null(viewModel.SelectedBookmark);
         Assert.False(viewModel.CanBrowseDocument);
@@ -44,11 +47,11 @@ public sealed class MainViewModelBrowserTests
         Assert.False(viewModel.FolderRoots[2].IsSelected);
         Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
         Assert.Equal("4 URLs | 4 folders", viewModel.DocumentSummaryText);
-        Assert.Equal("Bookmarks bar | 2 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Bookmarks bar | 1 folder | 2 bookmarks", viewModel.SelectionSummaryText);
     }
 
     [Fact]
-    public async Task LoadBookmarksAsync_Success_ExposesOnlyDirectUrlsInOriginalOrder()
+    public async Task LoadBookmarksAsync_Success_ExposesDirectChildrenInOriginalMixedOrder()
     {
         var fixture = CreateFixture();
         var viewModel = new MainViewModel(
@@ -56,12 +59,152 @@ public sealed class MainViewModelBrowserTests
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
 
+        Assert.Collection(
+            viewModel.CurrentItems,
+            item =>
+            {
+                Assert.Same(fixture.BarUrlFirst, item.Node);
+                Assert.True(item.IsBookmark);
+            },
+            item =>
+            {
+                Assert.Same(fixture.ChildFolder, item.Node);
+                Assert.True(item.IsFolder);
+            },
+            item =>
+            {
+                Assert.Same(fixture.BarUrlSecond, item.Node);
+                Assert.True(item.IsBookmark);
+            });
+
+        Assert.Same(viewModel.CurrentItems, viewModel.DisplayedItems);
         Assert.Equal(2, viewModel.CurrentBookmarks.Count);
         Assert.Same(fixture.BarUrlFirst, viewModel.CurrentBookmarks[0]);
         Assert.Same(fixture.BarUrlSecond, viewModel.CurrentBookmarks[1]);
         Assert.DoesNotContain(
             viewModel.CurrentBookmarks,
             bookmark => ReferenceEquals(bookmark, fixture.NestedUrl));
+    }
+
+    [Fact]
+    public async Task SelectingChildFolderRow_DoesNotReplaceCurrentNavigationFolder()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var childRow = Assert.Single(
+            viewModel.CurrentItems,
+            item => item.IsFolder);
+
+        viewModel.UpdateSelectedContentItems(new[] { childRow });
+
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.Same(childRow, viewModel.SelectedContentItem);
+        Assert.Same(
+            fixture.ChildFolder,
+            viewModel.SelectedContentFolder);
+        Assert.Same(
+            childRow,
+            Assert.Single(viewModel.SelectedContentItems));
+        Assert.Empty(viewModel.SelectedBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+
+        Assert.False(viewModel.CanRenameSelectedFolder);
+        Assert.True(viewModel.CanRenameSelectedContentFolder);
+        Assert.True(viewModel.CanMoveSelectedContentFolder);
+        Assert.True(viewModel.CanDeleteSelectedContentFolder);
+    }
+
+    [Fact]
+    public async Task MixedContentSelection_PreservesAllRowsInDisplayedOrder()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var firstBookmark = viewModel.CurrentItems[0];
+        var childFolder = viewModel.CurrentItems[1];
+        var secondBookmark = viewModel.CurrentItems[2];
+
+        viewModel.UpdateSelectedContentItems(
+            new[] { secondBookmark, childFolder, firstBookmark });
+
+        Assert.Collection(
+            viewModel.SelectedContentItems,
+            item => Assert.Same(firstBookmark, item),
+            item => Assert.Same(childFolder, item),
+            item => Assert.Same(secondBookmark, item));
+        Assert.Same(firstBookmark, viewModel.SelectedContentItem);
+        Assert.Null(viewModel.SelectedContentFolder);
+        Assert.Collection(
+            viewModel.SelectedBookmarks,
+            bookmark => Assert.Same(fixture.BarUrlFirst, bookmark),
+            bookmark => Assert.Same(fixture.BarUrlSecond, bookmark));
+        Assert.Same(fixture.BarUrlFirst, viewModel.SelectedBookmark);
+
+        Assert.False(viewModel.CanRenameSelectedContentFolder);
+        Assert.False(viewModel.CanMoveSelectedContentFolder);
+        Assert.False(viewModel.CanDeleteSelectedContentFolder);
+        Assert.False(viewModel.CanRenameSelectedBookmark);
+        Assert.False(viewModel.CanEditSelectedBookmarkUrl);
+    }
+
+    [Fact]
+    public async Task BookmarkContentSelection_PreservesDisplayedOrderAndBatchSelection()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var firstBookmark = viewModel.CurrentItems[0];
+        var secondBookmark = viewModel.CurrentItems[2];
+
+        viewModel.UpdateSelectedContentItems(
+            new[] { secondBookmark, firstBookmark });
+
+        Assert.Collection(
+            viewModel.SelectedContentItems,
+            item => Assert.Same(firstBookmark, item),
+            item => Assert.Same(secondBookmark, item));
+        Assert.Collection(
+            viewModel.SelectedBookmarks,
+            bookmark => Assert.Same(fixture.BarUrlFirst, bookmark),
+            bookmark => Assert.Same(fixture.BarUrlSecond, bookmark));
+        Assert.Same(firstBookmark, viewModel.SelectedContentItem);
+        Assert.Same(fixture.BarUrlFirst, viewModel.SelectedBookmark);
+        Assert.Null(viewModel.SelectedContentFolder);
+    }
+
+    [Fact]
+    public async Task ChangingNavigationFolder_ClearsRightPaneContentSelection()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        var childRow = Assert.Single(
+            viewModel.CurrentItems,
+            item => item.IsFolder);
+        viewModel.UpdateSelectedContentItems(new[] { childRow });
+
+        var childTreeItem = Assert.Single(
+            viewModel.FolderRoots[0].Children);
+        viewModel.SelectFolder(childTreeItem);
+
+        Assert.Same(fixture.ChildFolder, viewModel.SelectedFolder);
+        Assert.Empty(viewModel.SelectedContentItems);
+        Assert.Null(viewModel.SelectedContentItem);
+        Assert.Null(viewModel.SelectedContentFolder);
+        Assert.Empty(viewModel.SelectedBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
     }
 
     [Fact]
@@ -83,11 +226,110 @@ public sealed class MainViewModelBrowserTests
         var current = Assert.Single(viewModel.CurrentBookmarks);
         Assert.Same(fixture.NestedUrl, current);
         Assert.Null(viewModel.SelectedBookmark);
-        Assert.Equal("Child folder | 1 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Child folder | 0 folders | 1 bookmark", viewModel.SelectionSummaryText);
+    }
+
+
+    [Fact]
+    public async Task NavigateToFolder_SelectsMatchingTreeItemAndShowsItsDirectContents()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var changed = viewModel.NavigateToFolder(fixture.ChildFolder);
+
+        Assert.True(changed);
+        Assert.Same(fixture.ChildFolder, viewModel.SelectedFolder);
+
+        var childTreeItem = Assert.Single(
+            viewModel.FolderRoots[0].Children);
+        Assert.True(viewModel.FolderRoots[0].IsExpanded);
+        Assert.True(childTreeItem.IsSelected);
+
+        var current = Assert.Single(viewModel.CurrentItems);
+        Assert.Same(fixture.NestedUrl, current.Node);
+        Assert.True(current.IsBookmark);
+        Assert.Equal(
+            "Child folder | 0 folders | 1 bookmark",
+            viewModel.SelectionSummaryText);
     }
 
     [Fact]
-    public async Task LoadBookmarksAsync_ReadFailure_ClearsPreviousBrowserState()
+    public async Task OpenSelectedContentItem_FolderNavigatesWithoutLaunchingUrl()
+    {
+        var fixture = CreateFixture();
+        var launcher = new RecordingUrlLauncher();
+        var viewModel = CreateViewModel(
+            fixture.Document,
+            launcher);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        var folderRow = Assert.Single(
+            viewModel.CurrentItems,
+            item => item.IsFolder);
+        viewModel.UpdateSelectedContentItems(
+            new[] { folderRow });
+
+        Assert.True(viewModel.CanOpenSelectedContentItem);
+        Assert.True(
+            await viewModel.OpenSelectedContentItemAsync());
+
+        Assert.Same(fixture.ChildFolder, viewModel.SelectedFolder);
+        Assert.Empty(launcher.LaunchedUrls);
+    }
+
+    [Fact]
+    public async Task OpenSelectedContentItem_BookmarkInvokesExternalUrlLauncher()
+    {
+        var fixture = CreateFixture();
+        var launcher = new RecordingUrlLauncher();
+        var viewModel = CreateViewModel(
+            fixture.Document,
+            launcher);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        var bookmarkRow = viewModel.CurrentItems[0];
+        viewModel.UpdateSelectedContentItems(
+            new[] { bookmarkRow });
+
+        Assert.True(viewModel.CanOpenSelectedContentItem);
+        Assert.True(
+            await viewModel.OpenSelectedContentItemAsync());
+
+        Assert.Equal(
+            new[] { fixture.BarUrlFirst.Url },
+            launcher.LaunchedUrls);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+    }
+
+    [Fact]
+    public async Task OpenSelectedContentItem_MultipleRowsIsDisabledAndNoOp()
+    {
+        var fixture = CreateFixture();
+        var launcher = new RecordingUrlLauncher();
+        var viewModel = CreateViewModel(
+            fixture.Document,
+            launcher);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        viewModel.UpdateSelectedContentItems(
+            new[]
+            {
+                viewModel.CurrentItems[0],
+                viewModel.CurrentItems[1]
+            });
+
+        Assert.False(viewModel.CanOpenSelectedContentItem);
+        Assert.False(
+            await viewModel.OpenSelectedContentItemAsync());
+        Assert.Empty(launcher.LaunchedUrls);
+    }
+
+    [Fact]
+    public async Task LoadBookmarksAsync_ReadFailure_PreservesPreviousBrowserState()
     {
         var fixture = CreateFixture();
         var call = 0;
@@ -107,23 +349,32 @@ public sealed class MainViewModelBrowserTests
         var viewModel = new MainViewModel(reader);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
-        Assert.NotEmpty(viewModel.FolderRoots);
+
+        var previousDocument = viewModel.Document;
+        var previousFolderRoots = viewModel.FolderRoots;
+        var previousSelectedFolder = viewModel.SelectedFolder;
+        var previousCurrentItems = viewModel.CurrentItems;
+        var previousCurrentBookmarks = viewModel.CurrentBookmarks;
+        var previousSelectedBookmark = viewModel.SelectedBookmark;
+        var previousDocumentSummary = viewModel.DocumentSummaryText;
+        var previousSelectionSummary = viewModel.SelectionSummaryText;
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Invalid");
 
-        Assert.Equal(DocumentState.LoadFailed, viewModel.State);
-        Assert.Null(viewModel.Document);
-        Assert.Empty(viewModel.FolderRoots);
-        Assert.Null(viewModel.SelectedFolder);
-        Assert.Empty(viewModel.CurrentBookmarks);
-        Assert.Null(viewModel.SelectedBookmark);
-        Assert.False(viewModel.CanBrowseDocument);
-        Assert.Equal(string.Empty, viewModel.DocumentSummaryText);
-        Assert.Equal(string.Empty, viewModel.SelectionSummaryText);
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Same(previousDocument, viewModel.Document);
+        Assert.Same(previousFolderRoots, viewModel.FolderRoots);
+        Assert.Same(previousSelectedFolder, viewModel.SelectedFolder);
+        Assert.Same(previousCurrentItems, viewModel.CurrentItems);
+        Assert.Same(previousCurrentBookmarks, viewModel.CurrentBookmarks);
+        Assert.Same(previousSelectedBookmark, viewModel.SelectedBookmark);
+        Assert.True(viewModel.CanBrowseDocument);
+        Assert.Equal(previousDocumentSummary, viewModel.DocumentSummaryText);
+        Assert.Equal(previousSelectionSummary, viewModel.SelectionSummaryText);
     }
 
     [Fact]
-    public async Task CancelLoad_ClearsPreviousBrowserState()
+    public async Task CancelReplacementLoad_PreservesPreviousBrowserState()
     {
         var fixture = CreateFixture();
         var entered = new TaskCompletionSource(
@@ -144,25 +395,36 @@ public sealed class MainViewModelBrowserTests
         var viewModel = new MainViewModel(reader);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var previousDocument = viewModel.Document;
+        var previousFolderRoots = viewModel.FolderRoots;
+        var previousSelectedFolder = viewModel.SelectedFolder;
+        var previousCurrentItems = viewModel.CurrentItems;
+        var previousCurrentBookmarks = viewModel.CurrentBookmarks;
+        var previousSelectedBookmark = viewModel.SelectedBookmark;
+        var previousDocumentSummary = viewModel.DocumentSummaryText;
+        var previousSelectionSummary = viewModel.SelectionSummaryText;
+
         var load = viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks-2");
         await entered.Task;
 
         viewModel.CancelLoad();
         await load;
 
-        Assert.Equal(DocumentState.NoDocument, viewModel.State);
-        Assert.Null(viewModel.Document);
-        Assert.Empty(viewModel.FolderRoots);
-        Assert.Null(viewModel.SelectedFolder);
-        Assert.Empty(viewModel.CurrentBookmarks);
-        Assert.Null(viewModel.SelectedBookmark);
-        Assert.False(viewModel.CanBrowseDocument);
-        Assert.Equal(string.Empty, viewModel.DocumentSummaryText);
-        Assert.Equal(string.Empty, viewModel.SelectionSummaryText);
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Same(previousDocument, viewModel.Document);
+        Assert.Same(previousFolderRoots, viewModel.FolderRoots);
+        Assert.Same(previousSelectedFolder, viewModel.SelectedFolder);
+        Assert.Same(previousCurrentItems, viewModel.CurrentItems);
+        Assert.Same(previousCurrentBookmarks, viewModel.CurrentBookmarks);
+        Assert.Same(previousSelectedBookmark, viewModel.SelectedBookmark);
+        Assert.True(viewModel.CanBrowseDocument);
+        Assert.Equal(previousDocumentSummary, viewModel.DocumentSummaryText);
+        Assert.Equal(previousSelectionSummary, viewModel.SelectionSummaryText);
     }
 
     [Fact]
-    public async Task LoadBookmarksAsync_SecondLoad_ClearsBrowserStateBeforeReaderCompletes()
+    public async Task LoadBookmarksAsync_SecondLoad_PreservesBrowserStateUntilReplacementCommits()
     {
         var first = CreateFixture();
         var second = CreateFixture("Second bar");
@@ -185,26 +447,39 @@ public sealed class MainViewModelBrowserTests
         var viewModel = new MainViewModel(reader);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var previousDocument = viewModel.Document;
+        var previousFolderRoots = viewModel.FolderRoots;
+        var previousSelectedFolder = viewModel.SelectedFolder;
+        var previousCurrentItems = viewModel.CurrentItems;
+        var previousCurrentBookmarks = viewModel.CurrentBookmarks;
+        var previousSelectedBookmark = viewModel.SelectedBookmark;
+        var previousDocumentSummary = viewModel.DocumentSummaryText;
+        var previousSelectionSummary = viewModel.SelectionSummaryText;
+
         var secondLoad = viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks-2");
         await entered.Task;
 
         Assert.Equal(DocumentState.Loading, viewModel.State);
-        Assert.Null(viewModel.Document);
-        Assert.Empty(viewModel.FolderRoots);
-        Assert.Null(viewModel.SelectedFolder);
-        Assert.Empty(viewModel.CurrentBookmarks);
-        Assert.Null(viewModel.SelectedBookmark);
+        Assert.Same(previousDocument, viewModel.Document);
+        Assert.Same(previousFolderRoots, viewModel.FolderRoots);
+        Assert.Same(previousSelectedFolder, viewModel.SelectedFolder);
+        Assert.Same(previousCurrentItems, viewModel.CurrentItems);
+        Assert.Same(previousCurrentBookmarks, viewModel.CurrentBookmarks);
+        Assert.Same(previousSelectedBookmark, viewModel.SelectedBookmark);
         Assert.False(viewModel.CanBrowseDocument);
-        Assert.Equal(string.Empty, viewModel.DocumentSummaryText);
-        Assert.Equal(string.Empty, viewModel.SelectionSummaryText);
+        Assert.Equal(previousDocumentSummary, viewModel.DocumentSummaryText);
+        Assert.Equal(previousSelectionSummary, viewModel.SelectionSummaryText);
 
         release.SetResult(second.Document);
         await secondLoad;
 
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Same(second.Document, viewModel.Document);
         Assert.Same(second.BookmarkBar, viewModel.SelectedFolder);
         Assert.Equal("Second bar", viewModel.FolderRoots[0].Name);
+        Assert.True(viewModel.CanBrowseDocument);
     }
-
     [Fact]
     public async Task LoadBookmarksAsync_Reopen_ReplacesSummariesAndSourcePath()
     {
@@ -225,7 +500,7 @@ public sealed class MainViewModelBrowserTests
 
         Assert.Equal(@"C:\Synthetic\Bookmarks-2", viewModel.SourcePath);
         Assert.Equal("4 URLs | 4 folders", viewModel.DocumentSummaryText);
-        Assert.Equal("Second bar | 2 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Second bar | 1 folder | 2 bookmarks", viewModel.SelectionSummaryText);
         Assert.Same(second.BookmarkBar, viewModel.SelectedFolder);
         Assert.True(viewModel.FolderRoots[0].IsSelected);
         Assert.False(viewModel.FolderRoots[0].IsExpanded);
@@ -332,6 +607,29 @@ public sealed class MainViewModelBrowserTests
 
     private static IReadOnlyDictionary<string, JsonElement> EmptyProperties() =>
         new Dictionary<string, JsonElement>();
+
+    private static MainViewModel CreateViewModel(
+        BookmarkDocument document,
+        IExternalUrlLauncher launcher) =>
+        new(
+            new StubReader((_, _) => Task.FromResult(document)),
+            new ChromeBookmarksManager.Application.Search.BookmarkSearchService(),
+            launcher,
+            TimeSpan.Zero);
+
+    private sealed class RecordingUrlLauncher : IExternalUrlLauncher
+    {
+        public List<string> LaunchedUrls { get; } = new();
+
+        public Task LaunchAsync(
+            string url,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            LaunchedUrls.Add(url);
+            return Task.CompletedTask;
+        }
+    }
 
     private sealed class StubReader(
         Func<string, CancellationToken, Task<BookmarkDocument>> read)

@@ -8,7 +8,7 @@ public interface IBookmarkSearchService
         BookmarkDocument document,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<BookmarkUrl>> SearchAsync(
+    Task<IReadOnlyList<BookmarkNode>> SearchAsync(
         BookmarkSearchIndex index,
         string query,
         BookmarkSearchScope scope,

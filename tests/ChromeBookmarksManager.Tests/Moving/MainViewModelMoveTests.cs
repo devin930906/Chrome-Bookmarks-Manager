@@ -122,6 +122,50 @@ public sealed class MainViewModelMoveTests
     }
 
     [Fact]
+    public async Task MoveNodeBeforeAsync_FolderBeforeBookmarkUsesMixedOrderAndHistory()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var changed = await viewModel.MoveNodeBeforeAsync(
+            fixture.ChildFolder,
+            fixture.BarFirst);
+
+        Assert.True(changed);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.ChildFolder,
+                fixture.BarFirst,
+                fixture.BarSecond
+            },
+            fixture.BookmarkBar.Children);
+        Assert.Equal("Move folder", viewModel.UndoDescription);
+
+        Assert.True(await viewModel.UndoAsync());
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.BarFirst,
+                fixture.ChildFolder,
+                fixture.BarSecond
+            },
+            fixture.BookmarkBar.Children);
+
+        Assert.True(await viewModel.RedoAsync());
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.ChildFolder,
+                fixture.BarFirst,
+                fixture.BarSecond
+            },
+            fixture.BookmarkBar.Children);
+    }
+
+    [Fact]
     public async Task GlobalSearch_MoveBookmarkKeepsSameSearchReferenceWithoutIndexRebuild()
     {
         var fixture = CreateFixture();
@@ -131,7 +175,8 @@ public sealed class MainViewModelMoveTests
 
         viewModel.SearchText = "First";
         await viewModel.WaitForPendingSearchAsync();
-        var result = Assert.Single(viewModel.SearchResults);
+        var result = Assert.IsType<BookmarkUrl>(
+            Assert.Single(viewModel.SearchResults));
         Assert.Same(fixture.BarFirst, result);
         viewModel.SelectedBookmark = result;
 
@@ -368,6 +413,136 @@ public sealed class MainViewModelMoveTests
         Assert.Equal(1, search.BuildIndexCalls);
     }
 
+    [Fact]
+    public async Task MoveSelectedContentItemsToEnd_MixedSelection_UndoRedoRestoresExactOrderAndIdentity()
+    {
+        var fixture = CreateFixture();
+        var search = new CountingSearchService();
+        var viewModel = CreateViewModel(fixture.Document, search);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        viewModel.UpdateSelectedContentItems(
+            new[]
+            {
+                viewModel.CurrentItems[2],
+                viewModel.CurrentItems[0],
+                viewModel.CurrentItems[1]
+            });
+
+        Assert.True(viewModel.CanMoveSelectedContentItems);
+
+        var changed =
+            await viewModel.MoveSelectedContentItemsToEndAsync(
+                fixture.Other);
+
+        Assert.True(changed);
+        Assert.Equal("Move 3 items", viewModel.UndoDescription);
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.OtherUrl,
+                fixture.BarFirst,
+                fixture.ChildFolder,
+                fixture.BarSecond
+            },
+            fixture.Other.Children);
+        Assert.Same(fixture.Other, fixture.BarFirst.Parent);
+        Assert.Same(fixture.Other, fixture.ChildFolder.Parent);
+        Assert.Same(fixture.Other, fixture.BarSecond.Parent);
+        Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
+        Assert.Equal(1, search.BuildIndexCalls);
+
+        Assert.True(await viewModel.UndoAsync());
+
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.BarFirst,
+                fixture.ChildFolder,
+                fixture.BarSecond
+            },
+            fixture.BookmarkBar.Children);
+        Assert.Equal(
+            new BookmarkNode[] { fixture.OtherUrl },
+            fixture.Other.Children);
+        Assert.Same(fixture.BookmarkBar, fixture.BarFirst.Parent);
+        Assert.Same(fixture.BookmarkBar, fixture.ChildFolder.Parent);
+        Assert.Same(fixture.BookmarkBar, fixture.BarSecond.Parent);
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Equal(1, search.BuildIndexCalls);
+
+        Assert.True(await viewModel.RedoAsync());
+
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.OtherUrl,
+                fixture.BarFirst,
+                fixture.ChildFolder,
+                fixture.BarSecond
+            },
+            fixture.Other.Children);
+        Assert.Same(fixture.Other, fixture.BarFirst.Parent);
+        Assert.Same(fixture.Other, fixture.ChildFolder.Parent);
+        Assert.Same(fixture.Other, fixture.BarSecond.Parent);
+        Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
+        Assert.Equal(1, search.BuildIndexCalls);
+    }
+
+    [Fact]
+    public async Task MoveContentNodesAsync_MixedPayloadToIndex_UndoRedoRestoresExactOrder()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var changed = await viewModel.MoveContentNodesAsync(
+            new BookmarkNode[]
+            {
+                fixture.BarFirst,
+                fixture.ChildFolder
+            },
+            fixture.Other,
+            0);
+
+        Assert.True(changed);
+        Assert.Equal("Move 2 items", viewModel.UndoDescription);
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.BarFirst,
+                fixture.ChildFolder,
+                fixture.OtherUrl
+            },
+            fixture.Other.Children);
+        Assert.Equal(
+            new BookmarkNode[] { fixture.BarSecond },
+            fixture.BookmarkBar.Children);
+
+        Assert.True(await viewModel.UndoAsync());
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.BarFirst,
+                fixture.ChildFolder,
+                fixture.BarSecond
+            },
+            fixture.BookmarkBar.Children);
+        Assert.Equal(
+            new BookmarkNode[] { fixture.OtherUrl },
+            fixture.Other.Children);
+
+        Assert.True(await viewModel.RedoAsync());
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.BarFirst,
+                fixture.ChildFolder,
+                fixture.OtherUrl
+            },
+            fixture.Other.Children);
+    }
+
     private static MainViewModel CreateViewModel(
         BookmarkDocument document,
         IBookmarkSearchService? searchService = null) =>
@@ -481,7 +656,7 @@ public sealed class MainViewModelMoveTests
             return _inner.BuildIndexAsync(document, cancellationToken);
         }
 
-        public Task<IReadOnlyList<BookmarkUrl>> SearchAsync(
+        public Task<IReadOnlyList<BookmarkNode>> SearchAsync(
             BookmarkSearchIndex index,
             string query,
             BookmarkSearchScope scope,

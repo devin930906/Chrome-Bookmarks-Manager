@@ -153,6 +153,110 @@ public sealed class BookmarkBatchDeleteTests
     }
 
     [Fact]
+    public void DeleteNodes_MixedBookmarksAndFolder_RemovesEverySelectedTopLevelNode()
+    {
+        var fixture = CreateFixture();
+        var service = new BookmarkDeleteService();
+        var beforeUrls = fixture.Document.UrlCount;
+        var beforeFolders = fixture.Document.FolderCount;
+
+        var result = service.DeleteNodes(
+            fixture.Document,
+            new BookmarkNode[]
+            {
+                fixture.BarSecond,
+                fixture.BarFolder,
+                fixture.BarFirst
+            });
+
+        Assert.True(result.Changed);
+        Assert.Equal(3, result.RemovedItems.Count);
+        Assert.Equal(2, result.RemovedUrlCount);
+        Assert.Equal(1, result.RemovedFolderCount);
+        Assert.Equal(beforeUrls - 2, fixture.Document.UrlCount);
+        Assert.Equal(beforeFolders - 1, fixture.Document.FolderCount);
+        Assert.Empty(fixture.BookmarkBar.Children);
+        Assert.Null(fixture.BarFirst.Parent);
+        Assert.Null(fixture.BarSecond.Parent);
+        Assert.Null(fixture.BarFolder.Parent);
+    }
+
+    [Fact]
+    public void DeleteNodes_AncestorAndDescendantSelection_DeletesSubtreeOnlyOnce()
+    {
+        var nested = Url("31", "Nested");
+        var childFolder = Folder("30", "Child", nested);
+        var barFirst = Url("32", "Sibling");
+        var bookmarkBar = Folder(
+            "1",
+            "Bookmarks bar",
+            childFolder,
+            barFirst);
+        var other = Folder("2", "Other bookmarks");
+        var synced = Folder("3", "Mobile bookmarks");
+        var document = new BookmarkDocument(
+            1,
+            null,
+            null,
+            new BookmarkRoots(
+                bookmarkBar,
+                other,
+                synced,
+                EmptyProperties),
+            EmptyProperties);
+        var service = new BookmarkDeleteService();
+        var beforeUrls = document.UrlCount;
+        var beforeFolders = document.FolderCount;
+
+        var result = service.DeleteNodes(
+            document,
+            new BookmarkNode[]
+            {
+                nested,
+                childFolder
+            });
+
+        var removed = Assert.Single(result.RemovedItems);
+        Assert.Same(childFolder, removed.Node);
+        Assert.Equal(1, result.RemovedUrlCount);
+        Assert.Equal(1, result.RemovedFolderCount);
+        Assert.Equal(beforeUrls - 1, document.UrlCount);
+        Assert.Equal(beforeFolders - 1, document.FolderCount);
+        Assert.Null(childFolder.Parent);
+        Assert.Same(childFolder, nested.Parent);
+        Assert.Equal(
+            new BookmarkNode[] { barFirst },
+            bookmarkBar.Children);
+    }
+
+    [Fact]
+    public void DeleteNodes_ProtectedRootInBatch_RejectsBeforeAnyMutation()
+    {
+        var fixture = CreateFixture();
+        var service = new BookmarkDeleteService();
+        var beforeChildren = fixture.BookmarkBar.Children.ToArray();
+        var beforeUrls = fixture.Document.UrlCount;
+        var beforeFolders = fixture.Document.FolderCount;
+
+        var exception = Assert.Throws<BookmarkDeleteException>(
+            () => service.DeleteNodes(
+                fixture.Document,
+                new BookmarkNode[]
+                {
+                    fixture.BarFirst,
+                    fixture.BookmarkBar
+                }));
+
+        Assert.Equal(
+            BookmarkDeleteError.ProtectedRoot,
+            exception.Error);
+        Assert.Equal(beforeChildren, fixture.BookmarkBar.Children);
+        Assert.Equal(beforeUrls, fixture.Document.UrlCount);
+        Assert.Equal(beforeFolders, fixture.Document.FolderCount);
+        Assert.Same(fixture.BookmarkBar, fixture.BarFirst.Parent);
+    }
+
+    [Fact]
     public void DeleteBookmarks_EmptySelection_IsNoOp()
     {
         var fixture = CreateFixture();

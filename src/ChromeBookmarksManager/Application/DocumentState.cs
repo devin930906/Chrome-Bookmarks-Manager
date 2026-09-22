@@ -8,5 +8,6 @@ public enum DocumentState
     LoadedDirty,
     Saving,
     SaveFailed,
+    RecoveryRequired,
     LoadFailed
 }

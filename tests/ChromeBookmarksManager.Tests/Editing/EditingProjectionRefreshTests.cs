@@ -33,7 +33,7 @@ public sealed class EditingProjectionRefreshTests
         Assert.Same(fixture.ChildFolder, viewModel.SelectedFolder);
         Assert.Equal("Renamed child", Assert.Single(viewModel.FolderRoots[0].Children).Name);
         Assert.True(viewModel.FolderRoots[0].IsExpanded);
-        Assert.Equal("Renamed child | 1 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Renamed child | 0 folders | 1 bookmark", viewModel.SelectionSummaryText);
         Assert.Equal(1, reader.ReadCalls);
         Assert.Equal(DocumentState.LoadedClean, viewModel.State);
     }
@@ -100,7 +100,7 @@ public sealed class EditingProjectionRefreshTests
             bookmark => ReferenceEquals(bookmark, added));
         Assert.Same(added, viewModel.SelectedBookmark);
         Assert.Equal("4 URLs | 4 folders", viewModel.DocumentSummaryText);
-        Assert.Equal("Bookmarks bar | 2 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Bookmarks bar | 1 folder | 2 bookmarks", viewModel.SelectionSummaryText);
 
         viewModel.SearchText = "projection.example";
         await viewModel.WaitForPendingSearchAsync();
@@ -133,7 +133,7 @@ public sealed class EditingProjectionRefreshTests
         Assert.True(addedItem.IsSelected);
         Assert.Empty(viewModel.CurrentBookmarks);
         Assert.Equal("3 URLs | 5 folders", viewModel.DocumentSummaryText);
-        Assert.Equal("Added folder | 0 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Added folder | 0 folders | 0 bookmarks", viewModel.SelectionSummaryText);
         Assert.Equal(1, reader.ReadCalls);
     }
 
@@ -257,7 +257,7 @@ public sealed class EditingProjectionRefreshTests
             return _inner.BuildIndexAsync(document, cancellationToken);
         }
 
-        public Task<IReadOnlyList<BookmarkUrl>> SearchAsync(
+        public Task<IReadOnlyList<BookmarkNode>> SearchAsync(
             BookmarkSearchIndex index,
             string query,
             BookmarkSearchScope scope,

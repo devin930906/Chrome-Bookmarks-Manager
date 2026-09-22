@@ -82,6 +82,30 @@ public sealed class MainViewModelEditingTests
     }
 
     [Fact]
+    public async Task RenameFolderAsync_RightPaneChildRenamesChildWithoutChangingCurrentParent()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+
+        var changed = await viewModel.RenameFolderAsync(
+            fixture.ChildFolder,
+            "Renamed child");
+
+        Assert.True(changed);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal("Renamed child", fixture.ChildFolder.Name);
+        Assert.Equal("Bookmarks bar", fixture.BookmarkBar.Name);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+
+        var childTreeItem = Assert.Single(
+            viewModel.FolderRoots[0].Children);
+        Assert.Equal("Renamed child", childTreeItem.Name);
+    }
+
+    [Fact]
     public async Task RenameBookmark_NoOpDoesNotDirtyOrRefreshIndex()
     {
         var fixture = CreateFixture();
@@ -148,7 +172,7 @@ public sealed class MainViewModelEditingTests
         Assert.True(viewModel.IsDirty);
         Assert.Same(fixture.BookmarkBar, added.Parent);
         Assert.Same(added, viewModel.SelectedFolder);
-        Assert.Equal("Added folder | 0 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Added folder | 0 folders | 0 bookmarks", viewModel.SelectionSummaryText);
         Assert.True(viewModel.CanRenameSelectedFolder);
         Assert.Equal("3 URLs | 5 folders", viewModel.DocumentSummaryText);
     }
@@ -162,7 +186,8 @@ public sealed class MainViewModelEditingTests
 
         viewModel.SearchText = "other target";
         await viewModel.WaitForPendingSearchAsync();
-        var result = Assert.Single(viewModel.SearchResults);
+        var result = Assert.IsType<BookmarkUrl>(
+            Assert.Single(viewModel.SearchResults));
         Assert.Same(fixture.OtherUrl, result);
         viewModel.SelectedBookmark = result;
 
@@ -329,7 +354,7 @@ public sealed class MainViewModelEditingTests
             return _inner.BuildIndexAsync(document, cancellationToken);
         }
 
-        public Task<IReadOnlyList<BookmarkUrl>> SearchAsync(
+        public Task<IReadOnlyList<BookmarkNode>> SearchAsync(
             BookmarkSearchIndex index,
             string query,
             BookmarkSearchScope scope,

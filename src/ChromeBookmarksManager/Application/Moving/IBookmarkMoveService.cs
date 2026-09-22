@@ -10,6 +10,16 @@ public interface IBookmarkMoveService
         BookmarkFolder targetParent,
         int targetIndex);
 
+    BookmarkMoveResult MoveNodeBefore(
+        BookmarkDocument document,
+        BookmarkNode node,
+        BookmarkNode target);
+
+    BookmarkMoveResult MoveNodeAfter(
+        BookmarkDocument document,
+        BookmarkNode node,
+        BookmarkNode target);
+
     BookmarkMoveResult MoveBookmarkBefore(
         BookmarkDocument document,
         BookmarkUrl bookmark,
@@ -34,6 +44,12 @@ public interface IBookmarkMoveService
         BookmarkDocument document,
         BookmarkNode node,
         BookmarkFolder targetParent);
+
+    BookmarkBatchMoveResult MoveNodes(
+        BookmarkDocument document,
+        IReadOnlyList<BookmarkNode> nodes,
+        BookmarkFolder targetParent,
+        int targetIndex);
 
     BookmarkBatchMoveResult MoveBookmarksToEnd(
         BookmarkDocument document,

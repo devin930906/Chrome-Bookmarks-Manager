@@ -4,8 +4,11 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using ChromeBookmarksManager.Application;
+using ChromeBookmarksManager.Application.Clipboard;
 using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
+using ChromeBookmarksManager.Application.Importing;
+using ChromeBookmarksManager.Application.Launching;
 using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Infrastructure.Processes;
 using ChromeBookmarksManager.Infrastructure.Persistence;
@@ -22,7 +25,7 @@ namespace ChromeBookmarksManager;
 public partial class MainWindow : Window
 {
     private Point? _bookmarkDragStartPoint;
-    private BookmarkUrl? _bookmarkDragCandidate;
+    private BookmarkDragPayload? _bookmarkDragCandidate;
     private Point? _folderDragStartPoint;
     private BookmarkFolder? _folderDragCandidate;
     private ListViewItem? _bookmarkDropIndicatorItem;
@@ -45,12 +48,17 @@ public partial class MainWindow : Window
             new ChromeProcessDetector(),
             baselineService,
             transaction);
+        var clipboardService = new BookmarkClipboardService();
+        var clipboardStore = new InMemoryBookmarkClipboardStore();
 
         DataContext = new MainViewModel(
             reader,
             new BookmarkSearchService(),
             baselineService,
             saveService,
+            new WindowsExternalUrlLauncher(),
+            clipboardService,
+            clipboardStore,
             TimeSpan.FromMilliseconds(250));
     }
 
@@ -65,14 +73,22 @@ public partial class MainWindow : Window
 
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
-        if (_allowClose)
+        if (ViewModel.State == DocumentState.Loading)
         {
+            _allowClose = false;
+            e.Cancel = true;
             return;
         }
 
         if (ViewModel.State == DocumentState.Saving)
         {
+            _allowClose = false;
             e.Cancel = true;
+            return;
+        }
+
+        if (_allowClose)
+        {
             return;
         }
 
@@ -170,6 +186,11 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Exit_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
     private async void OpenBookmarks_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
@@ -213,6 +234,115 @@ public partial class MainWindow : Window
             discardDirtyChanges);
     }
 
+    private async void ImportBookmarksHtml_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (!ViewModel.CanImportBookmarksHtml)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Import bookmarks",
+            CheckFileExists = true,
+            Multiselect = false,
+            Filter =
+                "Bookmark HTML (*.html;*.htm)|*.html;*.htm|" +
+                "All files (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.ImportBookmarksHtmlAsync(
+                dialog.FileName);
+        }
+        catch (OperationCanceledException)
+        {
+            MessageBox.Show(
+                this,
+                "Bookmark HTML import was canceled.",
+                "Import bookmarks",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (BookmarkHtmlImportException exception)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Import bookmarks",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                $"Bookmark HTML import failed.\n\n{exception.Message}",
+                "Import bookmarks",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void ExportBookmarksHtml_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (!ViewModel.CanExportBookmarksHtml)
+        {
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export bookmarks",
+            FileName = "bookmarks.html",
+            DefaultExt = ".html",
+            AddExtension = true,
+            OverwritePrompt = true,
+            Filter =
+                "Bookmark HTML (*.html)|*.html|" +
+                "HTML files (*.htm)|*.htm|" +
+                "All files (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.ExportBookmarksHtmlAsync(dialog.FileName);
+        }
+        catch (OperationCanceledException)
+        {
+            MessageBox.Show(
+                this,
+                "Bookmark HTML export was canceled.",
+                "Export bookmarks",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                $"Bookmark HTML export failed.\n\n{exception.Message}",
+                "Export bookmarks",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
     private void CancelLoad_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.CancelLoad();
@@ -234,8 +364,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        viewModel.UpdateSelectedBookmarks(
-            BookmarksList.SelectedItems.OfType<BookmarkUrl>());
+        viewModel.UpdateSelectedContentItems(
+            BookmarksList.SelectedItems
+                .OfType<BookmarkListItemViewModel>());
     }
 
     private void FolderTree_PreviewMouseLeftButtonDown(
@@ -288,7 +419,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var payload = new BookmarkDragPayload(folder);
+        var payload = new BookmarkDragPayload(
+            new BookmarkNode[] { folder });
         ResetFolderDragSource();
 
         try
@@ -326,9 +458,23 @@ public partial class MainWindow : Window
         var item = FindVisualParent<ListViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (item?.DataContext is BookmarkUrl bookmark)
+        if (item?.DataContext is BookmarkListItemViewModel listItem &&
+            listItem.Node.Parent is not null)
         {
-            _bookmarkDragCandidate = bookmark;
+            if (listItem.Node is BookmarkFolder folder &&
+                !DragDropRules.CanStartFolderDrag(
+                    folder.Parent is null))
+            {
+                ResetBookmarkDragSource();
+                return;
+            }
+
+            _bookmarkDragCandidate =
+                BookmarkDragPayload.ForContentRow(
+                    listItem.Node,
+                    ViewModel.SelectedContentItems
+                        .Select(selected => selected.Node)
+                        .ToArray());
             _bookmarkDragStartPoint = e.GetPosition(BookmarksList);
             return;
         }
@@ -341,7 +487,7 @@ public partial class MainWindow : Window
         MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed ||
-            _bookmarkDragCandidate is not { } bookmark ||
+            _bookmarkDragCandidate is not { } payload ||
             _bookmarkDragStartPoint is not { } startPoint)
         {
             if (e.LeftButton != MouseButtonState.Pressed)
@@ -365,8 +511,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        ViewModel.SelectedBookmark = bookmark;
-        var payload = new BookmarkDragPayload(bookmark);
         ResetBookmarkDragSource();
 
         try
@@ -409,9 +553,11 @@ public partial class MainWindow : Window
         ClearBookmarkDropIndicator();
         e.Effects = DragDropEffects.None;
 
+        var draggedNodes = GetBookmarkDragPayload(e)?.Nodes;
         if (!DragDropRules.CanPositionallyReorderBookmarks(
                 ViewModel.IsSearchActive) ||
-            GetBookmarkDragPayload(e)?.Node is not BookmarkUrl bookmark)
+            draggedNodes is null ||
+            draggedNodes.Count == 0)
         {
             e.Handled = true;
             return;
@@ -420,18 +566,47 @@ public partial class MainWindow : Window
         var targetItem = FindVisualParent<ListViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (targetItem?.DataContext is not BookmarkUrl target ||
-            ReferenceEquals(bookmark, target) ||
+        if (targetItem is null)
+        {
+            if (ViewModel.SelectedFolder is { } currentFolder &&
+                DragDropRules.CanMoveContentNodesInto(
+                    draggedNodes,
+                    currentFolder))
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        if (targetItem.DataContext is not BookmarkListItemViewModel targetItemViewModel ||
             targetItem.ActualHeight <= 0)
         {
             e.Handled = true;
             return;
         }
 
-        var pointer = e.GetPosition(targetItem);
-        var placement = DragDropRules.GetBookmarkRowPlacement(
-            pointer.Y,
-            targetItem.ActualHeight);
+        var targetNode = targetItemViewModel.Node;
+        var placement = DragDropRules.GetContentRowPlacement(
+            e.GetPosition(targetItem).Y,
+            targetItem.ActualHeight,
+            targetNode is BookmarkFolder);
+
+        var valid = placement == DropPlacement.Into
+            ? targetNode is BookmarkFolder targetFolder &&
+              DragDropRules.CanMoveContentNodesInto(
+                  draggedNodes,
+                  targetFolder)
+            : DragDropRules.CanMoveContentNodesRelativeTo(
+                draggedNodes,
+                targetNode);
+
+        if (!valid)
+        {
+            e.Handled = true;
+            return;
+        }
 
         SetBookmarkDropIndicator(targetItem, placement);
         e.Effects = DragDropEffects.Move;
@@ -452,9 +627,11 @@ public partial class MainWindow : Window
         ClearBookmarkDropIndicator();
         e.Effects = DragDropEffects.None;
 
+        var draggedNodes = GetBookmarkDragPayload(e)?.Nodes;
         if (!DragDropRules.CanPositionallyReorderBookmarks(
                 ViewModel.IsSearchActive) ||
-            GetBookmarkDragPayload(e)?.Node is not BookmarkUrl bookmark)
+            draggedNodes is null ||
+            draggedNodes.Count == 0)
         {
             e.Handled = true;
             return;
@@ -463,31 +640,96 @@ public partial class MainWindow : Window
         var targetItem = FindVisualParent<ListViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (targetItem?.DataContext is not BookmarkUrl target ||
-            ReferenceEquals(bookmark, target) ||
-            targetItem.ActualHeight <= 0)
-        {
-            e.Handled = true;
-            return;
-        }
-
-        var pointer = e.GetPosition(targetItem);
-        var placement = DragDropRules.GetBookmarkRowPlacement(
-            pointer.Y,
-            targetItem.ActualHeight);
-
         try
         {
-            if (placement == DropPlacement.Before)
+            bool changed;
+
+            if (targetItem is null)
             {
-                await ViewModel.MoveBookmarkBeforeAsync(bookmark, target);
+                if (ViewModel.SelectedFolder is not { } currentFolder ||
+                    !DragDropRules.CanMoveContentNodesInto(
+                        draggedNodes,
+                        currentFolder))
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                changed = await ViewModel.MoveContentNodesAsync(
+                    draggedNodes,
+                    currentFolder,
+                    currentFolder.Children.Count);
             }
             else
             {
-                await ViewModel.MoveBookmarkAfterAsync(bookmark, target);
+                if (targetItem.DataContext is not BookmarkListItemViewModel targetItemViewModel ||
+                    targetItem.ActualHeight <= 0)
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                var targetNode = targetItemViewModel.Node;
+                var placement = DragDropRules.GetContentRowPlacement(
+                    e.GetPosition(targetItem).Y,
+                    targetItem.ActualHeight,
+                    targetNode is BookmarkFolder);
+
+                var valid = placement == DropPlacement.Into
+                    ? targetNode is BookmarkFolder targetFolder &&
+                      DragDropRules.CanMoveContentNodesInto(
+                          draggedNodes,
+                          targetFolder)
+                    : DragDropRules.CanMoveContentNodesRelativeTo(
+                        draggedNodes,
+                        targetNode);
+
+                if (!valid)
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                if (placement == DropPlacement.Into &&
+                    targetNode is BookmarkFolder intoFolder)
+                {
+                    changed = await ViewModel.MoveContentNodesAsync(
+                        draggedNodes,
+                        intoFolder,
+                        intoFolder.Children.Count);
+                }
+                else
+                {
+                    var targetParent = targetNode.Parent;
+                    if (targetParent is null)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
+                    var targetIndex =
+                        targetParent.IndexOfChild(targetNode);
+                    if (targetIndex < 0)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
+                    if (placement == DropPlacement.After)
+                    {
+                        targetIndex++;
+                    }
+
+                    changed = await ViewModel.MoveContentNodesAsync(
+                        draggedNodes,
+                        targetParent,
+                        targetIndex);
+                }
             }
 
-            e.Effects = DragDropEffects.Move;
+            e.Effects = changed
+                ? DragDropEffects.Move
+                : DragDropEffects.None;
         }
         catch (BookmarkMoveException exception)
         {
@@ -504,16 +746,35 @@ public partial class MainWindow : Window
         ClearFolderDropIndicator();
         e.Effects = DragDropEffects.None;
 
-        var draggedNode = GetBookmarkDragPayload(e)?.Node;
+        var draggedNodes = GetBookmarkDragPayload(e)?.Nodes;
         var targetItem = FindVisualParent<TreeViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (draggedNode is null ||
+        if (draggedNodes is null ||
+            draggedNodes.Count == 0 ||
             targetItem?.DataContext is not FolderTreeItemViewModel target)
         {
             e.Handled = true;
             return;
         }
+
+        if (draggedNodes.Count > 1)
+        {
+            if (DragDropRules.CanMoveContentNodesInto(
+                    draggedNodes,
+                    target.Folder))
+            {
+                SetFolderDropIndicator(
+                    targetItem,
+                    DropPlacement.Into);
+                e.Effects = DragDropEffects.Move;
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        var draggedNode = draggedNodes[0];
 
         if (draggedNode is BookmarkUrl)
         {
@@ -568,11 +829,12 @@ public partial class MainWindow : Window
         ClearFolderDropIndicator();
         e.Effects = DragDropEffects.None;
 
-        var draggedNode = GetBookmarkDragPayload(e)?.Node;
+        var draggedNodes = GetBookmarkDragPayload(e)?.Nodes;
         var targetItem = FindVisualParent<TreeViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (draggedNode is null ||
+        if (draggedNodes is null ||
+            draggedNodes.Count == 0 ||
             targetItem?.DataContext is not FolderTreeItemViewModel target)
         {
             e.Handled = true;
@@ -583,54 +845,74 @@ public partial class MainWindow : Window
         {
             bool changed;
 
-            if (draggedNode is BookmarkUrl bookmark)
+            if (draggedNodes.Count > 1)
             {
-                changed = await ViewModel.MoveBookmarkToEndAsync(
-                    bookmark,
-                    target.Folder);
-            }
-            else if (draggedNode is BookmarkFolder movingFolder &&
-                     targetItem.ActualHeight > 0)
-            {
-                var placement = DragDropRules.GetFolderRowPlacement(
-                    e.GetPosition(targetItem).Y,
-                    targetItem.ActualHeight,
-                    target.Folder.Parent is null);
-
-                var valid = placement == DropPlacement.Into
-                    ? DragDropRules.CanMoveFolderInto(
-                        movingFolder,
-                        target.Folder)
-                    : DragDropRules.CanMoveFolderRelativeTo(
-                        movingFolder,
-                        target.Folder);
-
-                if (!valid)
+                if (!DragDropRules.CanMoveContentNodesInto(
+                        draggedNodes,
+                        target.Folder))
                 {
                     e.Handled = true;
                     return;
                 }
 
-                changed = placement switch
-                {
-                    DropPlacement.Before =>
-                        await ViewModel.MoveFolderBeforeAsync(
-                            movingFolder,
-                            target.Folder),
-                    DropPlacement.After =>
-                        await ViewModel.MoveFolderAfterAsync(
-                            movingFolder,
-                            target.Folder),
-                    _ =>
-                        await ViewModel.MoveFolderToEndAsync(
-                            movingFolder,
-                            target.Folder)
-                };
+                changed = await ViewModel.MoveContentNodesAsync(
+                    draggedNodes,
+                    target.Folder,
+                    target.Folder.Children.Count);
             }
             else
             {
-                e.Handled = true;
-                return;
+                var draggedNode = draggedNodes[0];
+
+                if (draggedNode is BookmarkUrl bookmark)
+                {
+                    changed = await ViewModel.MoveBookmarkToEndAsync(
+                        bookmark,
+                        target.Folder);
+                }
+                else if (draggedNode is BookmarkFolder movingFolder &&
+                         targetItem.ActualHeight > 0)
+                {
+                    var placement = DragDropRules.GetFolderRowPlacement(
+                        e.GetPosition(targetItem).Y,
+                        targetItem.ActualHeight,
+                        target.Folder.Parent is null);
+
+                    var valid = placement == DropPlacement.Into
+                        ? DragDropRules.CanMoveFolderInto(
+                            movingFolder,
+                            target.Folder)
+                        : DragDropRules.CanMoveFolderRelativeTo(
+                            movingFolder,
+                            target.Folder);
+
+                    if (!valid)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
+                    changed = placement switch
+                    {
+                        DropPlacement.Before =>
+                            await ViewModel.MoveFolderBeforeAsync(
+                                movingFolder,
+                                target.Folder),
+                        DropPlacement.After =>
+                            await ViewModel.MoveFolderAfterAsync(
+                                movingFolder,
+                                target.Folder),
+                        _ =>
+                            await ViewModel.MoveFolderToEndAsync(
+                                movingFolder,
+                                target.Folder)
+                    };
+                }
+                else
+                {
+                    e.Handled = true;
+                    return;
+                }
             }
 
             e.Effects = changed
@@ -645,26 +927,274 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void BookmarksList_MouseDoubleClick(
+    private async void BookmarksList_MouseDoubleClick(
         object sender,
         MouseButtonEventArgs e)
     {
-        if (ViewModel.IsSearchActive &&
-            ViewModel.SelectedBookmark is { } bookmark)
+        if (TryNavigateSelectedSearchResultFromUi())
         {
-            ViewModel.NavigateToSearchResult(bookmark);
+            return;
+        }
+
+        if (ViewModel.CanOpenSelectedContentItem)
+        {
+            await OpenSelectedContentItemFromUiAsync();
         }
     }
 
-    private void BookmarksList_KeyDown(object sender, KeyEventArgs e)
+    private async void BookmarksList_KeyDown(
+        object sender,
+        KeyEventArgs e)
     {
-        if (e.Key == Key.Enter &&
-            ViewModel.IsSearchActive &&
-            ViewModel.SelectedBookmark is { } bookmark)
+        if (e.Key != Key.Enter)
         {
-            ViewModel.NavigateToSearchResult(bookmark);
+            return;
+        }
+
+        if (TryNavigateSelectedSearchResultFromUi())
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.CanOpenSelectedContentItem)
+        {
+            await OpenSelectedContentItemFromUiAsync();
             e.Handled = true;
         }
+    }
+
+    private void BookmarksContextMenu_Opened(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var folderSelected =
+            ViewModel.SelectedContentFolder is not null;
+        var multipleSelected =
+            ViewModel.SelectedContentItems.Count > 1;
+
+        var bookmarkSelected =
+            ViewModel.SelectedContentItems.Count == 1 &&
+            ViewModel.SelectedContentItems[0].Node is BookmarkUrl;
+
+        ContentOpenFolderMenuItem.Visibility =
+            folderSelected ? Visibility.Visible : Visibility.Collapsed;
+        ContentOpenBookmarkMenuItem.Visibility =
+            bookmarkSelected ? Visibility.Visible : Visibility.Collapsed;
+        ContentRenameFolderMenuItem.Visibility =
+            folderSelected ? Visibility.Visible : Visibility.Collapsed;
+        ContentMoveFolderMenuItem.Visibility =
+            folderSelected && !multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        ContentDeleteFolderMenuItem.Visibility =
+            folderSelected && !multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        ContentDeleteSelectionMenuItem.Visibility =
+            multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        ContentFolderSeparator.Visibility =
+            folderSelected ? Visibility.Visible : Visibility.Collapsed;
+
+        ContentRenameBookmarkMenuItem.Visibility =
+            folderSelected ? Visibility.Collapsed : Visibility.Visible;
+        ContentEditUrlMenuItem.Visibility =
+            folderSelected ? Visibility.Collapsed : Visibility.Visible;
+        ContentMoveBookmarkMenuItem.Visibility =
+            !folderSelected && !multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        ContentMoveSelectionMenuItem.Visibility =
+            multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        ContentBookmarkSeparator.Visibility =
+            folderSelected ? Visibility.Collapsed : Visibility.Visible;
+        ContentDeleteBookmarkMenuItem.Visibility =
+            !folderSelected && !multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
+    private async void OpenContentFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await OpenSelectedContentItemFromUiAsync();
+    }
+
+    private async void OpenContentBookmark_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await OpenSelectedContentItemFromUiAsync();
+    }
+
+    private void CutSelectedContentItems_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        CutSelectedContentItemsFromUi();
+    }
+
+    private void CopySelectedContentItems_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        CopySelectedContentItemsFromUi();
+    }
+
+    private async void PasteClipboard_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await PasteClipboardFromUiAsync();
+    }
+
+    private async Task OpenSelectedContentItemFromUiAsync()
+    {
+        if (!ViewModel.CanOpenSelectedContentItem)
+        {
+            return;
+        }
+
+        if (TryOpenSelectedFolderFromUi())
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.OpenSelectedContentItemAsync();
+        }
+        catch (ExternalUrlLaunchException exception)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Open bookmark",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private bool TryOpenSelectedFolderFromUi()
+    {
+        if (ViewModel.SelectedContentFolder is not { } folder)
+        {
+            return false;
+        }
+
+        if (ViewModel.IsSearchActive)
+        {
+            ViewModel.NavigateToSearchResult(folder);
+            return !ViewModel.IsSearchActive;
+        }
+
+        return ViewModel.NavigateToFolder(folder);
+    }
+
+    private bool TryNavigateSelectedSearchResultFromUi()
+    {
+        if (!ViewModel.IsSearchActive ||
+            ViewModel.SelectedContentItems.Count != 1)
+        {
+            return false;
+        }
+
+        ViewModel.NavigateToSearchResult(
+            ViewModel.SelectedContentItems[0].Node);
+
+        return !ViewModel.IsSearchActive;
+    }
+
+    private void CopySelectedContentItemsFromUi()
+    {
+        if (!ViewModel.CanCopySelectedContentItems)
+        {
+            return;
+        }
+
+        try
+        {
+            ViewModel.CopySelectedContentItems();
+        }
+        catch (BookmarkClipboardException exception)
+        {
+            ShowClipboardError(exception);
+        }
+    }
+
+    private void CutSelectedContentItemsFromUi()
+    {
+        if (!ViewModel.CanCutSelectedContentItems)
+        {
+            return;
+        }
+
+        try
+        {
+            ViewModel.CutSelectedContentItems();
+        }
+        catch (BookmarkClipboardException exception)
+        {
+            ShowClipboardError(exception);
+        }
+    }
+
+    private async Task PasteClipboardFromUiAsync()
+    {
+        if (!ViewModel.CanPasteClipboard)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.PasteClipboardIntoSelectedFolderAsync();
+        }
+        catch (BookmarkClipboardException exception)
+        {
+            ShowClipboardError(exception);
+        }
+        catch (BookmarkMoveException exception)
+        {
+            ShowClipboardError(exception);
+        }
+    }
+
+    private void ShowClipboardError(Exception exception)
+    {
+        MessageBox.Show(
+            this,
+            exception.Message,
+            "Clipboard operation",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
+
+    private async void RenameContentFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await RenameContentFolderFromUiAsync();
+    }
+
+    private async void MoveContentFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await MoveContentFolderFromUiAsync();
+    }
+
+    private async void DeleteContentFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await DeleteContentFolderFromUiAsync();
     }
 
     private async void Undo_Click(object sender, RoutedEventArgs e)
@@ -693,6 +1223,16 @@ public partial class MainWindow : Window
         await AddFolderFromUiAsync();
     }
 
+    private async void SortSelectedFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (ViewModel.CanSortSelectedFolder)
+        {
+            await ViewModel.SortSelectedFolderByNameAsync();
+        }
+    }
+
     private async void RenameFolder_Click(object sender, RoutedEventArgs e)
     {
         await RenameFolderFromUiAsync();
@@ -718,11 +1258,25 @@ public partial class MainWindow : Window
         await MoveBookmarkFromUiAsync();
     }
 
+    private async void MoveSelectedContentItems_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await MoveSelectedContentItemsFromUiAsync();
+    }
+
     private async void DeleteSelectedBookmarks_Click(
         object sender,
         RoutedEventArgs e)
     {
         await DeleteSelectedBookmarksFromUiAsync();
+    }
+
+    private async void DeleteSelectedContentItems_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await DeleteSelectedContentItemsFromUiAsync();
     }
 
     private async void DeleteSelectedFolder_Click(
@@ -791,6 +1345,90 @@ public partial class MainWindow : Window
         catch (BookmarkEditException exception)
         {
             ShowEditError(exception);
+        }
+    }
+
+    private async Task RenameContentFolderFromUiAsync()
+    {
+        if (!ViewModel.CanRenameSelectedContentFolder ||
+            ViewModel.SelectedContentFolder is not { } folder)
+        {
+            return;
+        }
+
+        var dialog = CreateEditDialog(
+            "Rename Folder",
+            name: folder.Name,
+            url: null,
+            showName: true,
+            showUrl: false,
+            requireUrl: false);
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.RenameFolderAsync(
+                folder,
+                dialog.NameValue);
+        }
+        catch (BookmarkEditException exception)
+        {
+            ShowEditError(exception);
+        }
+    }
+
+    private async Task MoveContentFolderFromUiAsync()
+    {
+        if (!ViewModel.CanMoveSelectedContentFolder ||
+            ViewModel.SelectedContentFolder is not { } folder ||
+            ViewModel.Document is not { } document)
+        {
+            return;
+        }
+
+        var dialog = CreateMoveDialog(document, folder);
+        if (dialog.ShowDialog() != true ||
+            dialog.SelectedTarget is not { } target)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.MoveFolderToEndAsync(
+                folder,
+                target);
+        }
+        catch (BookmarkMoveException exception)
+        {
+            ShowMoveError(exception);
+        }
+    }
+
+    private async Task DeleteContentFolderFromUiAsync()
+    {
+        if (!ViewModel.CanDeleteSelectedContentFolder ||
+            ViewModel.SelectedContentFolder is not { } folder)
+        {
+            return;
+        }
+
+        if (!ConfirmFolderDeletion(folder))
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.DeleteFolderAsync(folder);
+        }
+        catch (BookmarkDeleteException exception)
+        {
+            ShowDeleteError(exception);
         }
     }
 
@@ -913,6 +1551,37 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task MoveSelectedContentItemsFromUiAsync()
+    {
+        var selectedItems = ViewModel.SelectedContentItems;
+
+        if (!ViewModel.CanMoveSelectedContentItems ||
+            selectedItems.Count == 0 ||
+            ViewModel.Document is not { } document)
+        {
+            return;
+        }
+
+        var dialog = CreateMoveDialog(
+            document,
+            selectedItems[0].Node);
+        if (dialog.ShowDialog() != true ||
+            dialog.SelectedTarget is not { } target)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.MoveSelectedContentItemsToEndAsync(
+                target);
+        }
+        catch (BookmarkMoveException exception)
+        {
+            ShowMoveError(exception);
+        }
+    }
+
     private async Task MoveBookmarkFromUiAsync()
     {
         var selectedBookmarks = GetSelectedBookmarks();
@@ -1017,6 +1686,54 @@ public partial class MainWindow : Window
             MessageBoxImage.Warning);
     }
 
+    private async Task DeleteSelectedContentItemsFromUiAsync()
+    {
+        if (!ViewModel.CanDeleteSelectedContentItems)
+        {
+            return;
+        }
+
+        var selectedItems = ViewModel.SelectedContentItems;
+        if (selectedItems.Count == 0)
+        {
+            return;
+        }
+
+        var (bookmarkCount, folderCount) =
+            CountSelectedContentRemoval(selectedItems);
+        var itemSummary = selectedItems.Count == 1
+            ? "1 selected item"
+            : $"{selectedItems.Count:N0} selected items";
+        var bookmarkSummary = bookmarkCount == 1
+            ? "1 bookmark"
+            : $"{bookmarkCount:N0} bookmarks";
+        var folderSummary = folderCount == 1
+            ? "1 folder"
+            : $"{folderCount:N0} folders";
+        var confirmation =
+            $"Delete {itemSummary}?\n\n" +
+            $"This will remove {bookmarkSummary} and {folderSummary}, " +
+            "including the contents of selected folders.\n\n" +
+            "The selected items will be removed from the loaded document.\n" +
+            "Use Save to write the change safely to the source Chrome Bookmarks file.";
+
+        if (!ConfirmDestructiveOperation(
+                "Confirm selected item deletion",
+                confirmation))
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.DeleteSelectedContentItemsAsync();
+        }
+        catch (BookmarkDeleteException exception)
+        {
+            ShowDeleteError(exception);
+        }
+    }
+
     private async Task DeleteSelectedBookmarksFromUiAsync()
     {
         if (!ViewModel.CanDeleteSelectedBookmarks)
@@ -1066,22 +1783,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var (bookmarkCount, folderCount) = CountFolderDescendants(folder);
-        var bookmarkSummary = bookmarkCount == 1
-            ? "1 bookmark"
-            : $"{bookmarkCount:N0} bookmarks";
-        var folderSummary = folderCount == 1
-            ? "1 nested folder"
-            : $"{folderCount:N0} nested folders";
-        var confirmation =
-            $"Delete folder \"{folder.Name}\" and its entire subtree?\n\n" +
-            $"This includes {bookmarkSummary} and {folderSummary}.\n\n" +
-            "The subtree will be removed from the loaded document.\n" +
-            "Use Save to write the change safely to the source Chrome Bookmarks file.";
-
-        if (!ConfirmDestructiveOperation(
-                "Confirm folder deletion",
-                confirmation))
+        if (!ConfirmFolderDeletion(folder))
         {
             return;
         }
@@ -1094,6 +1796,28 @@ public partial class MainWindow : Window
         {
             ShowDeleteError(exception);
         }
+    }
+
+    private bool ConfirmFolderDeletion(
+        BookmarkFolder folder)
+    {
+        var (bookmarkCount, folderCount) =
+            CountFolderDescendants(folder);
+        var bookmarkSummary = bookmarkCount == 1
+            ? "1 bookmark"
+            : $"{bookmarkCount:N0} bookmarks";
+        var folderSummary = folderCount == 1
+            ? "1 nested folder"
+            : $"{folderCount:N0} nested folders";
+        var confirmation =
+            $"Delete folder \"{folder.Name}\" and its entire subtree?\n\n" +
+            $"This includes {bookmarkSummary} and {folderSummary}.\n\n" +
+            "The subtree will be removed from the loaded document.\n" +
+            "Use Save to write the change safely to the source Chrome Bookmarks file.";
+
+        return ConfirmDestructiveOperation(
+            "Confirm folder deletion",
+            confirmation);
     }
 
     private bool ConfirmDestructiveOperation(
@@ -1119,6 +1843,62 @@ public partial class MainWindow : Window
         return ViewModel.SelectedBookmark is { } bookmark
             ? new[] { bookmark }
             : Array.Empty<BookmarkUrl>();
+    }
+
+    private static (int BookmarkCount, int FolderCount)
+        CountSelectedContentRemoval(
+            IReadOnlyList<BookmarkListItemViewModel> items)
+    {
+        var selected = new HashSet<BookmarkNode>(
+            items.Select(item => item.Node),
+            ReferenceEqualityComparer.Instance);
+        var roots = selected
+            .Where(node => !HasSelectedAncestor(node, selected))
+            .ToArray();
+
+        var bookmarkCount = 0;
+        var folderCount = 0;
+        var pending = new Stack<BookmarkNode>(roots);
+
+        while (pending.TryPop(out var node))
+        {
+            switch (node)
+            {
+                case BookmarkUrl:
+                    bookmarkCount++;
+                    break;
+
+                case BookmarkFolder folder:
+                    folderCount++;
+                    foreach (var child in folder.Children)
+                    {
+                        pending.Push(child);
+                    }
+
+                    break;
+            }
+        }
+
+        return (bookmarkCount, folderCount);
+    }
+
+    private static bool HasSelectedAncestor(
+        BookmarkNode node,
+        IReadOnlySet<BookmarkNode> selected)
+    {
+        var current = node.Parent;
+
+        while (current is not null)
+        {
+            if (selected.Contains(current))
+            {
+                return true;
+            }
+
+            current = current.Parent;
+        }
+
+        return false;
     }
 
     private static (int BookmarkCount, int FolderCount)
@@ -1195,6 +1975,32 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (!textInputOwnsFocus &&
+            BookmarksList.IsKeyboardFocusWithin &&
+            modifiers == ModifierKeys.Control)
+        {
+            if (e.Key == Key.X)
+            {
+                e.Handled = true;
+                CutSelectedContentItemsFromUi();
+                return;
+            }
+
+            if (e.Key == Key.C)
+            {
+                e.Handled = true;
+                CopySelectedContentItemsFromUi();
+                return;
+            }
+
+            if (e.Key == Key.V)
+            {
+                e.Handled = true;
+                await PasteClipboardFromUiAsync();
+                return;
+            }
+        }
+
         if (e.Key == Key.A &&
             modifiers == ModifierKeys.Control &&
             BookmarksList.IsKeyboardFocusWithin)
@@ -1210,9 +2016,10 @@ public partial class MainWindow : Window
             if (BookmarksList.IsKeyboardFocusWithin)
             {
                 e.Handled = true;
-                if (ViewModel.CanDeleteSelectedBookmarks)
+
+                if (ViewModel.CanDeleteSelectedContentItems)
                 {
-                    await DeleteSelectedBookmarksFromUiAsync();
+                    await DeleteSelectedContentItemsFromUiAsync();
                 }
 
                 return;
@@ -1270,6 +2077,14 @@ public partial class MainWindow : Window
             modifiers == ModifierKeys.None)
         {
             if (BookmarksList.IsKeyboardFocusWithin &&
+                ViewModel.CanRenameSelectedContentFolder)
+            {
+                await RenameContentFolderFromUiAsync();
+                e.Handled = true;
+                return;
+            }
+
+            if (BookmarksList.IsKeyboardFocusWithin &&
                 ViewModel.CanRenameSelectedBookmark)
             {
                 await RenameBookmarkFromUiAsync();
@@ -1299,11 +2114,22 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.Key == Key.Escape && ViewModel.IsSearchActive)
+        if (e.Key == Key.Escape)
         {
-            ViewModel.SearchText = string.Empty;
-            SearchBox.Focus();
-            e.Handled = true;
+            if (ViewModel.IsSearchActive)
+            {
+                ViewModel.SearchText = string.Empty;
+                SearchBox.Focus();
+                e.Handled = true;
+                return;
+            }
+
+            if (BookmarksList.IsKeyboardFocusWithin &&
+                BookmarksList.SelectedItems.Count > 0)
+            {
+                BookmarksList.UnselectAll();
+                e.Handled = true;
+            }
         }
     }
 
@@ -1326,9 +2152,12 @@ public partial class MainWindow : Window
         ClearBookmarkDropIndicator();
 
         item.BorderBrush = SystemColors.HighlightBrush;
-        item.BorderThickness = placement == DropPlacement.Before
-            ? new Thickness(0, 2, 0, 0)
-            : new Thickness(0, 0, 0, 2);
+        item.BorderThickness = placement switch
+        {
+            DropPlacement.Before => new Thickness(0, 2, 0, 0),
+            DropPlacement.After => new Thickness(0, 0, 0, 2),
+            _ => new Thickness(1)
+        };
 
         _bookmarkDropIndicatorItem = item;
     }

@@ -11,4 +11,8 @@ public interface IBookmarkDeleteService
     BookmarkBatchDeleteResult DeleteBookmarks(
         BookmarkDocument document,
         IReadOnlyList<BookmarkUrl> bookmarks);
+
+    BookmarkBatchDeleteResult DeleteNodes(
+        BookmarkDocument document,
+        IReadOnlyList<BookmarkNode> nodes);
 }

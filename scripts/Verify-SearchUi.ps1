@@ -27,7 +27,7 @@ if ($listMatches.Count -ne 1) {
 $listAttributes = $listMatches[0].Groups["attributes"].Value
 
 $requiredListTokens = @(
-    'ItemsSource="{Binding DisplayedBookmarks}"',
+    'ItemsSource="{Binding DisplayedItems}"',
     'VirtualizingPanel.IsVirtualizing="True"',
     'VirtualizingPanel.VirtualizationMode="Recycling"',
     'ScrollViewer.CanContentScroll="True"'

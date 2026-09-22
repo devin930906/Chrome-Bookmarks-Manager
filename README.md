@@ -1,12 +1,12 @@
 # Chrome Bookmarks Manager
 
-Chrome Bookmarks Manager is a Windows desktop application for managing very large Chrome bookmark libraries. The project is designed around local-first operation, explicit data-safety boundaries, reproducible builds, and eventual support for safe editing of Chrome's native `Bookmarks` file.
+Chrome Bookmarks Manager is a Windows desktop application for managing very large Chrome bookmark libraries. The project is designed around local-first operation, explicit data-safety boundaries, reproducible builds, and safe editing of Chrome's native `Bookmarks` file.
 
 ## Project status
 
-**Pre-release — V0.9 Safe Chrome Write completed**
+**Stable — V1.0.0**
 
-V0.9 adds the first guarded persistence path for Chrome's native clear-text `Bookmarks` file. Automated safety/scale validation, disposable-profile Chrome compatibility, Windows 10 production owner acceptance, PR #9 merge, and post-merge `main` verification are complete. The next milestone is V1.0 — Stable personal-use release.
+V1.0.0 is the first stable personal-use release. It preserves the V0.9 guarded Safe Save invariants and completes the local Chrome bookmark-manager parity scope for mixed folder/bookmark management, search, move/reorder/Drag & Drop, delete, Undo/Redo, clipboard operations, Sort by Name, bookmark opening, and Netscape bookmark HTML import/export. Windows 10 owner acceptance, post-merge `main` CI, the tagged release-readiness run, and the published GitHub Release are verified. The formal Release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
 
 The current application supports:
 
@@ -490,7 +490,7 @@ The application still does not write automatically: production persistence occur
 - **V0.7 — Delete / Batch: completed** — single and recursive deletion, bookmark multi-selection, batch delete/Move to..., DeleteBatchScale, no-write/no-file-delete safety, Windows 10 owner acceptance, PR #7 merge, and post-merge verification complete
 - **V0.8 — Undo / Redo: completed** — bounded reversible command history covers V0.5–V0.7 mutations with history-position dirty state and Ctrl+Z/Ctrl+Y/Ctrl+Shift+Z; automated validation, whole-branch review, Windows 10 owner acceptance, PR #8 merge, and post-merge verification are complete
 - **V0.9 — Safe Chrome Write: completed** — Chromium-compatible checksums, deterministic writer, external-change detection, Chrome-process guard, verified backup, atomic replace, explicit Save UI, persistence safety/scale gates, disposable-profile compatibility, Windows 10 production owner acceptance, PR #9 merge, and post-merge verification complete
-- **V1.0 — Stable personal-use release: next milestone**
+- **V1.0 — Stable personal-use release: completed**
 
 ## Design and implementation documents
 
@@ -508,6 +508,8 @@ The application still does not write automatically: production persistence occur
 - [V0.8 implementation plan](docs/superpowers/plans/2026-09-20-v0.8-undo-redo.md)
 - [V0.9 design spec](docs/superpowers/specs/2026-09-20-v0.9-safe-chrome-write-design.md)
 - [V0.9 implementation plan](docs/superpowers/plans/2026-09-20-v0.9-safe-chrome-write.md)
+- [V1.0 stable release design spec](docs/superpowers/specs/2026-09-21-v1.0-stable-release-design.md)
+- [V1.0 implementation plan](docs/superpowers/plans/2026-09-21-v1.0-stable-release.md)
 
 ## Development principles
 

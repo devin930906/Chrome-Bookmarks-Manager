@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using ChromeBookmarksManager.Domain;
 
 namespace ChromeBookmarksManager.Application.Exporting;

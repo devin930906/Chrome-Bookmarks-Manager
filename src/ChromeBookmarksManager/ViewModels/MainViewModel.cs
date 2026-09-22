@@ -574,6 +574,42 @@ public sealed class MainViewModel : ViewModelBase
             DocumentState.RecoveryRequired;
 
     public async Task ExportBookmarksHtmlAsync(
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException(
+                "An export file path is required.",
+                nameof(path));
+        }
+
+        await _documentOperationGate
+            .WaitAsync(cancellationToken)
+            .ConfigureAwait(true);
+        try
+        {
+            var document = _document;
+            if (document is null || !CanBrowseDocument)
+            {
+                throw new InvalidOperationException(
+                    "A loaded bookmark document is required before export.");
+            }
+
+            await _htmlExportService
+                .ExportFileAsync(
+                    document,
+                    path,
+                    cancellationToken)
+                .ConfigureAwait(true);
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
+    }
+
+    public async Task ExportBookmarksHtmlAsync(
         TextWriter writer,
         CancellationToken cancellationToken = default)
     {

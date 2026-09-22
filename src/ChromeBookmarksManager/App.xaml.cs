@@ -1,10 +1,15 @@
 using System.Windows;
+using ChromeBookmarksManager.Infrastructure;
+using ChromeBookmarksManager.Localization;
 
 namespace ChromeBookmarksManager;
 
-/// <summary>
-/// Interaction logic for App.xaml
-/// </summary>
 public partial class App : System.Windows.Application
 {
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        var settings = new UserSettingsStore();
+        LocalizationService.Initialize(settings.LoadLanguage());
+        base.OnStartup(e);
+    }
 }

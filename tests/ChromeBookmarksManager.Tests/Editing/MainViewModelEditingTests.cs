@@ -186,7 +186,8 @@ public sealed class MainViewModelEditingTests
 
         viewModel.SearchText = "other target";
         await viewModel.WaitForPendingSearchAsync();
-        var result = Assert.Single(viewModel.SearchResults);
+        var result = Assert.IsType<BookmarkUrl>(
+            Assert.Single(viewModel.SearchResults));
         Assert.Same(fixture.OtherUrl, result);
         viewModel.SelectedBookmark = result;
 

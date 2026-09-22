@@ -180,6 +180,164 @@ public sealed class BookmarkBatchMoveTests
         Assert.Empty(result.Moves);
     }
 
+    [Fact]
+    public void MoveNodes_MixedSelection_PreservesSuppliedOrderAcrossParents()
+    {
+        var fixture = CreateFixture();
+        var service = new BookmarkMoveService();
+        var beforeUrls = fixture.Document.UrlCount;
+        var beforeFolders = fixture.Document.FolderCount;
+
+        var result = service.MoveNodes(
+            fixture.Document,
+            new BookmarkNode[]
+            {
+                fixture.BarSecond,
+                fixture.BarFolder,
+                fixture.BarFirst
+            },
+            fixture.Target,
+            fixture.Target.Children.Count);
+
+        Assert.True(result.Changed);
+        Assert.Equal(3, result.Moves.Count);
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.TargetExistingFolder,
+                fixture.TargetEarlierBookmark,
+                fixture.TargetExistingBookmark,
+                fixture.BarSecond,
+                fixture.BarFolder,
+                fixture.BarFirst
+            },
+            fixture.Target.Children);
+        Assert.Same(fixture.Target, fixture.BarSecond.Parent);
+        Assert.Same(fixture.Target, fixture.BarFolder.Parent);
+        Assert.Same(fixture.Target, fixture.BarFirst.Parent);
+        Assert.Equal(beforeUrls, fixture.Document.UrlCount);
+        Assert.Equal(beforeFolders, fixture.Document.FolderCount);
+    }
+
+    [Fact]
+    public void MoveNodes_SameFolderTargetIndex_NormalizesAfterRemovingSelectedNodes()
+    {
+        var fixture = CreateFixture();
+        var service = new BookmarkMoveService();
+
+        var result = service.MoveNodes(
+            fixture.Document,
+            new BookmarkNode[]
+            {
+                fixture.TargetExistingFolder,
+                fixture.TargetExistingBookmark
+            },
+            fixture.Target,
+            fixture.Target.Children.Count);
+
+        Assert.True(result.Changed);
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.TargetEarlierBookmark,
+                fixture.TargetExistingFolder,
+                fixture.TargetExistingBookmark
+            },
+            fixture.Target.Children);
+    }
+
+    [Fact]
+    public void MoveNodes_AncestorAndDescendantSelection_MovesSubtreeOnlyOnce()
+    {
+        var nested = Url("31", "Nested");
+        var movingFolder = Folder("30", "Moving", nested);
+        var sibling = Url("32", "Sibling");
+        var bookmarkBar = Folder(
+            "1",
+            "Bookmarks bar",
+            movingFolder,
+            sibling);
+        var other = Folder("2", "Other bookmarks");
+        var synced = Folder("3", "Mobile bookmarks");
+        var document = new BookmarkDocument(
+            1,
+            null,
+            null,
+            new BookmarkRoots(
+                bookmarkBar,
+                other,
+                synced,
+                EmptyProperties),
+            EmptyProperties);
+        var service = new BookmarkMoveService();
+
+        var result = service.MoveNodes(
+            document,
+            new BookmarkNode[]
+            {
+                nested,
+                movingFolder
+            },
+            other,
+            0);
+
+        Assert.True(result.Changed);
+        Assert.Single(result.Moves);
+        Assert.Equal(
+            new BookmarkNode[] { sibling },
+            bookmarkBar.Children);
+        Assert.Same(
+            movingFolder,
+            Assert.Single(other.Children));
+        Assert.Same(movingFolder, nested.Parent);
+    }
+
+    [Fact]
+    public void MoveNodes_DescendantTarget_RejectsEntireBatchBeforeMutation()
+    {
+        var nestedTarget = Folder("31", "Nested target");
+        var movingFolder = Folder("30", "Moving", nestedTarget);
+        var sibling = Url("32", "Sibling");
+        var bookmarkBar = Folder(
+            "1",
+            "Bookmarks bar",
+            sibling,
+            movingFolder);
+        var other = Folder("2", "Other bookmarks");
+        var synced = Folder("3", "Mobile bookmarks");
+        var document = new BookmarkDocument(
+            1,
+            null,
+            null,
+            new BookmarkRoots(
+                bookmarkBar,
+                other,
+                synced,
+                EmptyProperties),
+            EmptyProperties);
+        var service = new BookmarkMoveService();
+        var beforeBar = bookmarkBar.Children.ToArray();
+
+        var exception = Assert.Throws<BookmarkMoveException>(
+            () => service.MoveNodes(
+                document,
+                new BookmarkNode[]
+                {
+                    sibling,
+                    movingFolder
+                },
+                nestedTarget,
+                0));
+
+        Assert.Equal(
+            BookmarkMoveError.DescendantTarget,
+            exception.Error);
+        Assert.Equal(beforeBar, bookmarkBar.Children);
+        Assert.Same(bookmarkBar, sibling.Parent);
+        Assert.Same(bookmarkBar, movingFolder.Parent);
+        Assert.Same(movingFolder, nestedTarget.Parent);
+    }
+
     private static Fixture CreateFixture(string prefix = "")
     {
         var barFirst = Url("10", $"{prefix}Bar first");

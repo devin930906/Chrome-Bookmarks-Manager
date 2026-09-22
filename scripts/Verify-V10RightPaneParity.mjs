@@ -32,6 +32,9 @@ const requiredCode = [
   "DeleteSelectedContentItemsAsync",
   "MoveSelectedContentItemsFromUiAsync",
   "MoveSelectedContentItemsToEndAsync",
+  "MoveContentNodesAsync",
+  "BookmarkDragPayload.ForContentRow",
+  "GetBookmarkDragPayload(e)?.Nodes",
   "CountSelectedContentRemoval",
   "UpdateSelectedContentItems"
 ];

@@ -264,6 +264,20 @@
                                       IsEnabled="{Binding CanOpenSelectedContentItem}"
                                       Visibility="Collapsed"
                                       Click="OpenContentBookmark_Click" />
+                            <Separator />
+                            <MenuItem Header="Cut"
+                                      InputGestureText="Ctrl+X"
+                                      IsEnabled="{Binding CanCutSelectedContentItems}"
+                                      Click="CutSelectedContentItems_Click" />
+                            <MenuItem Header="Copy"
+                                      InputGestureText="Ctrl+C"
+                                      IsEnabled="{Binding CanCopySelectedContentItems}"
+                                      Click="CopySelectedContentItems_Click" />
+                            <MenuItem Header="Paste"
+                                      InputGestureText="Ctrl+V"
+                                      IsEnabled="{Binding CanPasteClipboard}"
+                                      Click="PasteClipboard_Click" />
+                            <Separator />
                             <MenuItem x:Name="ContentRenameFolderMenuItem"
                                       Header="Rename Folder..."
                                       InputGestureText="F2"

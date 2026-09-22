@@ -100,6 +100,42 @@ internal static class DragDropRules
         };
     }
 
+    internal static bool CanMoveContentNodesInto(
+        IReadOnlyList<Domain.BookmarkNode> movingNodes,
+        Domain.BookmarkFolder targetFolder)
+    {
+        ArgumentNullException.ThrowIfNull(movingNodes);
+        ArgumentNullException.ThrowIfNull(targetFolder);
+
+        return movingNodes.Count > 0 &&
+               movingNodes.All(
+                   node => CanMoveContentNodeInto(
+                       node,
+                       targetFolder));
+    }
+
+    internal static bool CanMoveContentNodesRelativeTo(
+        IReadOnlyList<Domain.BookmarkNode> movingNodes,
+        Domain.BookmarkNode targetNode)
+    {
+        ArgumentNullException.ThrowIfNull(movingNodes);
+        ArgumentNullException.ThrowIfNull(targetNode);
+
+        if (movingNodes.Count == 0 ||
+            movingNodes.Any(
+                node => ReferenceEquals(
+                    node,
+                    targetNode)))
+        {
+            return false;
+        }
+
+        return movingNodes.All(
+            node => CanMoveContentNodeRelativeTo(
+                node,
+                targetNode));
+    }
+
     internal static bool CanPositionallyReorderBookmarks(
         bool isSearchActive) =>
         !isSearchActive;

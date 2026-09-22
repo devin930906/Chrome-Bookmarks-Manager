@@ -29,6 +29,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly SemaphoreSlim _documentOperationGate = new(1, 1);
     private readonly TimeSpan _searchDebounce;
     private CancellationTokenSource? _loadCancellation;
+    private int _loadRequestPending;
     private CancellationTokenSource? _searchCancellation;
     private Task _pendingSearchTask = Task.CompletedTask;
     private long _searchGeneration;
@@ -340,92 +341,152 @@ public sealed class MainViewModel : ViewModelBase
             DocumentState.LoadedDirty or
             DocumentState.SaveFailed;
 
-    public async Task LoadBookmarksAsync(
+    public Task LoadBookmarksAsync(
         string path,
         bool discardDirtyChanges = false)
     {
-        await _documentOperationGate
-            .WaitAsync()
-            .ConfigureAwait(true);
+        if (Interlocked.CompareExchange(
+                ref _loadRequestPending,
+                1,
+                0) != 0)
+        {
+            return Task.FromException(
+                new InvalidOperationException(
+                    "A Bookmarks file is already being loaded."));
+        }
+
+        return RunReservedLoadAsync(path, discardDirtyChanges);
+    }
+
+    private async Task RunReservedLoadAsync(
+        string path,
+        bool discardDirtyChanges)
+    {
         try
         {
-            if (_loadCancellation is not null || State == DocumentState.Loading)
-            {
-                throw new InvalidOperationException(
-                    "A Bookmarks file is already being loaded.");
-            }
-
-            ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-            if (IsDirty &&
-                !discardDirtyChanges)
-            {
-                throw new InvalidOperationException(
-                    "The current Bookmarks document has unsaved in-memory changes. " +
-                    "Confirm Discard before loading another file.");
-            }
-
-            ClearHistory();
-            ResetSearchState(clearIndex: true, resetScope: true);
-            SetDocument(null);
-            SetSourcePath(null);
-            SetSourceBaseline(null);
-            ClearBrowserState();
-            SetState(DocumentState.Loading);
-            SetStatusText("Reading Bookmarks...");
-
-            var cancellation = new CancellationTokenSource();
-            _loadCancellation = cancellation;
-            var stopwatch = Stopwatch.StartNew();
-            BookmarkSourceBaseline? sourceBaseline = null;
-
+            await _documentOperationGate
+                .WaitAsync()
+                .ConfigureAwait(true);
             try
             {
-                if (_baselineService is not null)
-                {
-                    SetStatusText("Verifying Bookmarks source...");
-                    sourceBaseline = await _baselineService
-                        .CaptureAsync(path, cancellation.Token)
-                        .ConfigureAwait(true);
-                }
-
-                SetStatusText("Reading Bookmarks...");
-                var document = await _reader
-                    .ReadFileAsync(path, cancellation.Token)
+                await LoadBookmarksCoreAsync(
+                        path,
+                        discardDirtyChanges)
                     .ConfigureAwait(true);
-
-                if (_baselineService is not null && sourceBaseline is not null)
-                {
-                    await _baselineService
-                        .VerifyUnchangedAsync(sourceBaseline, cancellation.Token)
-                        .ConfigureAwait(true);
-                }
-
-                SetStatusText("Building search index...");
-
-                var searchIndex = await _searchService
-                    .BuildIndexAsync(document, cancellation.Token)
-                    .ConfigureAwait(true);
-
-                cancellation.Token.ThrowIfCancellationRequested();
-
-                stopwatch.Stop();
-                SetSearchIndex(searchIndex);
-                SetDocument(document);
-                SetSourcePath(path);
-                SetSourceBaseline(sourceBaseline);
-                BuildBrowserState(document);
-                SetState(DocumentState.LoadedClean);
-                SetStatusText(
-                    $"Loaded {document.UrlCount:N0} URLs and " +
-                    $"{document.FolderCount:N0} folders in " +
-                    $"{stopwatch.Elapsed.TotalSeconds:F1}s.");
             }
-            catch (OperationCanceledException)
-                when (cancellation.IsCancellationRequested)
+            finally
             {
-                stopwatch.Stop();
-                ResetSearchState(clearIndex: true, resetScope: true);
+                _documentOperationGate.Release();
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _loadRequestPending, 0);
+        }
+    }
+
+    private async Task LoadBookmarksCoreAsync(
+        string path,
+        bool discardDirtyChanges)
+    {
+        if (_loadCancellation is not null ||
+            State == DocumentState.Loading)
+        {
+            throw new InvalidOperationException(
+                "A Bookmarks file is already being loaded.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (IsDirty &&
+            !discardDirtyChanges)
+        {
+            throw new InvalidOperationException(
+                "The current Bookmarks document has unsaved in-memory changes. " +
+                "Confirm Discard before loading another file.");
+        }
+
+        var previousState = State;
+        var hadExistingDocument =
+            _document is not null &&
+            CanBrowseDocument;
+
+        SetState(DocumentState.Loading);
+        SetStatusText("Reading Bookmarks...");
+
+        var cancellation = new CancellationTokenSource();
+        _loadCancellation = cancellation;
+        var stopwatch = Stopwatch.StartNew();
+        BookmarkSourceBaseline? sourceBaseline = null;
+
+        try
+        {
+            if (_baselineService is not null)
+            {
+                SetStatusText("Verifying Bookmarks source...");
+                sourceBaseline = await _baselineService
+                    .CaptureAsync(path, cancellation.Token)
+                    .ConfigureAwait(true);
+            }
+
+            SetStatusText("Reading Bookmarks...");
+            var document = await _reader
+                .ReadFileAsync(path, cancellation.Token)
+                .ConfigureAwait(true);
+
+            if (_baselineService is not null &&
+                sourceBaseline is not null)
+            {
+                await _baselineService
+                    .VerifyUnchangedAsync(
+                        sourceBaseline,
+                        cancellation.Token)
+                    .ConfigureAwait(true);
+            }
+
+            SetStatusText("Building search index...");
+
+            var searchIndex = await _searchService
+                .BuildIndexAsync(document, cancellation.Token)
+                .ConfigureAwait(true);
+
+            cancellation.Token.ThrowIfCancellationRequested();
+
+            stopwatch.Stop();
+
+            ResetSearchState(
+                clearIndex: true,
+                resetScope: true);
+            ClearHistory();
+            SetSearchIndex(searchIndex);
+            SetDocument(document);
+            SetSourcePath(path);
+            SetSourceBaseline(sourceBaseline);
+            BuildBrowserState(document);
+            SetState(DocumentState.LoadedClean);
+            SetStatusText(
+                $"Loaded {document.UrlCount:N0} URLs and " +
+                $"{document.FolderCount:N0} folders in " +
+                $"{stopwatch.Elapsed.TotalSeconds:F1}s.");
+        }
+        catch (OperationCanceledException)
+            when (cancellation.IsCancellationRequested)
+        {
+            stopwatch.Stop();
+
+            if (hadExistingDocument)
+            {
+                SetState(previousState);
+                SetStatusText(
+                    "Replacement loading was canceled. " +
+                    "The current document was kept unchanged.");
+            }
+            else
+            {
+                ClearHistory();
+                ResetSearchState(
+                    clearIndex: true,
+                    resetScope: true);
                 SetDocument(null);
                 SetSourcePath(null);
                 SetSourceBaseline(null);
@@ -433,53 +494,93 @@ public sealed class MainViewModel : ViewModelBase
                 SetState(DocumentState.NoDocument);
                 SetStatusText("Loading was canceled.");
             }
-            catch (ChromeBookmarksReadException exception)
-            {
-                stopwatch.Stop();
-                ResetSearchState(clearIndex: true, resetScope: true);
-                SetDocument(null);
-                SetSourcePath(null);
-                SetSourceBaseline(null);
-                ClearBrowserState();
-                SetState(DocumentState.LoadFailed);
-                SetStatusText(exception.Message);
-            }
-            catch (BookmarkSourceBaselineException exception)
-            {
-                stopwatch.Stop();
-                ResetSearchState(clearIndex: true, resetScope: true);
-                SetDocument(null);
-                SetSourcePath(null);
-                SetSourceBaseline(null);
-                ClearBrowserState();
-                SetState(DocumentState.LoadFailed);
-                SetStatusText(exception.Message);
-            }
-            catch (Exception)
-            {
-                stopwatch.Stop();
-                ResetSearchState(clearIndex: true, resetScope: true);
-                SetDocument(null);
-                SetSourcePath(null);
-                SetSourceBaseline(null);
-                ClearBrowserState();
-                SetState(DocumentState.LoadFailed);
-                SetStatusText("Loading failed while preparing search.");
-            }
-            finally
-            {
-                if (ReferenceEquals(_loadCancellation, cancellation))
-                {
-                    _loadCancellation = null;
-                }
+        }
+        catch (ChromeBookmarksReadException exception)
+        {
+            stopwatch.Stop();
 
-                cancellation.Dispose();
+            if (hadExistingDocument)
+            {
+                SetState(previousState);
+                SetStatusText(
+                    exception.Message +
+                    " The current document was kept unchanged.");
             }
-        
+            else
+            {
+                ClearHistory();
+                ResetSearchState(
+                    clearIndex: true,
+                    resetScope: true);
+                SetDocument(null);
+                SetSourcePath(null);
+                SetSourceBaseline(null);
+                ClearBrowserState();
+                SetState(DocumentState.LoadFailed);
+                SetStatusText(exception.Message);
+            }
+        }
+        catch (BookmarkSourceBaselineException exception)
+        {
+            stopwatch.Stop();
+
+            if (hadExistingDocument)
+            {
+                SetState(previousState);
+                SetStatusText(
+                    exception.Message +
+                    " The current document was kept unchanged.");
+            }
+            else
+            {
+                ClearHistory();
+                ResetSearchState(
+                    clearIndex: true,
+                    resetScope: true);
+                SetDocument(null);
+                SetSourcePath(null);
+                SetSourceBaseline(null);
+                ClearBrowserState();
+                SetState(DocumentState.LoadFailed);
+                SetStatusText(exception.Message);
+            }
+        }
+        catch (Exception)
+        {
+            stopwatch.Stop();
+
+            if (hadExistingDocument)
+            {
+                SetState(previousState);
+                SetStatusText(
+                    "Replacement loading failed while preparing search. " +
+                    "The current document was kept unchanged.");
+            }
+            else
+            {
+                ClearHistory();
+                ResetSearchState(
+                    clearIndex: true,
+                    resetScope: true);
+                SetDocument(null);
+                SetSourcePath(null);
+                SetSourceBaseline(null);
+                ClearBrowserState();
+                SetState(DocumentState.LoadFailed);
+                SetStatusText(
+                    "Loading failed while preparing search.");
+            }
         }
         finally
         {
-            _documentOperationGate.Release();
+            if (ReferenceEquals(
+                    _loadCancellation,
+                    cancellation))
+            {
+                _loadCancellation = null;
+            }
+
+            cancellation.Dispose();
         }
     }
 

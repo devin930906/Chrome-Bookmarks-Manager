@@ -69,7 +69,7 @@ requireText(code, 'Use Save to write the change safely', 'Delete confirmation mu
 requireText(code, 'MoveSelectedBookmarksToEndAsync', 'Move to... must dispatch multi-selection through the batch ViewModel method.');
 requireText(code, 'CountFolderDescendants(folder)', 'Folder confirmation must calculate descendant counts.');
 requireText(code, 'new BookmarkDragPayload(node)', 'V0.6/V1.0 drag-and-drop must remain a single-node gesture even when the node may be a folder or bookmark.');
-requireText(viewModel, '!HasMultipleSelectedBookmarks', 'Single-item rename/edit must be disabled when selection is ambiguous.');
+requireText(viewModel, 'HasUnambiguousSelectedBookmark()', 'Single-item bookmark rename/edit/move must use the mixed-selection ambiguity guard.');
 
 const bookmarkDeleteStart = code.indexOf('private async Task DeleteSelectedBookmarksFromUiAsync()');
 const folderDeleteStart = code.indexOf('private async Task DeleteSelectedFolderFromUiAsync()');

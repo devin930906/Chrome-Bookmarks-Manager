@@ -118,7 +118,7 @@ public sealed class MainViewModelBrowserTests
     }
 
     [Fact]
-    public async Task MixedContentSelection_NormalizesToSingleFolder()
+    public async Task MixedContentSelection_PreservesAllRowsInDisplayedOrder()
     {
         var fixture = CreateFixture();
         var viewModel = new MainViewModel(
@@ -131,17 +131,26 @@ public sealed class MainViewModelBrowserTests
         var secondBookmark = viewModel.CurrentItems[2];
 
         viewModel.UpdateSelectedContentItems(
-            new[] { firstBookmark, childFolder, secondBookmark });
+            new[] { secondBookmark, childFolder, firstBookmark });
 
-        Assert.Same(
-            childFolder,
-            Assert.Single(viewModel.SelectedContentItems));
-        Assert.Same(childFolder, viewModel.SelectedContentItem);
-        Assert.Same(
-            fixture.ChildFolder,
-            viewModel.SelectedContentFolder);
-        Assert.Empty(viewModel.SelectedBookmarks);
-        Assert.Null(viewModel.SelectedBookmark);
+        Assert.Collection(
+            viewModel.SelectedContentItems,
+            item => Assert.Same(firstBookmark, item),
+            item => Assert.Same(childFolder, item),
+            item => Assert.Same(secondBookmark, item));
+        Assert.Same(firstBookmark, viewModel.SelectedContentItem);
+        Assert.Null(viewModel.SelectedContentFolder);
+        Assert.Collection(
+            viewModel.SelectedBookmarks,
+            bookmark => Assert.Same(fixture.BarUrlFirst, bookmark),
+            bookmark => Assert.Same(fixture.BarUrlSecond, bookmark));
+        Assert.Same(fixture.BarUrlFirst, viewModel.SelectedBookmark);
+
+        Assert.False(viewModel.CanRenameSelectedContentFolder);
+        Assert.False(viewModel.CanMoveSelectedContentFolder);
+        Assert.False(viewModel.CanDeleteSelectedContentFolder);
+        Assert.False(viewModel.CanRenameSelectedBookmark);
+        Assert.False(viewModel.CanEditSelectedBookmarkUrl);
     }
 
     [Fact]

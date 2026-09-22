@@ -276,8 +276,9 @@ public sealed class MainViewModelSearchTests
         Assert.Equal(0, service.SearchCalls);
     }
 
+
     [Fact]
-    public async Task Reopen_ClearsPreviousSearchBeforeNextReaderCompletes()
+    public async Task Reopen_PreservesPreviousSearchUntilReplacementCommits()
     {
         var first = CreateFixture();
         var second = CreateFixture("Second bar");
@@ -307,21 +308,26 @@ public sealed class MainViewModelSearchTests
         await viewModel.WaitForPendingSearchAsync();
         Assert.True(viewModel.IsSearchActive);
 
+        var previousResult = Assert.Single(viewModel.SearchResults);
+
         var reopen = viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks-2");
         await secondReadEntered.Task;
 
-        Assert.Equal(string.Empty, viewModel.SearchText);
+        Assert.Equal(DocumentState.Loading, viewModel.State);
+        Assert.Equal("first", viewModel.SearchText);
         Assert.False(viewModel.IsSearchActive);
-        Assert.Empty(viewModel.SearchResults);
+        Assert.Same(previousResult, Assert.Single(viewModel.SearchResults));
         Assert.False(viewModel.CanSearchDocument);
 
         releaseSecond.SetResult(second.Document);
         await reopen;
 
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
         Assert.True(viewModel.CanSearchDocument);
         Assert.Equal(string.Empty, viewModel.SearchText);
+        Assert.False(viewModel.IsSearchActive);
+        Assert.Empty(viewModel.SearchResults);
     }
-
     [Fact]
     public async Task SearchSummary_ExposesStateAndCountButNeverQueryText()
     {

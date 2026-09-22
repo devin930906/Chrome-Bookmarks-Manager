@@ -9,6 +9,7 @@ using ChromeBookmarksManager.Application.Launching;
 using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Application.Search;
 using ChromeBookmarksManager.Application.Saving;
+using ChromeBookmarksManager.Application.Sorting;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
 using ChromeBookmarksManager.Infrastructure.Persistence;
@@ -25,6 +26,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IBookmarkEditingService _editingService;
     private readonly IBookmarkMoveService _moveService;
     private readonly IBookmarkDeleteService _deleteService;
+    private readonly BookmarkSortService _sortService = new();
     private readonly IBookmarkClipboardService? _clipboardService;
     private readonly IBookmarkClipboardStore? _clipboardStore;
     private readonly IExternalUrlLauncher? _urlLauncher;
@@ -435,6 +437,9 @@ public sealed class MainViewModel : ViewModelBase
         CanEditDocument && SelectedFolder is not null;
 
     public bool CanAddFolder =>
+        CanEditDocument && SelectedFolder is not null;
+
+    public bool CanSortSelectedFolder =>
         CanEditDocument && SelectedFolder is not null;
 
     public bool CanRenameSelectedFolder =>
@@ -972,6 +977,43 @@ public sealed class MainViewModel : ViewModelBase
 
             return folder;
         
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
+    }
+
+    public async Task<bool> SortSelectedFolderByNameAsync()
+    {
+        await _documentOperationGate
+            .WaitAsync()
+            .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var folder = SelectedFolder
+                ?? throw new InvalidOperationException(
+                    "Select a folder before sorting it.");
+
+            var result = _sortService.SortByName(
+                document,
+                folder,
+                CultureInfo.CurrentUICulture);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkSortHistoryEntry(result));
+
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: folder)
+                .ConfigureAwait(true);
+
+            return true;
         }
         finally
         {
@@ -2433,6 +2475,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(CanAddBookmark));
         OnPropertyChanged(nameof(CanAddFolder));
+        OnPropertyChanged(nameof(CanSortSelectedFolder));
         OnPropertyChanged(nameof(CanRenameSelectedFolder));
         OnPropertyChanged(nameof(CanRenameSelectedContentFolder));
         OnPropertyChanged(nameof(CanMoveSelectedContentFolder));

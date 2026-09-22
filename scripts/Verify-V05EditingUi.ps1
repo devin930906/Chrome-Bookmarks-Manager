@@ -40,12 +40,12 @@ if (Require-File $mainWindowXaml) {
     $xaml = Get-Content -LiteralPath $mainWindowXaml -Raw
 
     Require-Text $xaml 'x:Name="FolderTree"' "Folder TreeView must have a stable FolderTree name for keyboard routing."
-    Require-Text $xaml 'Header="_Edit"' "Edit menu must exist and be enabled by per-action state."
-    Require-Text $xaml 'Header="Add _Bookmark..."' "Edit menu must expose Add Bookmark."
-    Require-Text $xaml 'Header="Add _Folder..."' "Edit menu must expose Add Folder."
-    Require-Text $xaml 'Header="_Rename Folder..."' "Edit menu must expose Rename Folder."
-    Require-Text $xaml 'Header="Rename _Bookmark..."' "Edit menu must expose Rename Bookmark."
-    Require-Text $xaml 'Header="Edit _URL..."' "Edit menu must expose Edit URL."
+    Require-Text $xaml 'Header="{DynamicResource MenuEdit}"' "Edit menu must exist and be enabled by per-action state."
+    Require-Text $xaml 'Header="{DynamicResource MenuAddBookmark}"' "Edit menu must expose Add Bookmark."
+    Require-Text $xaml 'Header="{DynamicResource MenuAddFolder}"' "Edit menu must expose Add Folder."
+    Require-Text $xaml 'Header="{DynamicResource MenuRenameFolder}"' "Edit menu must expose Rename Folder."
+    Require-Text $xaml 'Header="{DynamicResource MenuRenameBookmark}"' "Edit menu must expose Rename Bookmark."
+    Require-Text $xaml 'Header="{DynamicResource MenuEditUrl}"' "Edit menu must expose Edit URL."
     Require-Text $xaml 'InputGestureText="F2"' "Rename UI must advertise the F2 gesture."
     Require-Text $xaml '<TreeView.ContextMenu>' "Folder tree must expose an editing context menu."
     Require-Text $xaml '<ListView.ContextMenu>' "Bookmark list must expose an editing context menu."
@@ -111,8 +111,8 @@ if (Require-File $dialogCode) {
 
 if (Require-File $discardDialogXaml) {
     $discardDialog = Get-Content -LiteralPath $discardDialogXaml -Raw
-    Require-Text $discardDialog 'Content="Discard"' "Discard dialog must have an explicit Discard action."
-    Require-Text $discardDialog 'Content="Cancel"' "Discard dialog must have an explicit Cancel action."
+    Require-Text $discardDialog 'Content="{DynamicResource ButtonDiscard}"' "Discard dialog must have an explicit Discard action."
+    Require-Text $discardDialog 'Content="{DynamicResource ButtonCancel}"' "Discard dialog must have an explicit Cancel action."
     Require-Text $discardDialog 'IsDefault="True"' "Cancel must be the safe default action."
     Require-Text $discardDialog 'IsCancel="True"' "Escape and window-close must cancel discard."
 }

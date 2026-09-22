@@ -10,6 +10,9 @@ const violations = [];
 const requiredXaml = [
   'ItemsSource="{Binding DisplayedItems}"',
   'Header="Open Folder"',
+  'Header="Open Bookmark"',
+  'IsEnabled="{Binding CanOpenSelectedContentItem}"',
+  'Click="OpenContentBookmark_Click"',
   'Header="Rename Folder..."',
   'Header="Move Folder to..."',
   'Header="Delete Folder..."',
@@ -26,6 +29,9 @@ const requiredXaml = [
 const requiredCode = [
   "BookmarkListItemViewModel",
   "NavigateToFolder",
+  "OpenSelectedContentItemAsync",
+  "CanOpenSelectedContentItem",
+  "WindowsExternalUrlLauncher",
   "RenameFolderAsync",
   "DeleteFolderAsync",
   "DeleteSelectedContentItemsFromUiAsync",

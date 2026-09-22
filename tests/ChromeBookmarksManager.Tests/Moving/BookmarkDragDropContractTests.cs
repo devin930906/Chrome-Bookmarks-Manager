@@ -7,13 +7,59 @@ namespace ChromeBookmarksManager.Tests.Moving;
 public sealed class BookmarkDragDropContractTests
 {
     [Fact]
-    public void Payload_PreservesExactDraggedNodeReference()
+    public void Payload_SelectedPointerCapturesOrderedSelectionAndCopiesIt()
     {
-        var bookmark = Url("10", "Dragged");
+        var first = Url("10", "First");
+        var folder = Folder("20", "Folder");
+        var second = Url("11", "Second");
+        var selected = new List<BookmarkNode>
+        {
+            first,
+            folder,
+            second
+        };
 
-        var payload = new BookmarkDragPayload(bookmark);
+        var payload = BookmarkDragPayload.ForContentRow(
+            folder,
+            selected);
 
-        Assert.Same(bookmark, payload.Node);
+        selected.Clear();
+
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                first,
+                folder,
+                second
+            },
+            payload.Nodes);
+    }
+
+    [Fact]
+    public void Payload_UnselectedPointerCapturesOnlyPointerRow()
+    {
+        var first = Url("10", "First");
+        var second = Url("11", "Second");
+        var pointer = Folder("20", "Pointer folder");
+
+        var payload = BookmarkDragPayload.ForContentRow(
+            pointer,
+            new BookmarkNode[]
+            {
+                first,
+                second
+            });
+
+        var dragged = Assert.Single(payload.Nodes);
+        Assert.Same(pointer, dragged);
+    }
+
+    [Fact]
+    public void Payload_ConstructorRejectsEmptyNodeSet()
+    {
+        Assert.Throws<ArgumentException>(
+            () => new BookmarkDragPayload(
+                Array.Empty<BookmarkNode>()));
     }
 
     [Theory]
@@ -89,6 +135,21 @@ public sealed class BookmarkDragDropContractTests
             expected,
             DragDropRules.CanPositionallyReorderBookmarks(isSearchActive));
     }
+
+    private static BookmarkFolder Folder(
+        string id,
+        string name,
+        params BookmarkNode[] children) =>
+        new(
+            id,
+            GuidFor(int.Parse(id)),
+            name,
+            null,
+            null,
+            null,
+            null,
+            EmptyProperties,
+            children);
 
     private static BookmarkUrl Url(string id, string name) =>
         new(

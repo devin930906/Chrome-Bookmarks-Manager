@@ -397,6 +397,14 @@ public sealed class MainViewModel : ViewModelBase
     public bool CanMoveSelectedContentBookmarks =>
         CanMoveSelectedBookmarks;
 
+    public bool CanMoveSelectedContentItems =>
+        CanEditDocument &&
+        _selectedContentItems.Count > 0 &&
+        _selectedContentItems.All(
+            item =>
+                item.Node is not BookmarkFolder folder ||
+                !IsPermanentRoot(folder));
+
     public bool CanOpenBookmarks =>
         State is not DocumentState.Loading and not DocumentState.Saving;
 
@@ -1250,6 +1258,60 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    public async Task<bool> MoveSelectedContentItemsToEndAsync(
+        BookmarkFolder targetParent)
+    {
+        ArgumentNullException.ThrowIfNull(targetParent);
+
+        await _documentOperationGate
+            .WaitAsync()
+            .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var selected = _selectedContentItems
+                .Select(item => item.Node)
+                .ToArray();
+
+            if (selected.Length == 0)
+            {
+                return false;
+            }
+
+            var searchWasActive = IsSearchActive;
+            var selectedFolderBeforeMove = SelectedFolder;
+
+            var result = _moveService.MoveNodes(
+                document,
+                selected,
+                targetParent,
+                targetParent.Children.Count);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkBatchMoveHistoryEntry(
+                    selected,
+                    result));
+            ClearContentSelection();
+
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: searchWasActive
+                        ? selectedFolderBeforeMove
+                        : targetParent)
+                .ConfigureAwait(true);
+
+            return true;
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
+    }
+
     public async Task<bool> MoveSelectedBookmarksToEndAsync(
         BookmarkFolder targetParent)
     {
@@ -2042,6 +2104,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanDeleteSelectedContentBookmarks));
         OnPropertyChanged(nameof(CanDeleteSelectedContentItems));
         OnPropertyChanged(nameof(CanMoveSelectedContentBookmarks));
+        OnPropertyChanged(nameof(CanMoveSelectedContentItems));
     }
 
     private void BuildBrowserState(BookmarkDocument document)

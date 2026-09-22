@@ -85,6 +85,38 @@ public sealed class BookmarkHtmlImportService
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    public async Task<BookmarkHtmlImportResult> ImportFileAsync(
+        BookmarkDocument document,
+        BookmarkFolder targetParent,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        await using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 64 * 1024,
+            useAsync: true);
+        using var reader = new StreamReader(
+            stream,
+            new UTF8Encoding(
+                encoderShouldEmitUTF8Identifier: false,
+                throwOnInvalidBytes: true),
+            detectEncodingFromByteOrderMarks: true,
+            bufferSize: 64 * 1024,
+            leaveOpen: false);
+
+        return await ImportAsync(
+                document,
+                targetParent,
+                reader,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<BookmarkHtmlImportResult> ImportAsync(
         BookmarkDocument document,
         BookmarkFolder targetParent,

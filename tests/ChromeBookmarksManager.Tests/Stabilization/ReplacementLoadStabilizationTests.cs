@@ -258,8 +258,8 @@ public sealed class ReplacementLoadStabilizationTests
             BookmarkSearchScope scope,
             BookmarkFolder? currentFolder,
             CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<BookmarkUrl>>(
-                Array.Empty<BookmarkUrl>());
+            Task.FromResult<IReadOnlyList<BookmarkNode>>(
+                Array.Empty<BookmarkNode>());
     }
 
     private static readonly IReadOnlyDictionary<string, JsonElement>

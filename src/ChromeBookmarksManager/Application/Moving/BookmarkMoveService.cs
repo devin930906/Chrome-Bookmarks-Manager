@@ -168,13 +168,14 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
             targetParent.Children.Count);
     }
 
-    public BookmarkBatchMoveResult MoveBookmarksToEnd(
+    public BookmarkBatchMoveResult MoveNodes(
         BookmarkDocument document,
-        IReadOnlyList<BookmarkUrl> bookmarks,
-        BookmarkFolder targetParent)
+        IReadOnlyList<BookmarkNode> nodes,
+        BookmarkFolder targetParent,
+        int targetIndex)
     {
         ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(bookmarks);
+        ArgumentNullException.ThrowIfNull(nodes);
         ArgumentNullException.ThrowIfNull(targetParent);
 
         EnsureBelongsToDocument(
@@ -183,60 +184,142 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
             BookmarkMoveError.TargetNotInDocument,
             "The target folder does not belong to the active document.");
 
-        if (bookmarks.Count == 0)
+        if (targetIndex < 0 ||
+            targetIndex > targetParent.Children.Count)
+        {
+            throw new BookmarkMoveException(
+                BookmarkMoveError.InvalidIndex,
+                "The requested bookmark insertion position is invalid.");
+        }
+
+        if (nodes.Count == 0)
         {
             return new BookmarkBatchMoveResult(
                 false,
                 Array.Empty<BookmarkMoveResult>());
         }
 
-        var seen = new HashSet<BookmarkUrl>(
+        var seen = new HashSet<BookmarkNode>(
             ReferenceEqualityComparer.Instance);
-        var unique = new List<BookmarkUrl>(bookmarks.Count);
+        var unique = new List<BookmarkNode>(nodes.Count);
 
-        foreach (var bookmark in bookmarks)
+        foreach (var node in nodes)
         {
-            ArgumentNullException.ThrowIfNull(bookmark);
+            ArgumentNullException.ThrowIfNull(node);
 
-            if (seen.Add(bookmark))
+            if (seen.Add(node))
             {
-                unique.Add(bookmark);
+                unique.Add(node);
             }
         }
 
-        var snapshots = new List<(
-            BookmarkUrl Bookmark,
-            BookmarkFolder SourceParent,
-            int SourceIndex)>(unique.Count);
-
-        foreach (var bookmark in unique)
+        foreach (var node in unique)
         {
             EnsureBelongsToDocument(
                 document,
-                bookmark,
+                node,
                 BookmarkMoveError.NodeNotInDocument,
-                "The bookmark does not belong to the active document.");
+                "The bookmark node does not belong to the active document.");
 
-            var sourceParent = bookmark.Parent
+            if (IsPermanentRoot(document, node))
+            {
+                throw new BookmarkMoveException(
+                    BookmarkMoveError.ProtectedRoot,
+                    "Permanent Chrome bookmark roots cannot be moved.");
+            }
+
+            var sourceParent = node.Parent
                 ?? throw new BookmarkMoveException(
                     BookmarkMoveError.MissingParent,
-                    "The bookmark has no movable parent.");
+                    "The bookmark node has no movable parent.");
 
-            var sourceIndex = sourceParent.IndexOfChild(bookmark);
-            if (sourceIndex < 0)
+            if (sourceParent.IndexOfChild(node) < 0)
             {
                 throw new BookmarkMoveException(
                     BookmarkMoveError.NodeNotInDocument,
-                    "The bookmark is not present in its recorded parent.");
+                    "The bookmark node is not present in its recorded parent.");
             }
-
-            snapshots.Add(
-                (bookmark, sourceParent, sourceIndex));
         }
 
-        if (IsAlreadyAtEnd(
+        var selected = new HashSet<BookmarkNode>(
             unique,
-            targetParent))
+            ReferenceEqualityComparer.Instance);
+        var topLevel = unique
+            .Where(node => !HasSelectedAncestor(node, selected))
+            .ToArray();
+
+        foreach (var node in topLevel)
+        {
+            if (node is not BookmarkFolder folder)
+            {
+                continue;
+            }
+
+            if (ReferenceEquals(folder, targetParent))
+            {
+                throw new BookmarkMoveException(
+                    BookmarkMoveError.SelfTarget,
+                    "A folder cannot be moved into itself.");
+            }
+
+            if (IsDescendantOf(targetParent, folder))
+            {
+                throw new BookmarkMoveException(
+                    BookmarkMoveError.DescendantTarget,
+                    "A folder cannot be moved into one of its descendants.");
+            }
+        }
+
+        var snapshots = topLevel
+            .Select(node =>
+            {
+                var sourceParent = node.Parent!;
+                var sourceIndex = sourceParent.IndexOfChild(node);
+
+                return (
+                    Node: node,
+                    SourceParent: sourceParent,
+                    SourceIndex: sourceIndex);
+            })
+            .ToArray();
+
+        var removedBeforeTarget = snapshots.Count(
+            snapshot =>
+                ReferenceEquals(
+                    snapshot.SourceParent,
+                    targetParent) &&
+                snapshot.SourceIndex < targetIndex);
+        var normalizedTargetIndex =
+            targetIndex - removedBeforeTarget;
+
+        var movingSet = new HashSet<BookmarkNode>(
+            topLevel,
+            ReferenceEqualityComparer.Instance);
+        var targetWithoutMovingNodes = targetParent.Children
+            .Where(child => !movingSet.Contains(child))
+            .ToList();
+
+        if (normalizedTargetIndex < 0 ||
+            normalizedTargetIndex > targetWithoutMovingNodes.Count)
+        {
+            throw new BookmarkMoveException(
+                BookmarkMoveError.InvalidIndex,
+                "The normalized bookmark insertion position is invalid.");
+        }
+
+        var desiredTarget = targetWithoutMovingNodes.ToList();
+        desiredTarget.InsertRange(
+            normalizedTargetIndex,
+            topLevel);
+
+        if (snapshots.All(
+                snapshot =>
+                    ReferenceEquals(
+                        snapshot.SourceParent,
+                        targetParent)) &&
+            ReferenceSequenceEqual(
+                targetParent.Children,
+                desiredTarget))
         {
             return new BookmarkBatchMoveResult(
                 false,
@@ -244,11 +327,10 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
         }
 
         var groups = snapshots
-            .GroupBy(
-                snapshot => snapshot.SourceParent)
+            .GroupBy(snapshot => snapshot.SourceParent)
             .ToArray();
-        var inserted = new List<BookmarkUrl>(unique.Count);
-        var results = new List<BookmarkMoveResult>(unique.Count);
+        var inserted = new List<BookmarkNode>(topLevel.Length);
+        var results = new List<BookmarkMoveResult>(topLevel.Length);
 
         try
         {
@@ -262,15 +344,16 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
                 }
             }
 
-            foreach (var snapshot in snapshots)
+            for (var index = 0; index < snapshots.Length; index++)
             {
-                var targetIndex =
-                    targetParent.Children.Count;
+                var snapshot = snapshots[index];
+                var insertionIndex =
+                    normalizedTargetIndex + index;
 
                 targetParent.InsertChild(
-                    targetIndex,
-                    snapshot.Bookmark);
-                inserted.Add(snapshot.Bookmark);
+                    insertionIndex,
+                    snapshot.Node);
+                inserted.Add(snapshot.Node);
 
                 results.Add(
                     new BookmarkMoveResult(
@@ -278,7 +361,7 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
                         snapshot.SourceParent,
                         snapshot.SourceIndex,
                         targetParent,
-                        targetIndex));
+                        insertionIndex));
             }
         }
         catch
@@ -287,9 +370,9 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
                  index >= 0;
                  index--)
             {
-                var bookmark = inserted[index];
+                var node = inserted[index];
                 var currentIndex =
-                    targetParent.IndexOfChild(bookmark);
+                    targetParent.IndexOfChild(node);
 
                 if (currentIndex >= 0)
                 {
@@ -298,18 +381,16 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
                 }
             }
 
-            foreach (var group in snapshots
-                .GroupBy(
-                    snapshot => snapshot.SourceParent))
+            foreach (var group in groups)
             {
                 foreach (var snapshot in group
                     .OrderBy(item => item.SourceIndex))
                 {
-                    if (snapshot.Bookmark.Parent is null)
+                    if (snapshot.Node.Parent is null)
                     {
                         snapshot.SourceParent.InsertChild(
                             snapshot.SourceIndex,
-                            snapshot.Bookmark);
+                            snapshot.Node);
                     }
                 }
             }
@@ -322,33 +403,38 @@ public sealed class BookmarkMoveService : IBookmarkMoveService
             results);
     }
 
-    private static bool IsAlreadyAtEnd(
+    public BookmarkBatchMoveResult MoveBookmarksToEnd(
+        BookmarkDocument document,
         IReadOnlyList<BookmarkUrl> bookmarks,
         BookmarkFolder targetParent)
     {
-        if (bookmarks.Count == 0 ||
-            targetParent.Children.Count < bookmarks.Count)
-        {
-            return false;
-        }
+        ArgumentNullException.ThrowIfNull(bookmarks);
+        ArgumentNullException.ThrowIfNull(targetParent);
 
-        var start =
-            targetParent.Children.Count -
-            bookmarks.Count;
+        return MoveNodes(
+            document,
+            bookmarks.Cast<BookmarkNode>().ToArray(),
+            targetParent,
+            targetParent.Children.Count);
+    }
 
-        for (var index = 0;
-             index < bookmarks.Count;
-             index++)
+    private static bool HasSelectedAncestor(
+        BookmarkNode node,
+        HashSet<BookmarkNode> selected)
+    {
+        var current = node.Parent;
+
+        while (current is not null)
         {
-            if (!ReferenceEquals(
-                    targetParent.Children[start + index],
-                    bookmarks[index]))
+            if (selected.Contains(current))
             {
-                return false;
+                return true;
             }
+
+            current = current.Parent;
         }
 
-        return true;
+        return false;
     }
 
     private BookmarkMoveResult MoveNodeRelative(

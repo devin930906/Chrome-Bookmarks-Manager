@@ -1,0 +1,354 @@
+Chrome Bookmarks Manager V1.0 — Windows 10 Owner Acceptance Guide
+
+PURPOSE
+This is the final manual owner-acceptance procedure for the reviewed V1.0 release candidate (RC). It validates daily-use behavior, Safe Save protection, application backup integrity, Chrome compatibility, version identity, and the saved Undo/Redo checkpoint without exposing private bookmark content.
+
+HARD SAFETY RULES
+1. Use only the reviewed RC EXE from the exact commit/run selected for V1.0 acceptance.
+2. Keep an independent external backup of the real Chrome Bookmarks file outside the Chrome profile directory before any production Save.
+3. Close every chrome.exe process before every real production Save and before Prepare / VerifyFinal.
+4. Never upload, commit, paste, or screenshot private bookmark titles, URLs, queries, raw Bookmarks JSON, backup contents, or profile paths.
+5. If any helper integrity check fails, STOP production acceptance and keep the independent external backup.
+6. Never induce a stale-source conflict against the live production Bookmarks file. The stale-source test is synthetic/disposable-copy only.
+7. Do not merge, tag, or publish V1.0 until all automated RC gates and this owner acceptance pass.
+
+FILES REQUIRED
+- ChromeBookmarksManager.exe from the reviewed V1.0 RC.
+- scripts\V10-OwnerAcceptance.ps1 from the same reviewed commit.
+- scripts\Verify-V10Version.ps1 from the same reviewed commit.
+- The repository files required by Verify-V10Version.ps1 when running from the repository checkout.
+- Your exact active Chrome Bookmarks path.
+
+STEP 0 — IDENTIFY THE ACTIVE CHROME PROFILE
+Open normal Chrome and visit chrome://version.
+
+Record the Profile Path locally only.
+The production Bookmarks file is:
+<Profile Path>\Bookmarks
+
+Close every Chrome window and confirm all chrome.exe processes exit.
+
+Do not send the profile path in chat or commit it to Git.
+
+STEP 1 — CREATE AN INDEPENDENT EXTERNAL BACKUP
+With Chrome fully closed, copy the exact production Bookmarks file to a separate safe directory outside the Chrome profile.
+
+Example concept only:
+D:\ChromeBookmarksManager-ExternalBackup\Bookmarks.pre-v10.bak
+
+Do not overwrite an older known-good backup.
+Do not store the external backup inside the Chrome profile.
+
+STEP 2 — PREPARE THE NON-PRIVATE BASELINE
+From the reviewed repository checkout, run:
+
+powershell -ExecutionPolicy Bypass -File .\scripts\V10-OwnerAcceptance.ps1 -Phase Prepare -BookmarksPath "C:\exact\Chrome\profile\Bookmarks" -ExecutablePath "C:\path\to\reviewed\ChromeBookmarksManager.exe"
+
+Required:
+V1.0 owner acceptance Prepare PASSED.
+ExecutableVersionVerified=True
+
+Record the printed BaselinePath locally. Do not paste the local path into Git or public reports.
+
+The baseline JSON contains only:
+- SHA-256
+- byte length
+- LastWriteTimeUtc
+- capture timestamp
+- baseline schema/version
+
+It must not contain bookmark titles, URLs, queries, raw JSON, or profile-path content.
+
+STEP 3 — VERIFY THE INDEPENDENT EXTERNAL BACKUP
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\scripts\V10-OwnerAcceptance.ps1 -Phase VerifyBackup -BookmarksPath "C:\exact\Chrome\profile\Bookmarks" -BaselinePath "C:\local\V10-owner-baseline-....json" -BackupPath "D:\ChromeBookmarksManager-ExternalBackup\Bookmarks.pre-v10.bak"
+
+Required:
+BackupHashMatchesSource=True
+BackupLengthMatchesSource=True
+
+If either is False, STOP. Do not open the production file in the application for V1.0 acceptance.
+
+STEP 4 — LOAD THE REAL LARGE BOOKMARK LIBRARY
+Open the reviewed ChromeBookmarksManager.exe.
+
+Load the exact production Bookmarks file.
+
+Verify:
+- the application title shows Chrome Bookmarks Manager 1.0.0;
+- the file loads successfully;
+- the visible load summary is in the expected real-library range (historically about 209k URLs for this owner; use the current visible count as the acceptance record);
+- folder count is visible and plausible for the current library;
+- the three Chrome root folders are present;
+- nested folders open normally;
+- selecting folders shows the correct direct bookmarks;
+- scrolling large folders remains usable;
+- no corruption/recovery warning appears in the application.
+
+Record only counts, observed load time, and pass/fail. Do not record private titles or URLs.
+
+STEP 5 — SEARCH ACCEPTANCE
+Test all existing search behavior against the loaded real library.
+
+Verify:
+- Name substring search;
+- URL substring search;
+- domain-text search;
+- Chinese / Unicode search;
+- case-insensitive matching;
+- All bookmarks scope;
+- Current folder scope;
+- rapid query replacement / latest-query-wins behavior;
+- clearing search restores normal browsing;
+- result navigation returns to the original folder/bookmark.
+
+Use private search terms only locally. Do not paste them into reports.
+
+STEP 6 — CONTROLLED EDITING ACCEPTANCE
+Use a harmless temporary test location/bookmark and verify:
+- add bookmark;
+- add folder;
+- rename bookmark;
+- rename folder;
+- edit bookmark URL;
+- dirty state appears after editing;
+- Cancel/Discard behavior on replacement load still behaves correctly.
+
+Do not perform broad real-library cleanup during acceptance.
+
+STEP 7 — MOVE / DRAG / REORDER / BATCH ACCEPTANCE
+Verify both bookmark and folder management:
+- move a bookmark within the current folder;
+- move a bookmark across folders;
+- reorder a bookmark within a folder;
+- Drag & Drop a bookmark within a folder;
+- Drag & Drop a bookmark across folders;
+- move a folder within the current parent;
+- move a folder across folders;
+- reorder a folder;
+- Drag & Drop a folder across folders;
+- multi-select / batch move where supported;
+- hierarchy and item identity remain correct after each operation.
+
+Do not attempt to move a folder into itself or one of its descendants except as a safety rejection test.
+
+STEP 8 — DELETE / UNDO / REDO ACCEPTANCE
+Using temporary test content, verify:
+- single bookmark delete;
+- single folder delete;
+- batch delete;
+- Undo restores exact structure/order/content;
+- Redo reapplies the delete;
+- Undo/Redo remains available across the expected bounded history;
+- dirty state follows the current history position correctly.
+
+STEP 9 — CHROME-CLOSED PRODUCTION SAVE
+Before saving:
+- close every Chrome window;
+- confirm no chrome.exe process remains;
+- confirm the independent external backup from Step 1 is still retained.
+
+Make one deliberately identifiable harmless temporary edit.
+Choose Save or Ctrl+S.
+
+Required:
+- Save succeeds;
+- source-conflict protection does not trigger when the source is unchanged;
+- the application reports/creates its verified application-owned backup;
+- the document becomes clean;
+- the application remains usable.
+
+Do not delete either the independent external backup or the application-generated backup.
+
+STEP 10 — VERIFY THE APPLICATION BACKUP
+Use the exact application backup created by the Save in Step 9. If needed, identify the newest file matching:
+
+Bookmarks.ChromeBookmarksManager.*.bak
+
+Run:
+
+powershell -ExecutionPolicy Bypass -File .\scripts\V10-OwnerAcceptance.ps1 -Phase VerifyBackup -BookmarksPath "C:\exact\Chrome\profile\Bookmarks" -BaselinePath "C:\local\V10-owner-baseline-....json" -BackupPath "C:\exact\application\backup\Bookmarks.ChromeBookmarksManager....bak"
+
+Required:
+BackupHashMatchesSource=True
+BackupLengthMatchesSource=True
+
+These booleans prove the application backup matches the accepted pre-save source baseline.
+
+STEP 11 — VERIFY SAVED CHECKPOINT SEMANTICS
+Immediately after the successful Save:
+
+Edit -> Save -> Clean
+Undo -> Dirty
+Redo -> Clean
+
+Required:
+- after Save: document is Clean;
+- Undo once: document becomes Dirty;
+- Redo back to the saved checkpoint: document becomes Clean.
+
+This exact checkpoint behavior is a V1.0 acceptance requirement.
+
+STEP 12 — REOPEN IN V1.0
+Close ChromeBookmarksManager.
+Keep Chrome closed.
+
+Reopen the reviewed V1.0 EXE and load the same production Bookmarks file.
+
+Verify:
+- load succeeds;
+- the saved temporary edit is present;
+- folder structure is normal;
+- search still works;
+- no recovery state is shown.
+
+STEP 13 — FINAL V1.0 STRUCTURAL + VERSION VERIFICATION
+With Chrome fully closed, run:
+
+powershell -ExecutionPolicy Bypass -File .\scripts\V10-OwnerAcceptance.ps1 -Phase VerifyFinal -BookmarksPath "C:\exact\Chrome\profile\Bookmarks" -ExecutablePath "C:\path\to\reviewed\ChromeBookmarksManager.exe"
+
+Required:
+ExecutableVersionVerified=True
+JsonValid=True
+HasRoots=True
+HasChecksum=True
+HasChecksumSha256=True
+
+The helper also prints only:
+- SourceSHA256
+- SourceLength
+- SourceLastWriteTimeUtc
+
+Do not paste the Bookmarks file itself.
+
+STEP 14 — CHROME READ / REWRITE COMPATIBILITY
+Open normal Chrome against the same everyday profile.
+
+Verify:
+- Chrome opens normally;
+- Chrome does not show a bookmark corruption/recovery warning;
+- the V1.0 saved temporary edit is visible;
+- existing folders/bookmarks look normal.
+
+Make one harmless Chrome-side temporary bookmark change.
+Close Chrome normally and confirm every chrome.exe process exits.
+
+Reopen the reviewed V1.0 EXE and load the same Bookmarks file again.
+
+Required:
+- V1.0 reads Chrome's rewritten Bookmarks file normally;
+- the Chrome-side change is visible;
+- browsing and search remain normal.
+
+This proves round-trip compatibility in both directions:
+V1.0 -> Chrome -> V1.0.
+
+STEP 15 — Chrome-running SAVE BLOCK
+Open Chrome and leave it running.
+
+Open the reviewed V1.0 EXE and load the production Bookmarks file.
+Make one harmless in-memory temporary edit.
+Attempt Save.
+
+Required Chrome-running behavior:
+- Save is blocked;
+- the UI explains Chrome must be closed;
+- the source is not overwritten;
+- the in-memory edit remains available for retry/discard;
+- the application does not force-close Chrome.
+
+Close Chrome normally.
+Either discard that temporary in-memory edit or save it only after Chrome is fully closed.
+
+STEP 16 — stale-source CONFLICT TEST (SYNTHETIC COPY ONLY)
+DO NOT perform this test on the live production Bookmarks file.
+
+Create a disposable test directory outside the Chrome profile.
+Copy a valid Bookmarks file into that directory and keep the copied filename exactly:
+Bookmarks
+
+Then:
+1. load the disposable copy in V1.0;
+2. make an in-memory edit;
+3. externally alter the disposable source file after it was loaded;
+4. attempt Save.
+
+Required stale-source behavior:
+- Save is blocked as an external-source-change conflict;
+- the disposable source is not silently overwritten;
+- no production file is involved.
+
+Delete the disposable test copy only after the test is complete.
+
+STEP 17 — FINAL DAILY-USE SANITY CHECK
+On the reviewed V1.0 EXE, confirm:
+- open/load;
+- folder browsing;
+- large-list scrolling;
+- search;
+- add/edit;
+- move/reorder/Drag & Drop;
+- batch operations;
+- delete;
+- Undo/Redo;
+- explicit Save;
+- reopen;
+- clean/dirty transitions;
+- close/Exit behavior.
+
+If the stabilization pass changed close/Exit behavior, specifically verify:
+- clean close exits normally;
+- dirty close Cancel keeps the app open;
+- dirty close Discard exits without saving;
+- no duplicate prompt or accidental second close occurs.
+
+STEP 18 — REPORT ONLY NON-PRIVATE EVIDENCE
+Allowed acceptance report:
+- Windows version;
+- reviewed RC commit/run ID;
+- application version result;
+- URL count;
+- folder count;
+- observed load time;
+- Prepare PASS/FAIL;
+- BackupHashMatchesSource=True/False;
+- BackupLengthMatchesSource=True/False;
+- search checks PASS/FAIL;
+- edit/move/delete/Undo/Redo checks PASS/FAIL;
+- Chrome-closed Save PASS/FAIL;
+- Edit -> Save -> Clean / Undo -> Dirty / Redo -> Clean PASS/FAIL;
+- V1.0 reopen PASS/FAIL;
+- JsonValid / HasRoots / HasChecksum / HasChecksumSha256 booleans;
+- Chrome opened normally Yes/No;
+- Chrome corruption/recovery warning Yes/No;
+- Chrome rewrite reopened in V1.0 Yes/No;
+- Chrome-running Save blocked Yes/No;
+- stale-source overwrite blocked on disposable copy Yes/No;
+- close/Exit checks PASS/FAIL.
+
+Never report:
+- private URLs;
+- private bookmark titles;
+- private search queries;
+- raw Bookmarks JSON;
+- raw backup contents;
+- screenshots containing private bookmark data;
+- local profile paths or usernames.
+
+PASS RULE
+V1.0 Windows 10 owner acceptance passes only when:
+- the reviewed RC identity is confirmed;
+- the independent external backup matches the pre-save baseline;
+- the application-generated backup matches the pre-save baseline;
+- real-library browsing/search/edit/move/delete/history behavior passes;
+- Chrome-closed Save succeeds;
+- saved checkpoint behavior passes;
+- VerifyFinal reports all structural booleans True;
+- Chrome reads and rewrites the V1.0-produced file without corruption/recovery warning;
+- V1.0 reopens the Chrome-rewritten file;
+- Chrome-running Save is blocked;
+- stale-source overwrite is blocked on a disposable copy;
+- no private bookmark content is uploaded or committed.
+
+After PASS, record only the allowed non-private evidence in the V1.0 plan before merge/tag/release.

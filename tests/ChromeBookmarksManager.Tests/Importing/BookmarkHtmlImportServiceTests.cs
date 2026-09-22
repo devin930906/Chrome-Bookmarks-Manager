@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using ChromeBookmarksManager.Application.Importing;
 using ChromeBookmarksManager.Application.Search;
@@ -9,6 +10,55 @@ namespace ChromeBookmarksManager.Tests.Importing;
 
 public sealed class BookmarkHtmlImportServiceTests
 {
+    [Fact]
+    public async Task ImportFileAsync_Utf8BookmarkHtml_UsesSameAtomicImportPipeline()
+    {
+        var document = Document(
+            Folder("1", "Bookmarks bar"),
+            Folder("2", "Other bookmarks"),
+            Folder("3", "Mobile bookmarks"));
+        var service = new BookmarkHtmlImportService();
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"cbm-import-{Guid.NewGuid():N}.html");
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                path,
+                SimpleFixture,
+                new UTF8Encoding(
+                    encoderShouldEmitUTF8Identifier: false));
+
+            var result = await service.ImportFileAsync(
+                document,
+                document.Roots.BookmarkBar,
+                path,
+                CancellationToken.None);
+
+            Assert.True(result.Changed);
+            Assert.Equal(
+                BookmarkHtmlImportService.ImportedFolderName,
+                result.ImportedFolder.Name);
+            Assert.Same(
+                result.ImportedFolder,
+                document.Roots.BookmarkBar.Children[^1]);
+
+            var sourceFolder = Assert.IsType<BookmarkFolder>(
+                Assert.Single(result.ImportedFolder.Children));
+            var bookmark = Assert.IsType<BookmarkUrl>(
+                Assert.Single(sourceFolder.Children));
+            Assert.Equal("Simple", bookmark.Name);
+            Assert.Equal(
+                "https://example.com/simple",
+                bookmark.Url);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Fact]
     public async Task ImportAsync_NestedExportFixture_AppendsDedicatedImportedFolderInExactOrder()
     {

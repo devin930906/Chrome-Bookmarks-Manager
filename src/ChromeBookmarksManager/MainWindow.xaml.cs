@@ -829,8 +829,17 @@ public partial class MainWindow : Window
             folderSelected ? Visibility.Visible : Visibility.Collapsed;
         ContentMoveFolderMenuItem.Visibility =
             folderSelected ? Visibility.Visible : Visibility.Collapsed;
+        var multipleSelected =
+            ViewModel.SelectedContentItems.Count > 1;
+
         ContentDeleteFolderMenuItem.Visibility =
-            folderSelected ? Visibility.Visible : Visibility.Collapsed;
+            folderSelected && !multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        ContentDeleteSelectionMenuItem.Visibility =
+            multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         ContentFolderSeparator.Visibility =
             folderSelected ? Visibility.Visible : Visibility.Collapsed;
 
@@ -843,7 +852,9 @@ public partial class MainWindow : Window
         ContentBookmarkSeparator.Visibility =
             folderSelected ? Visibility.Collapsed : Visibility.Visible;
         ContentDeleteBookmarkMenuItem.Visibility =
-            folderSelected ? Visibility.Collapsed : Visibility.Visible;
+            !folderSelected && !multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
     }
 
     private void OpenContentFolder_Click(
@@ -933,6 +944,13 @@ public partial class MainWindow : Window
         RoutedEventArgs e)
     {
         await DeleteSelectedBookmarksFromUiAsync();
+    }
+
+    private async void DeleteSelectedContentItems_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await DeleteSelectedContentItemsFromUiAsync();
     }
 
     private async void DeleteSelectedFolder_Click(
@@ -1311,6 +1329,54 @@ public partial class MainWindow : Window
             MessageBoxImage.Warning);
     }
 
+    private async Task DeleteSelectedContentItemsFromUiAsync()
+    {
+        if (!ViewModel.CanDeleteSelectedContentItems)
+        {
+            return;
+        }
+
+        var selectedItems = ViewModel.SelectedContentItems;
+        if (selectedItems.Count == 0)
+        {
+            return;
+        }
+
+        var (bookmarkCount, folderCount) =
+            CountSelectedContentRemoval(selectedItems);
+        var itemSummary = selectedItems.Count == 1
+            ? "1 selected item"
+            : $"{selectedItems.Count:N0} selected items";
+        var bookmarkSummary = bookmarkCount == 1
+            ? "1 bookmark"
+            : $"{bookmarkCount:N0} bookmarks";
+        var folderSummary = folderCount == 1
+            ? "1 folder"
+            : $"{folderCount:N0} folders";
+        var confirmation =
+            $"Delete {itemSummary}?\n\n" +
+            $"This will remove {bookmarkSummary} and {folderSummary}, " +
+            "including the contents of selected folders.\n\n" +
+            "The selected items will be removed from the loaded document.\n" +
+            "Use Save to write the change safely to the source Chrome Bookmarks file.";
+
+        if (!ConfirmDestructiveOperation(
+                "Confirm selected item deletion",
+                confirmation))
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.DeleteSelectedContentItemsAsync();
+        }
+        catch (BookmarkDeleteException exception)
+        {
+            ShowDeleteError(exception);
+        }
+    }
+
     private async Task DeleteSelectedBookmarksFromUiAsync()
     {
         if (!ViewModel.CanDeleteSelectedBookmarks)
@@ -1423,6 +1489,62 @@ public partial class MainWindow : Window
     }
 
     private static (int BookmarkCount, int FolderCount)
+        CountSelectedContentRemoval(
+            IReadOnlyList<BookmarkListItemViewModel> items)
+    {
+        var selected = new HashSet<BookmarkNode>(
+            items.Select(item => item.Node),
+            ReferenceEqualityComparer.Instance);
+        var roots = selected
+            .Where(node => !HasSelectedAncestor(node, selected))
+            .ToArray();
+
+        var bookmarkCount = 0;
+        var folderCount = 0;
+        var pending = new Stack<BookmarkNode>(roots);
+
+        while (pending.TryPop(out var node))
+        {
+            switch (node)
+            {
+                case BookmarkUrl:
+                    bookmarkCount++;
+                    break;
+
+                case BookmarkFolder folder:
+                    folderCount++;
+                    foreach (var child in folder.Children)
+                    {
+                        pending.Push(child);
+                    }
+
+                    break;
+            }
+        }
+
+        return (bookmarkCount, folderCount);
+    }
+
+    private static bool HasSelectedAncestor(
+        BookmarkNode node,
+        IReadOnlySet<BookmarkNode> selected)
+    {
+        var current = node.Parent;
+
+        while (current is not null)
+        {
+            if (selected.Contains(current))
+            {
+                return true;
+            }
+
+            current = current.Parent;
+        }
+
+        return false;
+    }
+
+    private static (int BookmarkCount, int FolderCount)
         CountFolderDescendants(BookmarkFolder folder)
     {
         var bookmarkCount = 0;
@@ -1512,13 +1634,9 @@ public partial class MainWindow : Window
             {
                 e.Handled = true;
 
-                if (ViewModel.CanDeleteSelectedContentFolder)
+                if (ViewModel.CanDeleteSelectedContentItems)
                 {
-                    await DeleteContentFolderFromUiAsync();
-                }
-                else if (ViewModel.CanDeleteSelectedBookmarks)
-                {
-                    await DeleteSelectedBookmarksFromUiAsync();
+                    await DeleteSelectedContentItemsFromUiAsync();
                 }
 
                 return;

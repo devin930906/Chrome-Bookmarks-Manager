@@ -41,6 +41,10 @@ Invoke-Checked -Name "V1.0 production UI contract" -Command {
     node scripts/Verify-V10UiContract.mjs
 }
 
+Invoke-Checked -Name "V1.0 right-pane browser parity" -Command {
+    node scripts/Verify-V10RightPaneParity.mjs
+}
+
 Invoke-Checked -Name "V1.0 release measurement contract" -Command {
     node scripts/Verify-V10ReleaseMeasurementsContract.mjs
 }

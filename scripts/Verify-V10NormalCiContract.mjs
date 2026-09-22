@@ -6,6 +6,7 @@ const yaml = fs.readFileSync(path, "utf8");
 const required = [
   "Verify-V10Version.ps1 -ExpectedTag v1.0.0",
   "Verify-V10UiContract.mjs",
+  "Verify-V10RightPaneParity.mjs",
   "Verify-V10ReleaseMeasurementsContract.mjs",
   "Verify-V10ReleaseWorkflow.mjs",
   "Verify-V10Version.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe",

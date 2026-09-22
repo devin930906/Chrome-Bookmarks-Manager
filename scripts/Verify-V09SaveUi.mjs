@@ -21,7 +21,7 @@ function forbidText(haystack, needle, description) {
   }
 }
 
-requireText(xaml, 'Header="_Save"', "File menu must expose Save");
+requireText(xaml, 'Header="{DynamicResource MenuSave}"', "File menu must expose Save");
 requireText(xaml, 'InputGestureText="Ctrl+S"', "Save menu must advertise Ctrl+S");
 requireText(xaml, 'IsEnabled="{Binding CanSave}"', "Save controls must bind to CanSave");
 requireText(xaml, 'Click="Save_Click"', "Save controls must route through Save_Click");

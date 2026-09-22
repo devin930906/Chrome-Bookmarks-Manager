@@ -150,6 +150,70 @@ public sealed class BookmarkReorderSemanticsTests
         Assert.Same(other, moving.Parent);
     }
 
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void MoveNodeBefore_AllowsMixedKindsAndUsesExactChildOrder(
+        bool movingIsFolder,
+        bool targetIsFolder)
+    {
+        BookmarkNode moving = movingIsFolder
+            ? Folder("20", "Moving folder")
+            : Url("10", "Moving bookmark");
+        BookmarkNode target = targetIsFolder
+            ? Folder("21", "Target folder")
+            : Url("11", "Target bookmark");
+        var marker = Url("12", "Marker");
+        var bar = Folder("1", "Bookmarks bar", marker, target, moving);
+        var document = Document(bar);
+        var service = new BookmarkMoveService();
+
+        var result = service.MoveNodeBefore(
+            document,
+            moving,
+            target);
+
+        Assert.True(result.Changed);
+        Assert.Equal(
+            new BookmarkNode[] { marker, moving, target },
+            bar.Children);
+        Assert.Same(bar, moving.Parent);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void MoveNodeAfter_AllowsMixedKindsAndUsesExactChildOrder(
+        bool movingIsFolder,
+        bool targetIsFolder)
+    {
+        BookmarkNode moving = movingIsFolder
+            ? Folder("20", "Moving folder")
+            : Url("10", "Moving bookmark");
+        BookmarkNode target = targetIsFolder
+            ? Folder("21", "Target folder")
+            : Url("11", "Target bookmark");
+        var marker = Url("12", "Marker");
+        var bar = Folder("1", "Bookmarks bar", moving, target, marker);
+        var document = Document(bar);
+        var service = new BookmarkMoveService();
+
+        var result = service.MoveNodeAfter(
+            document,
+            moving,
+            target);
+
+        Assert.True(result.Changed);
+        Assert.Equal(
+            new BookmarkNode[] { target, moving, marker },
+            bar.Children);
+        Assert.Same(bar, moving.Parent);
+    }
+
     [Fact]
     public void MoveToEnd_AppendsAtRealEndOfTargetChildren()
     {

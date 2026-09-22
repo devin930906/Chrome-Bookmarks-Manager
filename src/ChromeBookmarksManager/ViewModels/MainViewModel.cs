@@ -1258,6 +1258,60 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    public async Task<bool> MoveContentNodesAsync(
+        IReadOnlyList<BookmarkNode> nodes,
+        BookmarkFolder targetParent,
+        int targetIndex)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        ArgumentNullException.ThrowIfNull(targetParent);
+
+        await _documentOperationGate
+            .WaitAsync()
+            .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+
+            if (nodes.Count == 0)
+            {
+                return false;
+            }
+
+            var searchWasActive = IsSearchActive;
+            var selectedFolderBeforeMove = SelectedFolder;
+
+            var result = _moveService.MoveNodes(
+                document,
+                nodes,
+                targetParent,
+                targetIndex);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkBatchMoveHistoryEntry(
+                    nodes,
+                    result));
+            ClearContentSelection();
+
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: searchWasActive
+                        ? selectedFolderBeforeMove
+                        : targetParent)
+                .ConfigureAwait(true);
+
+            return true;
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
+    }
+
     public async Task<bool> MoveSelectedContentItemsToEndAsync(
         BookmarkFolder targetParent)
     {

@@ -174,6 +174,159 @@ public sealed class BookmarkDeleteService : IBookmarkDeleteService
             unique.Count);
     }
 
+    public BookmarkBatchDeleteResult DeleteNodes(
+        BookmarkDocument document,
+        IReadOnlyList<BookmarkNode> nodes)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(nodes);
+
+        if (nodes.Count == 0)
+        {
+            return new BookmarkBatchDeleteResult(
+                false,
+                Array.Empty<BookmarkDeleteResult>(),
+                0);
+        }
+
+        var seen = new HashSet<BookmarkNode>(
+            ReferenceEqualityComparer.Instance);
+        var unique = new List<BookmarkNode>(nodes.Count);
+
+        foreach (var node in nodes)
+        {
+            ArgumentNullException.ThrowIfNull(node);
+
+            if (seen.Add(node))
+            {
+                unique.Add(node);
+            }
+        }
+
+        foreach (var node in unique)
+        {
+            EnsureBelongsToDocument(document, node);
+
+            if (IsPermanentRoot(document, node))
+            {
+                throw new BookmarkDeleteException(
+                    BookmarkDeleteError.ProtectedRoot,
+                    "Permanent Chrome bookmark roots cannot be deleted.");
+            }
+
+            var parent = node.Parent
+                ?? throw new BookmarkDeleteException(
+                    BookmarkDeleteError.MissingParent,
+                    "The bookmark node has no deletable parent.");
+
+            if (parent.IndexOfChild(node) < 0)
+            {
+                throw new BookmarkDeleteException(
+                    BookmarkDeleteError.NodeNotInDocument,
+                    "The bookmark node is not present in its recorded parent.");
+            }
+        }
+
+        var selected = new HashSet<BookmarkNode>(
+            unique,
+            ReferenceEqualityComparer.Instance);
+        var topLevel = unique
+            .Where(node => !HasSelectedAncestor(node, selected))
+            .ToArray();
+
+        var snapshots = new List<BookmarkDeleteResult>(
+            topLevel.Length);
+        var removedUrlCount = 0;
+        var removedFolderCount = 0;
+
+        foreach (var node in topLevel)
+        {
+            var parent = node.Parent!;
+            var index = parent.IndexOfChild(node);
+            var (urls, folders) = CountSubtree(node);
+
+            removedUrlCount = checked(removedUrlCount + urls);
+            removedFolderCount = checked(removedFolderCount + folders);
+
+            snapshots.Add(
+                new BookmarkDeleteResult(
+                    node,
+                    parent,
+                    index,
+                    urls,
+                    folders));
+        }
+
+        if (removedUrlCount > document.UrlCount ||
+            removedFolderCount > document.FolderCount)
+        {
+            throw new InvalidOperationException(
+                "Deleting the requested nodes would make bookmark document counts invalid.");
+        }
+
+        var groups = snapshots
+            .GroupBy(snapshot => snapshot.SourceParent)
+            .ToArray();
+
+        try
+        {
+            foreach (var group in groups)
+            {
+                foreach (var snapshot in group
+                    .OrderByDescending(item => item.SourceIndex))
+                {
+                    group.Key.RemoveChildAt(snapshot.SourceIndex);
+                }
+            }
+
+            document.RecordRemovedSubtree(
+                removedUrlCount,
+                removedFolderCount);
+        }
+        catch
+        {
+            foreach (var group in groups)
+            {
+                foreach (var snapshot in group
+                    .OrderBy(item => item.SourceIndex))
+                {
+                    if (snapshot.Node.Parent is null)
+                    {
+                        snapshot.SourceParent.InsertChild(
+                            snapshot.SourceIndex,
+                            snapshot.Node);
+                    }
+                }
+            }
+
+            throw;
+        }
+
+        return new BookmarkBatchDeleteResult(
+            true,
+            snapshots,
+            removedUrlCount);
+    }
+
+    private static bool HasSelectedAncestor(
+        BookmarkNode node,
+        IReadOnlySet<BookmarkNode> selected)
+    {
+        var current = node.Parent;
+
+        while (current is not null)
+        {
+            if (selected.Contains(current))
+            {
+                return true;
+            }
+
+            current = current.Parent;
+        }
+
+        return false;
+    }
+
     private static (int UrlCount, int FolderCount) CountSubtree(
         BookmarkNode node)
     {

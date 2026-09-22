@@ -221,6 +221,33 @@ public sealed class MainViewModelBrowserTests
 
 
     [Fact]
+    public async Task NavigateToFolder_SelectsMatchingTreeItemAndShowsItsDirectContents()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var changed = viewModel.NavigateToFolder(fixture.ChildFolder);
+
+        Assert.True(changed);
+        Assert.Same(fixture.ChildFolder, viewModel.SelectedFolder);
+
+        var childTreeItem = Assert.Single(
+            viewModel.FolderRoots[0].Children);
+        Assert.True(viewModel.FolderRoots[0].IsExpanded);
+        Assert.True(childTreeItem.IsSelected);
+
+        var current = Assert.Single(viewModel.CurrentItems);
+        Assert.Same(fixture.NestedUrl, current.Node);
+        Assert.True(current.IsBookmark);
+        Assert.Equal(
+            "Child folder | 0 folders | 1 bookmark",
+            viewModel.SelectionSummaryText);
+    }
+
+    [Fact]
     public async Task LoadBookmarksAsync_ReadFailure_PreservesPreviousBrowserState()
     {
         var fixture = CreateFixture();

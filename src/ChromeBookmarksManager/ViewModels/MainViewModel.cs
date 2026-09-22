@@ -226,6 +226,32 @@ public sealed class MainViewModel : ViewModelBase
     internal MainViewModel(
         IChromeBookmarksReader reader,
         IBookmarkSearchService searchService,
+        IBookmarkSourceBaselineService baselineService,
+        IChromeBookmarksSaveService saveService,
+        IExternalUrlLauncher urlLauncher,
+        IBookmarkClipboardService clipboardService,
+        IBookmarkClipboardStore clipboardStore,
+        TimeSpan searchDebounce)
+        : this(
+            reader,
+            searchService,
+            new BookmarkEditingService(),
+            new BookmarkMoveService(),
+            new BookmarkDeleteService(),
+            baselineService,
+            saveService,
+            urlLauncher,
+            searchDebounce)
+    {
+        _clipboardService = clipboardService
+            ?? throw new ArgumentNullException(nameof(clipboardService));
+        _clipboardStore = clipboardStore
+            ?? throw new ArgumentNullException(nameof(clipboardStore));
+    }
+
+    internal MainViewModel(
+        IChromeBookmarksReader reader,
+        IBookmarkSearchService searchService,
         IBookmarkEditingService editingService,
         IBookmarkMoveService moveService,
         IBookmarkDeleteService deleteService,

@@ -355,7 +355,6 @@ public sealed class BookmarkClipboardServiceTests
             null,
             null,
             null,
-            null,
             EmptyProperties);
 
     private static Guid GuidFor(int value)

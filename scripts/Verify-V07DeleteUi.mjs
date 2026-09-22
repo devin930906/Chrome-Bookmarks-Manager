@@ -68,7 +68,8 @@ requireText(code, 'removed from the loaded document', 'Delete confirmation must 
 requireText(code, 'Use Save to write the change safely', 'Delete confirmation must explain that source write-back requires explicit Save.');
 requireText(code, 'MoveSelectedBookmarksToEndAsync', 'Move to... must dispatch multi-selection through the batch ViewModel method.');
 requireText(code, 'CountFolderDescendants(folder)', 'Folder confirmation must calculate descendant counts.');
-requireText(code, 'new BookmarkDragPayload(node)', 'V0.6/V1.0 drag-and-drop must remain a single-node gesture even when the node may be a folder or bookmark.');
+requireText(code, 'BookmarkDragPayload.ForContentRow(', 'V1.0 right-pane drag-and-drop must preserve the ordered selected node set when the pointer-down row is selected.');
+requireText(code, 'MoveContentNodesAsync', 'V1.0 mixed drag-and-drop must dispatch through the generic batch move path.');
 requireText(viewModel, 'HasUnambiguousSelectedBookmark()', 'Single-item bookmark rename/edit/move must use the mixed-selection ambiguity guard.');
 
 const bookmarkDeleteStart = code.indexOf('private async Task DeleteSelectedBookmarksFromUiAsync()');

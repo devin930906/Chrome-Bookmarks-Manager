@@ -1,7 +1,16 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows;
+using ChromeBookmarksManager.Application.Clipboard;
+using ChromeBookmarksManager.Application.Deleting;
+using ChromeBookmarksManager.Application.Editing;
+using ChromeBookmarksManager.Application.Importing;
+using ChromeBookmarksManager.Application.Launching;
+using ChromeBookmarksManager.Application.Moving;
+using ChromeBookmarksManager.Application.Saving;
+using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Infrastructure;
+using ChromeBookmarksManager.Infrastructure.Persistence;
 
 namespace ChromeBookmarksManager.Localization;
 
@@ -130,6 +139,95 @@ public static partial class LocalizationService
             CultureInfo.CurrentCulture,
             GetString(key),
             arguments);
+
+    public static string LocalizeExceptionMessage(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        var key = exception switch
+        {
+            BookmarkEditException edit => edit.Error switch
+            {
+                BookmarkEditError.InvalidValue => "ErrorEditInvalidValue",
+                BookmarkEditError.ProtectedRoot => "ErrorEditProtectedRoot",
+                BookmarkEditError.NodeNotInDocument => "ErrorNodeNotInDocument",
+                _ => "ErrorGeneric"
+            },
+            BookmarkMoveException move => move.Error switch
+            {
+                BookmarkMoveError.ProtectedRoot => "ErrorMoveProtectedRoot",
+                BookmarkMoveError.NodeNotInDocument => "ErrorNodeNotInDocument",
+                BookmarkMoveError.TargetNotInDocument => "ErrorMoveTargetNotInDocument",
+                BookmarkMoveError.MissingParent => "ErrorMoveMissingParent",
+                BookmarkMoveError.SelfTarget => "ErrorMoveSelfTarget",
+                BookmarkMoveError.DescendantTarget => "ErrorMoveDescendantTarget",
+                BookmarkMoveError.InvalidIndex => "ErrorMoveInvalidIndex",
+                BookmarkMoveError.InvalidDropTarget => "ErrorMoveInvalidDropTarget",
+                _ => "ErrorGeneric"
+            },
+            BookmarkDeleteException delete => delete.Error switch
+            {
+                BookmarkDeleteError.ProtectedRoot => "ErrorDeleteProtectedRoot",
+                BookmarkDeleteError.NodeNotInDocument => "ErrorNodeNotInDocument",
+                BookmarkDeleteError.MissingParent => "ErrorDeleteMissingParent",
+                _ => "ErrorGeneric"
+            },
+            BookmarkClipboardException clipboard => clipboard.Error switch
+            {
+                BookmarkClipboardError.InvalidPayload => "ErrorClipboardInvalidPayload",
+                BookmarkClipboardError.NodeNotInDocument => "ErrorNodeNotInDocument",
+                BookmarkClipboardError.ProtectedRoot => "ErrorClipboardProtectedRoot",
+                BookmarkClipboardError.SourceDocumentMismatch => "ErrorClipboardSourceMismatch",
+                BookmarkClipboardError.SourceNodeMissing => "ErrorClipboardSourceMissing",
+                BookmarkClipboardError.InvalidTargetIndex => "ErrorClipboardInvalidTarget",
+                _ => "ErrorGeneric"
+            },
+            ExternalUrlLaunchException launch => launch.Error switch
+            {
+                ExternalUrlLaunchError.InvalidUrl => "ErrorOpenInvalidUrl",
+                ExternalUrlLaunchError.UnsupportedScheme => "ErrorOpenUnsupportedScheme",
+                ExternalUrlLaunchError.LaunchFailed => "ErrorOpenLaunchFailed",
+                _ => "ErrorGeneric"
+            },
+            BookmarkHtmlImportException import => import.Error switch
+            {
+                BookmarkHtmlImportError.MalformedHtml => "ErrorImportMalformed",
+                BookmarkHtmlImportError.DepthLimitExceeded => "ErrorImportDepth",
+                BookmarkHtmlImportError.NodeLimitExceeded => "ErrorImportNodes",
+                BookmarkHtmlImportError.InputTooLarge => "ErrorImportTooLarge",
+                BookmarkHtmlImportError.InvalidTarget => "ErrorImportInvalidTarget",
+                _ => "ErrorGeneric"
+            },
+            ChromeBookmarksSaveException save => save.Error switch
+            {
+                ChromeBookmarksSaveError.ChromeRunning => "ErrorSaveChromeRunning",
+                ChromeBookmarksSaveError.SourceChangedExternally => "ErrorSaveSourceChanged",
+                ChromeBookmarksSaveError.SourceMissing => "ErrorSaveSourceMissing",
+                ChromeBookmarksSaveError.AccessDenied => "ErrorSaveAccessDenied",
+                ChromeBookmarksSaveError.RecoveryRequired => "ErrorSaveRecoveryRequired",
+                ChromeBookmarksSaveError.CanceledBeforeReplacement => "ErrorSaveCanceled",
+                _ => "ErrorSaveGeneric"
+            },
+            ChromeBookmarksReadException read => read.Error switch
+            {
+                ChromeBookmarksReadError.FileNotFound => "ErrorReadFileNotFound",
+                ChromeBookmarksReadError.AccessDenied => "ErrorReadAccessDenied",
+                ChromeBookmarksReadError.IoFailure => "ErrorReadIo",
+                _ => "ErrorReadFormat"
+            },
+            BookmarkSourceBaselineException baseline => baseline.Error switch
+            {
+                BookmarkSourceBaselineError.FileNotFound => "ErrorReadFileNotFound",
+                BookmarkSourceBaselineError.AccessDenied => "ErrorReadAccessDenied",
+                BookmarkSourceBaselineError.SourceChanged => "ErrorSaveSourceChanged",
+                BookmarkSourceBaselineError.IoFailure => "ErrorReadIo",
+                _ => "ErrorGeneric"
+            },
+            _ => "ErrorGeneric"
+        };
+
+        return GetString(key);
+    }
 
     public static string? LocalizeHistoryDescription(
         string? description)

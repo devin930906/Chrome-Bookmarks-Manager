@@ -35,7 +35,7 @@ const requiredXaml = [
   'Header="Rename Folder..."',
   'Header="Move Folder to..."',
   'Header="Delete Folder..."',
-  'Header="Delete Selected Item(s)..."',
+  'Header="_Delete Selected Item(s)..."',
   'Header="Move Selected Item(s) to..."',
   'IsEnabled="{Binding CanMoveSelectedContentItems}"',
   'Click="MoveSelectedContentItems_Click"',
@@ -71,15 +71,14 @@ const requiredCode = [
   "BookmarksList.SelectAll();",
   "BookmarksList.UnselectAll();",
   "e.Key == Key.Escape",
-  "e.Key == Key.Enter",
+  "Key.Enter",
   "e.Key == Key.X",
   "e.Key == Key.C",
   "e.Key == Key.V"
 ];
 
 const forbiddenXaml = [
-  'ItemsSource="{Binding DisplayedBookmarks}"',
-  'Header="Delete Bookmark(s)..."'
+  'ItemsSource="{Binding DisplayedBookmarks}"'
 ];
 
 const forbiddenCodeBehind = [

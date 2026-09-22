@@ -74,10 +74,10 @@ function Assert-XamlContains {
 }
 
 $treeAttributes = Get-BoundControlTag -ControlName "TreeView" -ItemsSourceBinding '{Binding FolderRoots}'
-$listAttributes = Get-BoundControlTag -ControlName "ListView" -ItemsSourceBinding '{Binding DisplayedBookmarks}'
+$listAttributes = Get-BoundControlTag -ControlName "ListView" -ItemsSourceBinding '{Binding DisplayedItems}'
 
 Assert-VirtualizationContract -ControlName "Folder TreeView" -Attributes $treeAttributes
-Assert-VirtualizationContract -ControlName "Bookmark ListView" -Attributes $listAttributes
+Assert-VirtualizationContract -ControlName "Contents ListView" -Attributes $listAttributes
 
 Assert-XamlContains -Token 'x:Name="SearchBox"' -Description "named search TextBox"
 Assert-XamlContains -Token 'Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"' -Description "two-way SearchText binding"

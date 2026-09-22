@@ -74,9 +74,27 @@ public sealed class ChromeBookmarksSaveService : IChromeBookmarksSaveService
                     cancellationToken)
                 .ConfigureAwait(false);
 
+            BookmarkSourceBaseline confirmedFinalBaseline;
+            try
+            {
+                confirmedFinalBaseline = await _baselineService
+                    .VerifyUnchangedAsync(
+                        result.FinalBaseline,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (BookmarkSourceBaselineException exception)
+            {
+                throw new ChromeBookmarksSaveException(
+                    ChromeBookmarksSaveError.RecoveryRequired,
+                    "The source was replaced but changed before final save confirmation. Recovery from the verified backup may be required.",
+                    result.BackupPath,
+                    exception);
+            }
+
             return new ChromeBookmarksSaveResult(
                 result.BackupPath,
-                result.FinalBaseline);
+                confirmedFinalBaseline);
         }
         catch (ChromeBookmarksSaveException)
         {

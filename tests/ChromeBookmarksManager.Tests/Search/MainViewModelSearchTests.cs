@@ -21,6 +21,7 @@ public sealed class MainViewModelSearchTests
         Assert.False(viewModel.IsSearchBusy);
         Assert.Empty(viewModel.SearchResults);
         Assert.Empty(viewModel.DisplayedBookmarks);
+        Assert.Empty(viewModel.DisplayedItems);
         Assert.Equal(string.Empty, viewModel.SearchSummaryText);
     }
 
@@ -91,7 +92,7 @@ public sealed class MainViewModelSearchTests
     }
 
     [Fact]
-    public async Task EmptySearch_DisplaysNormalCurrentFolderBookmarks()
+    public async Task EmptySearch_DisplaysNormalCurrentFolderMixedItems()
     {
         var fixture = CreateFixture();
         var viewModel = CreateViewModel(fixture);
@@ -100,9 +101,12 @@ public sealed class MainViewModelSearchTests
 
         Assert.False(viewModel.IsSearchActive);
         Assert.Same(viewModel.CurrentBookmarks, viewModel.DisplayedBookmarks);
-        Assert.Equal(2, viewModel.DisplayedBookmarks.Count);
-        Assert.Same(fixture.BarFirst, viewModel.DisplayedBookmarks[0]);
-        Assert.Same(fixture.BarSecond, viewModel.DisplayedBookmarks[1]);
+        Assert.Same(viewModel.CurrentItems, viewModel.DisplayedItems);
+        Assert.Collection(
+            viewModel.DisplayedItems,
+            item => Assert.Same(fixture.BarFirst, item.Node),
+            item => Assert.Same(fixture.ChildFolder, item.Node),
+            item => Assert.Same(fixture.BarSecond, item.Node));
     }
 
     [Fact]
@@ -127,6 +131,10 @@ public sealed class MainViewModelSearchTests
         var result = Assert.Single(viewModel.SearchResults);
         Assert.Same(fixture.OtherUrl, result);
         Assert.Same(viewModel.SearchResults, viewModel.DisplayedBookmarks);
+        var displayed = Assert.Single(viewModel.DisplayedItems);
+        Assert.Same(fixture.OtherUrl, displayed.Node);
+        Assert.True(displayed.IsBookmark);
+        Assert.False(displayed.IsFolder);
         Assert.False(viewModel.IsSearchBusy);
     }
 

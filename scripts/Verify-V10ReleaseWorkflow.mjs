@@ -11,7 +11,8 @@ const required = [
   "Invoke-V10ReleaseReadiness.ps1",
   "Verify-V10ReleaseAssets.ps1",
   "ChromeBookmarksManager.exe.sha256",
-  "gh release create"
+  "gh release create",
+  'docs/releases/${{ github.ref_name }}.md'
 ];
 
 const forbidden = [
@@ -23,14 +24,14 @@ const forbidden = [
 
 for (const text of required) {
   if (!yaml.includes(text)) {
-    throw new Error(`Missing V1.0 release workflow contract token: ${text}`);
+    throw new Error(`Missing release workflow contract token: ${text}`);
   }
 }
 
 for (const text of forbidden) {
   if (yaml.includes(text)) {
-    throw new Error(`V1.0 release workflow must not package: ${text}`);
+    throw new Error(`Release workflow must not package: ${text}`);
   }
 }
 
-console.log("V1.0 release workflow contract verified.");
+console.log("Release workflow contract verified.");

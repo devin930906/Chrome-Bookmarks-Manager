@@ -65,14 +65,22 @@ public partial class MainWindow : Window
 
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
-        if (_allowClose)
+        if (ViewModel.State == DocumentState.Loading)
         {
+            _allowClose = false;
+            e.Cancel = true;
             return;
         }
 
         if (ViewModel.State == DocumentState.Saving)
         {
+            _allowClose = false;
             e.Cancel = true;
+            return;
+        }
+
+        if (_allowClose)
+        {
             return;
         }
 
@@ -168,6 +176,11 @@ public partial class MainWindow : Window
         {
             await SaveCurrentDocumentAsync();
         }
+    }
+
+    private void Exit_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
     }
 
     private async void OpenBookmarks_Click(object sender, RoutedEventArgs e)

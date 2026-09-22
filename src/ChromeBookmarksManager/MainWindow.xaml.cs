@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -231,6 +232,69 @@ public partial class MainWindow : Window
         await ViewModel.LoadBookmarksAsync(
             dialog.FileName,
             discardDirtyChanges);
+    }
+
+    private async void ExportBookmarksHtml_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (!ViewModel.CanExportBookmarksHtml)
+        {
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export bookmarks",
+            FileName = "bookmarks.html",
+            DefaultExt = ".html",
+            AddExtension = true,
+            OverwritePrompt = true,
+            Filter =
+                "Bookmark HTML (*.html)|*.html|" +
+                "HTML files (*.htm)|*.htm|" +
+                "All files (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var stream = new FileStream(
+                dialog.FileName,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 64 * 1024,
+                useAsync: true);
+            await using var writer = new StreamWriter(
+                stream,
+                new UTF8Encoding(
+                    encoderShouldEmitUTF8Identifier: false));
+
+            await ViewModel.ExportBookmarksHtmlAsync(writer);
+        }
+        catch (OperationCanceledException)
+        {
+            MessageBox.Show(
+                this,
+                "Bookmark HTML export was canceled.",
+                "Export bookmarks",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                $"Bookmark HTML export failed.\n\n{exception.Message}",
+                "Export bookmarks",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private void CancelLoad_Click(object sender, RoutedEventArgs e)

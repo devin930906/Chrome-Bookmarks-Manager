@@ -1,6 +1,4 @@
-using System.IO;
 using System.ComponentModel;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -264,19 +262,7 @@ public partial class MainWindow : Window
 
         try
         {
-            await using var stream = new FileStream(
-                dialog.FileName,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                bufferSize: 64 * 1024,
-                useAsync: true);
-            await using var writer = new StreamWriter(
-                stream,
-                new UTF8Encoding(
-                    encoderShouldEmitUTF8Identifier: false));
-
-            await ViewModel.ExportBookmarksHtmlAsync(writer);
+            await ViewModel.ExportBookmarksHtmlAsync(dialog.FileName);
         }
         catch (OperationCanceledException)
         {

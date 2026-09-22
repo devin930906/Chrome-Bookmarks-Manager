@@ -7,6 +7,7 @@ using ChromeBookmarksManager.Application;
 using ChromeBookmarksManager.Application.Clipboard;
 using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
+using ChromeBookmarksManager.Application.Importing;
 using ChromeBookmarksManager.Application.Launching;
 using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Infrastructure.Processes;
@@ -231,6 +232,64 @@ public partial class MainWindow : Window
         await ViewModel.LoadBookmarksAsync(
             dialog.FileName,
             discardDirtyChanges);
+    }
+
+    private async void ImportBookmarksHtml_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (!ViewModel.CanImportBookmarksHtml)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Import bookmarks",
+            CheckFileExists = true,
+            Multiselect = false,
+            Filter =
+                "Bookmark HTML (*.html;*.htm)|*.html;*.htm|" +
+                "All files (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.ImportBookmarksHtmlAsync(
+                dialog.FileName);
+        }
+        catch (OperationCanceledException)
+        {
+            MessageBox.Show(
+                this,
+                "Bookmark HTML import was canceled.",
+                "Import bookmarks",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (BookmarkHtmlImportException exception)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Import bookmarks",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                $"Bookmark HTML import failed.\n\n{exception.Message}",
+                "Import bookmarks",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private async void ExportBookmarksHtml_Click(
@@ -1164,6 +1223,16 @@ public partial class MainWindow : Window
         await AddFolderFromUiAsync();
     }
 
+    private async void SortSelectedFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (ViewModel.CanSortSelectedFolder)
+        {
+            await ViewModel.SortSelectedFolderByNameAsync();
+        }
+    }
+
     private async void RenameFolder_Click(object sender, RoutedEventArgs e)
     {
         await RenameFolderFromUiAsync();
@@ -2045,11 +2114,22 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.Key == Key.Escape && ViewModel.IsSearchActive)
+        if (e.Key == Key.Escape)
         {
-            ViewModel.SearchText = string.Empty;
-            SearchBox.Focus();
-            e.Handled = true;
+            if (ViewModel.IsSearchActive)
+            {
+                ViewModel.SearchText = string.Empty;
+                SearchBox.Focus();
+                e.Handled = true;
+                return;
+            }
+
+            if (BookmarksList.IsKeyboardFocusWithin &&
+                BookmarksList.SelectedItems.Count > 0)
+            {
+                BookmarksList.UnselectAll();
+                e.Handled = true;
+            }
         }
     }
 

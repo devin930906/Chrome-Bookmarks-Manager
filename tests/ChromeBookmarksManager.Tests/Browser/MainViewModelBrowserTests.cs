@@ -231,6 +231,7 @@ public sealed class MainViewModelBrowserTests
         var previousDocument = viewModel.Document;
         var previousFolderRoots = viewModel.FolderRoots;
         var previousSelectedFolder = viewModel.SelectedFolder;
+        var previousCurrentItems = viewModel.CurrentItems;
         var previousCurrentBookmarks = viewModel.CurrentBookmarks;
         var previousSelectedBookmark = viewModel.SelectedBookmark;
         var previousDocumentSummary = viewModel.DocumentSummaryText;

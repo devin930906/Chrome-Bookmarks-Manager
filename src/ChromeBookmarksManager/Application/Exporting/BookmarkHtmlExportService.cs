@@ -8,6 +8,39 @@ public sealed class BookmarkHtmlExportService
     public const int MaxExportNodes = 1_000_000;
     public const int MaxExportDepth = 4_096;
 
+    public async Task ExportFileAsync(
+        BookmarkDocument document,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException(
+                "An export file path is required.",
+                nameof(path));
+        }
+
+        await using var stream = new FileStream(
+            path,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            bufferSize: 64 * 1024,
+            useAsync: true);
+        await using var writer = new StreamWriter(
+            stream,
+            new UTF8Encoding(
+                encoderShouldEmitUTF8Identifier: false));
+
+        await ExportAsync(
+                document,
+                writer,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task ExportAsync(
         BookmarkDocument document,
         TextWriter writer,

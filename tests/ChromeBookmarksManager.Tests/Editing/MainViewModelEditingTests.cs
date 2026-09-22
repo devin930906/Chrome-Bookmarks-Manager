@@ -148,7 +148,7 @@ public sealed class MainViewModelEditingTests
         Assert.True(viewModel.IsDirty);
         Assert.Same(fixture.BookmarkBar, added.Parent);
         Assert.Same(added, viewModel.SelectedFolder);
-        Assert.Equal("Added folder | 0 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Added folder | 0 folders | 0 bookmarks", viewModel.SelectionSummaryText);
         Assert.True(viewModel.CanRenameSelectedFolder);
         Assert.Equal("3 URLs | 5 folders", viewModel.DocumentSummaryText);
     }

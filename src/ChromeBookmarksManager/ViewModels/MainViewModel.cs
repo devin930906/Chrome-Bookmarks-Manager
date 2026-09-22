@@ -47,6 +47,8 @@ public sealed class MainViewModel : ViewModelBase
     private BookmarkFolder? _selectedFolder;
     private IReadOnlyList<BookmarkUrl> _currentBookmarks =
         Array.Empty<BookmarkUrl>();
+    private IReadOnlyList<BookmarkListItemViewModel> _currentItems =
+        Array.Empty<BookmarkListItemViewModel>();
     private BookmarkUrl? _selectedBookmark;
     private IReadOnlyList<BookmarkUrl> _selectedBookmarks =
         Array.Empty<BookmarkUrl>();
@@ -56,6 +58,8 @@ public sealed class MainViewModel : ViewModelBase
     private BookmarkSearchScope _searchScope = BookmarkSearchScope.AllBookmarks;
     private IReadOnlyList<BookmarkUrl> _searchResults =
         Array.Empty<BookmarkUrl>();
+    private IReadOnlyList<BookmarkListItemViewModel> _searchItems =
+        Array.Empty<BookmarkListItemViewModel>();
     private bool _isSearchBusy;
     private string _searchSummaryText = string.Empty;
     private bool _suppressFolderSearchRefresh;
@@ -218,6 +222,9 @@ public sealed class MainViewModel : ViewModelBase
 
     public IReadOnlyList<BookmarkUrl> CurrentBookmarks => _currentBookmarks;
 
+    public IReadOnlyList<BookmarkListItemViewModel> CurrentItems =>
+        _currentItems;
+
     public BookmarkUrl? SelectedBookmark
     {
         get => _selectedBookmark;
@@ -253,6 +260,9 @@ public sealed class MainViewModel : ViewModelBase
 
     public IReadOnlyList<BookmarkUrl> DisplayedBookmarks =>
         IsSearchActive ? SearchResults : CurrentBookmarks;
+
+    public IReadOnlyList<BookmarkListItemViewModel> DisplayedItems =>
+        IsSearchActive ? _searchItems : CurrentItems;
 
     public bool IsSearchActive =>
         CanSearchDocument && !string.IsNullOrWhiteSpace(SearchText);
@@ -1419,6 +1429,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             SetSelectedFolder(null);
             SetSelectedBookmark(null);
+            SetCurrentItems(Array.Empty<BookmarkListItemViewModel>());
             SetCurrentBookmarks(Array.Empty<BookmarkUrl>());
             SetSelectionSummaryText(string.Empty);
             RerunSearchForFolderChange();
@@ -1429,14 +1440,21 @@ public sealed class MainViewModel : ViewModelBase
         SetSelectedFolder(item.Folder);
         SetSelectedBookmark(null);
 
+        var items = item.Folder.Children
+            .Select(node => new BookmarkListItemViewModel(node))
+            .ToArray();
         var bookmarks = item.Folder.Children
             .OfType<BookmarkUrl>()
             .ToArray();
+        var folderCount = item.Folder.Children
+            .Count(node => node is BookmarkFolder);
 
+        SetCurrentItems(items);
         SetCurrentBookmarks(bookmarks);
         SetSelectionSummaryText(
             $"{item.Folder.Name} | " +
-            $"{bookmarks.Length.ToString("N0", CultureInfo.InvariantCulture)} bookmarks");
+            $"{FormatCount(folderCount, "folder")} | " +
+            $"{FormatCount(bookmarks.Length, "bookmark")}");
 
         RerunSearchForFolderChange();
     }
@@ -1824,6 +1842,7 @@ public sealed class MainViewModel : ViewModelBase
         SetFolderRoots(Array.Empty<FolderTreeItemViewModel>());
         SetSelectedFolder(null);
         ClearBookmarkSelection();
+        SetCurrentItems(Array.Empty<BookmarkListItemViewModel>());
         SetCurrentBookmarks(Array.Empty<BookmarkUrl>());
         SetDocumentSummaryText(string.Empty);
         SetSelectionSummaryText(string.Empty);
@@ -1841,6 +1860,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(SearchText));
         OnPropertyChanged(nameof(IsSearchActive));
         OnPropertyChanged(nameof(DisplayedBookmarks));
+        OnPropertyChanged(nameof(DisplayedItems));
 
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -2143,6 +2163,25 @@ public sealed class MainViewModel : ViewModelBase
         NotifyEditingAvailabilityChanged();
     }
 
+    private void SetCurrentItems(
+        IReadOnlyList<BookmarkListItemViewModel> value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (ReferenceEquals(_currentItems, value))
+        {
+            return;
+        }
+
+        _currentItems = value;
+        OnPropertyChanged(nameof(CurrentItems));
+
+        if (!IsSearchActive)
+        {
+            OnPropertyChanged(nameof(DisplayedItems));
+        }
+    }
+
     private void SetCurrentBookmarks(IReadOnlyList<BookmarkUrl> value)
     {
         if (ReferenceEquals(_currentBookmarks, value))
@@ -2232,6 +2271,15 @@ public sealed class MainViewModel : ViewModelBase
         return true;
     }
 
+    private static string FormatCount(int count, string singularNoun)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(singularNoun);
+
+        return
+            $"{count.ToString("N0", CultureInfo.InvariantCulture)} " +
+            $"{singularNoun}{(count == 1 ? string.Empty : "s")}";
+    }
+
     private void SetDocumentSummaryText(string value)
     {
         if (string.Equals(
@@ -2262,17 +2310,24 @@ public sealed class MainViewModel : ViewModelBase
 
     private void SetSearchResults(IReadOnlyList<BookmarkUrl> value)
     {
+        ArgumentNullException.ThrowIfNull(value);
+
         if (ReferenceEquals(_searchResults, value))
         {
             return;
         }
 
         _searchResults = value;
+        _searchItems = value
+            .Select(bookmark => new BookmarkListItemViewModel(bookmark))
+            .ToArray();
+
         OnPropertyChanged(nameof(SearchResults));
 
         if (IsSearchActive)
         {
             OnPropertyChanged(nameof(DisplayedBookmarks));
+            OnPropertyChanged(nameof(DisplayedItems));
         }
     }
 

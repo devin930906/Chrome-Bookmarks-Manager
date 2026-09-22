@@ -903,7 +903,7 @@ public sealed class MainViewModel : ViewModelBase
             {
                 SetState(previousState);
                 SetStatusText(
-                    exception.Message +
+                    LocalizationService.LocalizeExceptionMessage(exception) +
                     LocalizationService.GetString(
                         "StatusCurrentDocumentKept"));
             }
@@ -918,7 +918,8 @@ public sealed class MainViewModel : ViewModelBase
                 SetSourceBaseline(null);
                 ClearBrowserState();
                 SetState(DocumentState.LoadFailed);
-                SetStatusText(exception.Message);
+                SetStatusText(
+                    LocalizationService.LocalizeExceptionMessage(exception));
             }
         }
         catch (BookmarkSourceBaselineException exception)
@@ -929,7 +930,7 @@ public sealed class MainViewModel : ViewModelBase
             {
                 SetState(previousState);
                 SetStatusText(
-                    exception.Message +
+                    LocalizationService.LocalizeExceptionMessage(exception) +
                     LocalizationService.GetString(
                         "StatusCurrentDocumentKept"));
             }
@@ -944,7 +945,8 @@ public sealed class MainViewModel : ViewModelBase
                 SetSourceBaseline(null);
                 ClearBrowserState();
                 SetState(DocumentState.LoadFailed);
-                SetStatusText(exception.Message);
+                SetStatusText(
+                    LocalizationService.LocalizeExceptionMessage(exception));
             }
         }
         catch (Exception)
@@ -1048,7 +1050,7 @@ public sealed class MainViewModel : ViewModelBase
                             : string.Empty;
 
                     SetStatusText(
-                        exception.Message +
+                        LocalizationService.LocalizeExceptionMessage(exception) +
                         recoveryBackup +
                         LocalizationService.GetString(
                             "StatusReloadBeforeSave"));
@@ -1056,7 +1058,8 @@ public sealed class MainViewModel : ViewModelBase
                 else
                 {
                     SetState(DocumentState.SaveFailed);
-                    SetStatusText(exception.Message);
+                    SetStatusText(
+                    LocalizationService.LocalizeExceptionMessage(exception));
                 }
 
                 throw;

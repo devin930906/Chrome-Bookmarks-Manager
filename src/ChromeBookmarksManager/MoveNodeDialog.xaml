@@ -16,7 +16,7 @@
 
         <TextBlock Grid.Row="0"
                    Margin="0,0,0,12"
-                   Text="Choose the destination folder. The item will be moved to the end of that folder."
+                   Text="{DynamicResource MoveInstruction}"
                    TextWrapping="Wrap" />
 
         <Border Grid.Row="1"
@@ -52,13 +52,13 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right">
             <Button x:Name="MoveButton"
-                    Content="Move"
+                    Content="{DynamicResource ButtonMove}"
                     Width="88"
                     Margin="0,0,8,0"
                     IsDefault="True"
                     IsEnabled="False"
                     Click="Move_Click" />
-            <Button Content="Cancel"
+            <Button Content="{DynamicResource ButtonCancel}"
                     Width="88"
                     IsCancel="True" />
         </StackPanel>

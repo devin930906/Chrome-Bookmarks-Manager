@@ -386,6 +386,12 @@ public sealed class MainViewModel : ViewModelBase
     public bool CanDeleteSelectedContentBookmarks =>
         CanDeleteSelectedBookmarks;
 
+    public bool CanDeleteSelectedContentItems =>
+        CanEditDocument &&
+        _selectedContentItems.Count > 0 &&
+        _selectedContentItems.All(
+            item => !IsPermanentRoot(item.Node));
+
     public bool CanMoveSelectedContentBookmarks =>
         CanMoveSelectedBookmarks;
 
@@ -1095,6 +1101,52 @@ public sealed class MainViewModel : ViewModelBase
         SetSelectedContentItem(primaryItem);
         SetSelectedBookmarks(bookmarks);
         SetSelectedBookmark(primaryBookmark);
+    }
+
+    public async Task<bool> DeleteSelectedContentItemsAsync()
+    {
+        await _documentOperationGate
+            .WaitAsync()
+            .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var selected = _selectedContentItems
+                .Select(item => item.Node)
+                .ToArray();
+
+            if (selected.Length == 0)
+            {
+                return false;
+            }
+
+            var preferredFolder =
+                SelectedFolder ??
+                document.Roots.BookmarkBar;
+
+            var result = _deleteService.DeleteNodes(
+                document,
+                selected);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkBatchDeleteHistoryEntry(result));
+            ClearContentSelection();
+
+            await RefreshProjectionsAfterEditAsync(
+                    preferredFolder: preferredFolder)
+                .ConfigureAwait(true);
+
+            return true;
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> DeleteSelectedBookmarksAsync()
@@ -1986,6 +2038,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanEditSelectedContentBookmarkUrl));
         OnPropertyChanged(nameof(CanMoveSelectedContentBookmark));
         OnPropertyChanged(nameof(CanDeleteSelectedContentBookmarks));
+        OnPropertyChanged(nameof(CanDeleteSelectedContentItems));
         OnPropertyChanged(nameof(CanMoveSelectedContentBookmarks));
     }
 

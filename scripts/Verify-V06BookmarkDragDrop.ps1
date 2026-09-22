@@ -61,7 +61,7 @@ if (Require-File $mainWindowCode) {
     Require-Text $code 'SystemParameters.MinimumHorizontalDragDistance' "Bookmark drag must respect the system horizontal drag threshold."
     Require-Text $code 'SystemParameters.MinimumVerticalDragDistance' "Bookmark drag must respect the system vertical drag threshold."
     Require-Text $code 'System.Windows.DragDrop.DoDragDrop' "Bookmark drag source must use WPF DragDrop.DoDragDrop."
-    Require-Text $code 'DragDropRules.GetBookmarkRowPlacement' "Bookmark row drops must use the tested Before/After placement rule."
+    Require-Text $code 'DragDropRules.GetContentRowPlacement' "Mixed right-pane drops must use the tested content-row placement rule, which preserves bookmark Before/After halves and adds folder Before/Into/After thirds."
     Require-Text $code 'DragDropRules.CanPositionallyReorderBookmarks' "Search-result positional reorder must use the tested search guard."
     Require-Text $code 'MoveBookmarkBeforeAsync' "Before drops must route through MainViewModel."
     Require-Text $code 'MoveBookmarkAfterAsync' "After drops must route through MainViewModel."

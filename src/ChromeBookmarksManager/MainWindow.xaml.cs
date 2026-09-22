@@ -914,6 +914,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (ViewModel.SelectedContentFolder is { } folder)
+        {
+            ViewModel.NavigateToFolder(folder);
+            return;
+        }
+
         try
         {
             await ViewModel.OpenSelectedContentItemAsync();

@@ -16,6 +16,8 @@ public sealed class MainViewModelBrowserTests
 
         Assert.Empty(viewModel.FolderRoots);
         Assert.Null(viewModel.SelectedFolder);
+        Assert.Empty(viewModel.CurrentItems);
+        Assert.Empty(viewModel.DisplayedItems);
         Assert.Empty(viewModel.CurrentBookmarks);
         Assert.Null(viewModel.SelectedBookmark);
         Assert.False(viewModel.CanBrowseDocument);
@@ -44,11 +46,11 @@ public sealed class MainViewModelBrowserTests
         Assert.False(viewModel.FolderRoots[2].IsSelected);
         Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
         Assert.Equal("4 URLs | 4 folders", viewModel.DocumentSummaryText);
-        Assert.Equal("Bookmarks bar | 2 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Bookmarks bar | 1 folder | 2 bookmarks", viewModel.SelectionSummaryText);
     }
 
     [Fact]
-    public async Task LoadBookmarksAsync_Success_ExposesOnlyDirectUrlsInOriginalOrder()
+    public async Task LoadBookmarksAsync_Success_ExposesDirectChildrenInOriginalMixedOrder()
     {
         var fixture = CreateFixture();
         var viewModel = new MainViewModel(
@@ -56,6 +58,25 @@ public sealed class MainViewModelBrowserTests
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
 
+        Assert.Collection(
+            viewModel.CurrentItems,
+            item =>
+            {
+                Assert.Same(fixture.BarUrlFirst, item.Node);
+                Assert.True(item.IsBookmark);
+            },
+            item =>
+            {
+                Assert.Same(fixture.ChildFolder, item.Node);
+                Assert.True(item.IsFolder);
+            },
+            item =>
+            {
+                Assert.Same(fixture.BarUrlSecond, item.Node);
+                Assert.True(item.IsBookmark);
+            });
+
+        Assert.Same(viewModel.CurrentItems, viewModel.DisplayedItems);
         Assert.Equal(2, viewModel.CurrentBookmarks.Count);
         Assert.Same(fixture.BarUrlFirst, viewModel.CurrentBookmarks[0]);
         Assert.Same(fixture.BarUrlSecond, viewModel.CurrentBookmarks[1]);
@@ -83,7 +104,7 @@ public sealed class MainViewModelBrowserTests
         var current = Assert.Single(viewModel.CurrentBookmarks);
         Assert.Same(fixture.NestedUrl, current);
         Assert.Null(viewModel.SelectedBookmark);
-        Assert.Equal("Child folder | 1 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Child folder | 0 folders | 1 bookmark", viewModel.SelectionSummaryText);
     }
 
 
@@ -112,6 +133,7 @@ public sealed class MainViewModelBrowserTests
         var previousDocument = viewModel.Document;
         var previousFolderRoots = viewModel.FolderRoots;
         var previousSelectedFolder = viewModel.SelectedFolder;
+        var previousCurrentItems = viewModel.CurrentItems;
         var previousCurrentBookmarks = viewModel.CurrentBookmarks;
         var previousSelectedBookmark = viewModel.SelectedBookmark;
         var previousDocumentSummary = viewModel.DocumentSummaryText;
@@ -123,6 +145,7 @@ public sealed class MainViewModelBrowserTests
         Assert.Same(previousDocument, viewModel.Document);
         Assert.Same(previousFolderRoots, viewModel.FolderRoots);
         Assert.Same(previousSelectedFolder, viewModel.SelectedFolder);
+        Assert.Same(previousCurrentItems, viewModel.CurrentItems);
         Assert.Same(previousCurrentBookmarks, viewModel.CurrentBookmarks);
         Assert.Same(previousSelectedBookmark, viewModel.SelectedBookmark);
         Assert.True(viewModel.CanBrowseDocument);
@@ -171,6 +194,7 @@ public sealed class MainViewModelBrowserTests
         Assert.Same(previousDocument, viewModel.Document);
         Assert.Same(previousFolderRoots, viewModel.FolderRoots);
         Assert.Same(previousSelectedFolder, viewModel.SelectedFolder);
+        Assert.Same(previousCurrentItems, viewModel.CurrentItems);
         Assert.Same(previousCurrentBookmarks, viewModel.CurrentBookmarks);
         Assert.Same(previousSelectedBookmark, viewModel.SelectedBookmark);
         Assert.True(viewModel.CanBrowseDocument);
@@ -218,6 +242,7 @@ public sealed class MainViewModelBrowserTests
         Assert.Same(previousDocument, viewModel.Document);
         Assert.Same(previousFolderRoots, viewModel.FolderRoots);
         Assert.Same(previousSelectedFolder, viewModel.SelectedFolder);
+        Assert.Same(previousCurrentItems, viewModel.CurrentItems);
         Assert.Same(previousCurrentBookmarks, viewModel.CurrentBookmarks);
         Assert.Same(previousSelectedBookmark, viewModel.SelectedBookmark);
         Assert.False(viewModel.CanBrowseDocument);
@@ -253,7 +278,7 @@ public sealed class MainViewModelBrowserTests
 
         Assert.Equal(@"C:\Synthetic\Bookmarks-2", viewModel.SourcePath);
         Assert.Equal("4 URLs | 4 folders", viewModel.DocumentSummaryText);
-        Assert.Equal("Second bar | 2 bookmarks", viewModel.SelectionSummaryText);
+        Assert.Equal("Second bar | 1 folder | 2 bookmarks", viewModel.SelectionSummaryText);
         Assert.Same(second.BookmarkBar, viewModel.SelectedFolder);
         Assert.True(viewModel.FolderRoots[0].IsSelected);
         Assert.False(viewModel.FolderRoots[0].IsExpanded);

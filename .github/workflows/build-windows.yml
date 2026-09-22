@@ -29,6 +29,10 @@ jobs:
         shell: pwsh
         run: dotnet --info
 
+      - name: Verify V1.0 stabilization tests
+        shell: pwsh
+        run: dotnet test tests/ChromeBookmarksManager.Tests/ChromeBookmarksManager.Tests.csproj --configuration Release --filter "FullyQualifiedName~ChromeBookmarksManager.Tests.Stabilization"
+
       - name: Verify repository safety
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-RepositorySafety.ps1

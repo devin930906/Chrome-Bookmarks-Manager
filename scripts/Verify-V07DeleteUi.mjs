@@ -68,7 +68,7 @@ requireText(code, 'removed from the loaded document', 'Delete confirmation must 
 requireText(code, 'Use Save to write the change safely', 'Delete confirmation must explain that source write-back requires explicit Save.');
 requireText(code, 'MoveSelectedBookmarksToEndAsync', 'Move to... must dispatch multi-selection through the batch ViewModel method.');
 requireText(code, 'CountFolderDescendants(folder)', 'Folder confirmation must calculate descendant counts.');
-requireText(code, 'new BookmarkDragPayload(bookmark)', 'V0.6 drag-and-drop must remain a single-node gesture.');
+requireText(code, 'new BookmarkDragPayload(node)', 'V0.6/V1.0 drag-and-drop must remain a single-node gesture even when the node may be a folder or bookmark.');
 requireText(viewModel, '!HasMultipleSelectedBookmarks', 'Single-item rename/edit must be disabled when selection is ambiguous.');
 
 const bookmarkDeleteStart = code.indexOf('private async Task DeleteSelectedBookmarksFromUiAsync()');

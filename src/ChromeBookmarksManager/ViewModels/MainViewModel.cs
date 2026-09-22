@@ -390,7 +390,9 @@ public sealed class MainViewModel : ViewModelBase
         CanEditDocument &&
         _selectedContentItems.Count > 0 &&
         _selectedContentItems.All(
-            item => !IsPermanentRoot(item.Node));
+            item =>
+                item.Node is not BookmarkFolder folder ||
+                !IsPermanentRoot(folder));
 
     public bool CanMoveSelectedContentBookmarks =>
         CanMoveSelectedBookmarks;

@@ -541,7 +541,7 @@ public sealed class MainViewModelDeleteTests
             return _inner.BuildIndexAsync(document, cancellationToken);
         }
 
-        public Task<IReadOnlyList<BookmarkUrl>> SearchAsync(
+        public Task<IReadOnlyList<BookmarkNode>> SearchAsync(
             BookmarkSearchIndex index,
             string query,
             BookmarkSearchScope scope,

@@ -26,6 +26,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IBookmarkSourceBaselineService? _baselineService;
     private readonly IChromeBookmarksSaveService? _saveService;
     private readonly BookmarkHistoryManager _history = new();
+    private readonly SemaphoreSlim _documentOperationGate = new(1, 1);
     private readonly TimeSpan _searchDebounce;
     private CancellationTokenSource? _loadCancellation;
     private CancellationTokenSource? _searchCancellation;
@@ -343,196 +344,218 @@ public sealed class MainViewModel : ViewModelBase
         string path,
         bool discardDirtyChanges = false)
     {
-        if (_loadCancellation is not null || State == DocumentState.Loading)
-        {
-            throw new InvalidOperationException(
-                "A Bookmarks file is already being loaded.");
-        }
-
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        if (IsDirty &&
-            !discardDirtyChanges)
-        {
-            throw new InvalidOperationException(
-                "The current Bookmarks document has unsaved in-memory changes. " +
-                "Confirm Discard before loading another file.");
-        }
-
-        ClearHistory();
-        ResetSearchState(clearIndex: true, resetScope: true);
-        SetDocument(null);
-        SetSourcePath(null);
-        SetSourceBaseline(null);
-        ClearBrowserState();
-        SetState(DocumentState.Loading);
-        SetStatusText("Reading Bookmarks...");
-
-        var cancellation = new CancellationTokenSource();
-        _loadCancellation = cancellation;
-        var stopwatch = Stopwatch.StartNew();
-        BookmarkSourceBaseline? sourceBaseline = null;
-
+        await _documentOperationGate
+            .WaitAsync()
+            .ConfigureAwait(true);
         try
         {
-            if (_baselineService is not null)
+            if (_loadCancellation is not null || State == DocumentState.Loading)
             {
-                SetStatusText("Verifying Bookmarks source...");
-                sourceBaseline = await _baselineService
-                    .CaptureAsync(path, cancellation.Token)
-                    .ConfigureAwait(true);
+                throw new InvalidOperationException(
+                    "A Bookmarks file is already being loaded.");
             }
 
+            ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+            if (IsDirty &&
+                !discardDirtyChanges)
+            {
+                throw new InvalidOperationException(
+                    "The current Bookmarks document has unsaved in-memory changes. " +
+                    "Confirm Discard before loading another file.");
+            }
+
+            ClearHistory();
+            ResetSearchState(clearIndex: true, resetScope: true);
+            SetDocument(null);
+            SetSourcePath(null);
+            SetSourceBaseline(null);
+            ClearBrowserState();
+            SetState(DocumentState.Loading);
             SetStatusText("Reading Bookmarks...");
-            var document = await _reader
-                .ReadFileAsync(path, cancellation.Token)
-                .ConfigureAwait(true);
 
-            if (_baselineService is not null && sourceBaseline is not null)
+            var cancellation = new CancellationTokenSource();
+            _loadCancellation = cancellation;
+            var stopwatch = Stopwatch.StartNew();
+            BookmarkSourceBaseline? sourceBaseline = null;
+
+            try
             {
-                await _baselineService
-                    .VerifyUnchangedAsync(sourceBaseline, cancellation.Token)
+                if (_baselineService is not null)
+                {
+                    SetStatusText("Verifying Bookmarks source...");
+                    sourceBaseline = await _baselineService
+                        .CaptureAsync(path, cancellation.Token)
+                        .ConfigureAwait(true);
+                }
+
+                SetStatusText("Reading Bookmarks...");
+                var document = await _reader
+                    .ReadFileAsync(path, cancellation.Token)
                     .ConfigureAwait(true);
+
+                if (_baselineService is not null && sourceBaseline is not null)
+                {
+                    await _baselineService
+                        .VerifyUnchangedAsync(sourceBaseline, cancellation.Token)
+                        .ConfigureAwait(true);
+                }
+
+                SetStatusText("Building search index...");
+
+                var searchIndex = await _searchService
+                    .BuildIndexAsync(document, cancellation.Token)
+                    .ConfigureAwait(true);
+
+                cancellation.Token.ThrowIfCancellationRequested();
+
+                stopwatch.Stop();
+                SetSearchIndex(searchIndex);
+                SetDocument(document);
+                SetSourcePath(path);
+                SetSourceBaseline(sourceBaseline);
+                BuildBrowserState(document);
+                SetState(DocumentState.LoadedClean);
+                SetStatusText(
+                    $"Loaded {document.UrlCount:N0} URLs and " +
+                    $"{document.FolderCount:N0} folders in " +
+                    $"{stopwatch.Elapsed.TotalSeconds:F1}s.");
             }
+            catch (OperationCanceledException)
+                when (cancellation.IsCancellationRequested)
+            {
+                stopwatch.Stop();
+                ResetSearchState(clearIndex: true, resetScope: true);
+                SetDocument(null);
+                SetSourcePath(null);
+                SetSourceBaseline(null);
+                ClearBrowserState();
+                SetState(DocumentState.NoDocument);
+                SetStatusText("Loading was canceled.");
+            }
+            catch (ChromeBookmarksReadException exception)
+            {
+                stopwatch.Stop();
+                ResetSearchState(clearIndex: true, resetScope: true);
+                SetDocument(null);
+                SetSourcePath(null);
+                SetSourceBaseline(null);
+                ClearBrowserState();
+                SetState(DocumentState.LoadFailed);
+                SetStatusText(exception.Message);
+            }
+            catch (BookmarkSourceBaselineException exception)
+            {
+                stopwatch.Stop();
+                ResetSearchState(clearIndex: true, resetScope: true);
+                SetDocument(null);
+                SetSourcePath(null);
+                SetSourceBaseline(null);
+                ClearBrowserState();
+                SetState(DocumentState.LoadFailed);
+                SetStatusText(exception.Message);
+            }
+            catch (Exception)
+            {
+                stopwatch.Stop();
+                ResetSearchState(clearIndex: true, resetScope: true);
+                SetDocument(null);
+                SetSourcePath(null);
+                SetSourceBaseline(null);
+                ClearBrowserState();
+                SetState(DocumentState.LoadFailed);
+                SetStatusText("Loading failed while preparing search.");
+            }
+            finally
+            {
+                if (ReferenceEquals(_loadCancellation, cancellation))
+                {
+                    _loadCancellation = null;
+                }
 
-            SetStatusText("Building search index...");
-
-            var searchIndex = await _searchService
-                .BuildIndexAsync(document, cancellation.Token)
-                .ConfigureAwait(true);
-
-            cancellation.Token.ThrowIfCancellationRequested();
-
-            stopwatch.Stop();
-            SetSearchIndex(searchIndex);
-            SetDocument(document);
-            SetSourcePath(path);
-            SetSourceBaseline(sourceBaseline);
-            BuildBrowserState(document);
-            SetState(DocumentState.LoadedClean);
-            SetStatusText(
-                $"Loaded {document.UrlCount:N0} URLs and " +
-                $"{document.FolderCount:N0} folders in " +
-                $"{stopwatch.Elapsed.TotalSeconds:F1}s.");
-        }
-        catch (OperationCanceledException)
-            when (cancellation.IsCancellationRequested)
-        {
-            stopwatch.Stop();
-            ResetSearchState(clearIndex: true, resetScope: true);
-            SetDocument(null);
-            SetSourcePath(null);
-            SetSourceBaseline(null);
-            ClearBrowserState();
-            SetState(DocumentState.NoDocument);
-            SetStatusText("Loading was canceled.");
-        }
-        catch (ChromeBookmarksReadException exception)
-        {
-            stopwatch.Stop();
-            ResetSearchState(clearIndex: true, resetScope: true);
-            SetDocument(null);
-            SetSourcePath(null);
-            SetSourceBaseline(null);
-            ClearBrowserState();
-            SetState(DocumentState.LoadFailed);
-            SetStatusText(exception.Message);
-        }
-        catch (BookmarkSourceBaselineException exception)
-        {
-            stopwatch.Stop();
-            ResetSearchState(clearIndex: true, resetScope: true);
-            SetDocument(null);
-            SetSourcePath(null);
-            SetSourceBaseline(null);
-            ClearBrowserState();
-            SetState(DocumentState.LoadFailed);
-            SetStatusText(exception.Message);
-        }
-        catch (Exception)
-        {
-            stopwatch.Stop();
-            ResetSearchState(clearIndex: true, resetScope: true);
-            SetDocument(null);
-            SetSourcePath(null);
-            SetSourceBaseline(null);
-            ClearBrowserState();
-            SetState(DocumentState.LoadFailed);
-            SetStatusText("Loading failed while preparing search.");
+                cancellation.Dispose();
+            }
+        
         }
         finally
         {
-            if (ReferenceEquals(_loadCancellation, cancellation))
-            {
-                _loadCancellation = null;
-            }
-
-            cancellation.Dispose();
+            _documentOperationGate.Release();
         }
     }
 
     public async Task<ChromeBookmarksSaveResult> SaveAsync(
         CancellationToken cancellationToken = default)
     {
-        if (_saveService is null ||
-            _document is null ||
-            _sourceBaseline is null)
-        {
-            throw new InvalidOperationException(
-                "A persistence-enabled loaded Bookmarks document is required before saving.");
-        }
-
-        if (!CanSave)
-        {
-            throw new InvalidOperationException(
-                "The active Bookmarks document has no unsaved changes that can be saved.");
-        }
-
-        var document = _document;
-        var baseline = _sourceBaseline;
-
-        SetState(DocumentState.Saving);
-        SetStatusText("Saving Bookmarks safely...");
-
+        await _documentOperationGate
+            .WaitAsync()
+            .ConfigureAwait(true);
         try
         {
-            var result = await _saveService
-                .SaveAsync(document, baseline, cancellationToken)
-                .ConfigureAwait(true);
-
-            if (!ReferenceEquals(_document, document))
+            if (_saveService is null ||
+                _document is null ||
+                _sourceBaseline is null)
             {
                 throw new InvalidOperationException(
-                    "The active Bookmarks document changed while saving.");
+                    "A persistence-enabled loaded Bookmarks document is required before saving.");
             }
 
-            SetSourceBaseline(result.FinalBaseline);
-            _history.MarkClean();
-            SetState(DocumentState.LoadedClean);
-            SetStatusText(
-                $"Saved and verified. Verified safety backup: {result.BackupPath}");
-            NotifyHistoryAvailabilityChanged();
+            if (!CanSave)
+            {
+                throw new InvalidOperationException(
+                    "The active Bookmarks document has no unsaved changes that can be saved.");
+            }
 
-            return result;
+            var document = _document;
+            var baseline = _sourceBaseline;
+
+            SetState(DocumentState.Saving);
+            SetStatusText("Saving Bookmarks safely...");
+
+            try
+            {
+                var result = await _saveService
+                    .SaveAsync(document, baseline, cancellationToken)
+                    .ConfigureAwait(true);
+
+                if (!ReferenceEquals(_document, document))
+                {
+                    throw new InvalidOperationException(
+                        "The active Bookmarks document changed while saving.");
+                }
+
+                SetSourceBaseline(result.FinalBaseline);
+                _history.MarkClean();
+                SetState(DocumentState.LoadedClean);
+                SetStatusText(
+                    $"Saved and verified. Verified safety backup: {result.BackupPath}");
+                NotifyHistoryAvailabilityChanged();
+
+                return result;
+            }
+            catch (ChromeBookmarksSaveException exception)
+            {
+                SetState(DocumentState.SaveFailed);
+                SetStatusText(exception.Message);
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                SetState(DocumentState.SaveFailed);
+                SetStatusText("Saving was canceled before replacement.");
+                throw;
+            }
+            catch (Exception)
+            {
+                SetState(DocumentState.SaveFailed);
+                SetStatusText(
+                    "Saving failed unexpectedly. The document remains unsaved and retryable.");
+                throw;
+            }
+        
         }
-        catch (ChromeBookmarksSaveException exception)
+        finally
         {
-            SetState(DocumentState.SaveFailed);
-            SetStatusText(exception.Message);
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            SetState(DocumentState.SaveFailed);
-            SetStatusText("Saving was canceled before replacement.");
-            throw;
-        }
-        catch (Exception)
-        {
-            SetState(DocumentState.SaveFailed);
-            SetStatusText(
-                "Saving failed unexpectedly. The document remains unsaved and retryable.");
-            throw;
+            _documentOperationGate.Release();
         }
     }
 
@@ -545,196 +568,273 @@ public sealed class MainViewModel : ViewModelBase
         string name,
         string url)
     {
-        var document = RequireEditableDocument();
-        var parent = SelectedFolder
-            ?? throw new InvalidOperationException(
-                "Select a folder before adding a bookmark.");
-
-        var insertionIndex = parent.Children.Count;
-        var bookmark = _editingService.AddBookmark(
-            document,
-            parent,
-            name,
-            url);
-
-        RecordHistory(
-            new BookmarkAddHistoryEntry(
-                bookmark,
-                parent,
-                insertionIndex));
-        await RefreshProjectionsAfterEditAsync(
-                preferredFolder: parent,
-                preferredBookmark: bookmark)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var parent = SelectedFolder
+                ?? throw new InvalidOperationException(
+                    "Select a folder before adding a bookmark.");
 
-        return bookmark;
+            var insertionIndex = parent.Children.Count;
+            var bookmark = _editingService.AddBookmark(
+                document,
+                parent,
+                name,
+                url);
+
+            RecordHistory(
+                new BookmarkAddHistoryEntry(
+                    bookmark,
+                    parent,
+                    insertionIndex));
+            await RefreshProjectionsAfterEditAsync(
+                    preferredFolder: parent,
+                    preferredBookmark: bookmark)
+                .ConfigureAwait(true);
+
+            return bookmark;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<BookmarkFolder> AddFolderAsync(string name)
     {
-        var document = RequireEditableDocument();
-        var parent = SelectedFolder
-            ?? throw new InvalidOperationException(
-                "Select a folder before adding a folder.");
-
-        var insertionIndex = parent.Children.Count;
-        var folder = _editingService.AddFolder(
-            document,
-            parent,
-            name);
-
-        RecordHistory(
-            new BookmarkAddHistoryEntry(
-                folder,
-                parent,
-                insertionIndex));
-        await RefreshProjectionsAfterEditAsync(
-                preferredFolder: folder)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var parent = SelectedFolder
+                ?? throw new InvalidOperationException(
+                    "Select a folder before adding a folder.");
 
-        return folder;
+            var insertionIndex = parent.Children.Count;
+            var folder = _editingService.AddFolder(
+                document,
+                parent,
+                name);
+
+            RecordHistory(
+                new BookmarkAddHistoryEntry(
+                    folder,
+                    parent,
+                    insertionIndex));
+            await RefreshProjectionsAfterEditAsync(
+                    preferredFolder: folder)
+                .ConfigureAwait(true);
+
+            return folder;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> RenameSelectedFolderAsync(string newName)
     {
-        var document = RequireEditableDocument();
-        var folder = SelectedFolder
-            ?? throw new InvalidOperationException(
-                "Select a folder before renaming it.");
-
-        if (!CanRenameSelectedFolder)
-        {
-            throw new InvalidOperationException(
-                "The selected Chrome root folder cannot be renamed.");
-        }
-
-        var oldName = folder.Name;
-        var changed = _editingService.RenameNode(
-            document,
-            folder,
-            newName);
-
-        if (!changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkRenameHistoryEntry(
-                folder,
-                oldName,
-                folder.Name));
-        await RefreshProjectionsAfterEditAsync(
-                preferredFolder: folder)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var folder = SelectedFolder
+                ?? throw new InvalidOperationException(
+                    "Select a folder before renaming it.");
 
-        return true;
+            if (!CanRenameSelectedFolder)
+            {
+                throw new InvalidOperationException(
+                    "The selected Chrome root folder cannot be renamed.");
+            }
+
+            var oldName = folder.Name;
+            var changed = _editingService.RenameNode(
+                document,
+                folder,
+                newName);
+
+            if (!changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkRenameHistoryEntry(
+                    folder,
+                    oldName,
+                    folder.Name));
+            await RefreshProjectionsAfterEditAsync(
+                    preferredFolder: folder)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> RenameSelectedBookmarkAsync(string newName)
     {
-        var document = RequireEditableDocument();
-        var bookmark = SelectedBookmark
-            ?? throw new InvalidOperationException(
-                "Select a bookmark before renaming it.");
-
-        var oldName = bookmark.Name;
-        var changed = _editingService.RenameNode(
-            document,
-            bookmark,
-            newName);
-
-        if (!changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkRenameHistoryEntry(
-                bookmark,
-                oldName,
-                bookmark.Name));
-        await RefreshProjectionsAfterEditAsync(
-                preferredBookmark: bookmark)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var bookmark = SelectedBookmark
+                ?? throw new InvalidOperationException(
+                    "Select a bookmark before renaming it.");
 
-        return true;
+            var oldName = bookmark.Name;
+            var changed = _editingService.RenameNode(
+                document,
+                bookmark,
+                newName);
+
+            if (!changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkRenameHistoryEntry(
+                    bookmark,
+                    oldName,
+                    bookmark.Name));
+            await RefreshProjectionsAfterEditAsync(
+                    preferredBookmark: bookmark)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> EditSelectedBookmarkUrlAsync(string newUrl)
     {
-        var document = RequireEditableDocument();
-        var bookmark = SelectedBookmark
-            ?? throw new InvalidOperationException(
-                "Select a bookmark before editing its URL.");
-
-        var oldUrl = bookmark.Url;
-        var changed = _editingService.EditUrl(
-            document,
-            bookmark,
-            newUrl);
-
-        if (!changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkUrlEditHistoryEntry(
-                bookmark,
-                oldUrl,
-                bookmark.Url));
-        await RefreshProjectionsAfterEditAsync(
-                preferredBookmark: bookmark)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var bookmark = SelectedBookmark
+                ?? throw new InvalidOperationException(
+                    "Select a bookmark before editing its URL.");
 
-        return true;
+            var oldUrl = bookmark.Url;
+            var changed = _editingService.EditUrl(
+                document,
+                bookmark,
+                newUrl);
+
+            if (!changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkUrlEditHistoryEntry(
+                    bookmark,
+                    oldUrl,
+                    bookmark.Url));
+            await RefreshProjectionsAfterEditAsync(
+                    preferredBookmark: bookmark)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> UndoAsync()
     {
-        var document = RequireEditableDocument();
-        var preferredFolder = SelectedFolder;
-        var preferredBookmark = SelectedBookmark;
-
-        var result = _history.Undo(document);
-        if (!result.Changed)
-        {
-            return false;
-        }
-
-        SyncDocumentStateFromHistory();
-
-        await RefreshAfterHistoryAsync(
-                result,
-                preferredFolder,
-                preferredBookmark)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var preferredFolder = SelectedFolder;
+            var preferredBookmark = SelectedBookmark;
 
-        return true;
+            var result = _history.Undo(document);
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            SyncDocumentStateFromHistory();
+
+            await RefreshAfterHistoryAsync(
+                    result,
+                    preferredFolder,
+                    preferredBookmark)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> RedoAsync()
     {
-        var document = RequireEditableDocument();
-        var preferredFolder = SelectedFolder;
-        var preferredBookmark = SelectedBookmark;
-
-        var result = _history.Redo(document);
-        if (!result.Changed)
-        {
-            return false;
-        }
-
-        SyncDocumentStateFromHistory();
-
-        await RefreshAfterHistoryAsync(
-                result,
-                preferredFolder,
-                preferredBookmark)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var preferredFolder = SelectedFolder;
+            var preferredBookmark = SelectedBookmark;
 
-        return true;
+            var result = _history.Redo(document);
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            SyncDocumentStateFromHistory();
+
+            await RefreshAfterHistoryAsync(
+                    result,
+                    preferredFolder,
+                    preferredBookmark)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public void UpdateSelectedBookmarks(
@@ -771,278 +871,377 @@ public sealed class MainViewModel : ViewModelBase
 
     public async Task<bool> DeleteSelectedBookmarksAsync()
     {
-        var document = RequireEditableDocument();
-        var selected = GetEffectiveSelectedBookmarks();
-
-        if (selected.Count == 0)
-        {
-            return false;
-        }
-
-        var preferredFolder =
-            SelectedFolder ??
-            document.Roots.BookmarkBar;
-
-        var result = _deleteService.DeleteBookmarks(
-            document,
-            selected);
-
-        if (!result.Changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkBatchDeleteHistoryEntry(result));
-        ClearBookmarkSelection();
-
-        await RefreshProjectionsAfterEditAsync(
-                preferredFolder: preferredFolder)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var selected = GetEffectiveSelectedBookmarks();
 
-        return true;
+            if (selected.Count == 0)
+            {
+                return false;
+            }
+
+            var preferredFolder =
+                SelectedFolder ??
+                document.Roots.BookmarkBar;
+
+            var result = _deleteService.DeleteBookmarks(
+                document,
+                selected);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkBatchDeleteHistoryEntry(result));
+            ClearBookmarkSelection();
+
+            await RefreshProjectionsAfterEditAsync(
+                    preferredFolder: preferredFolder)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> DeleteSelectedFolderAsync()
     {
-        var document = RequireEditableDocument();
-        var folder = SelectedFolder
-            ?? throw new InvalidOperationException(
-                "Select a folder before deleting it.");
-
-        if (!CanDeleteSelectedFolder)
-        {
-            throw new InvalidOperationException(
-                "Permanent Chrome root folders cannot be deleted.");
-        }
-
-        var result = _deleteService.DeleteNode(
-            document,
-            folder);
-
-        RecordHistory(
-            new BookmarkDeleteHistoryEntry(result));
-        ClearBookmarkSelection();
-
-        await RefreshProjectionsAfterEditAsync(
-                preferredFolder: result.SourceParent)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var folder = SelectedFolder
+                ?? throw new InvalidOperationException(
+                    "Select a folder before deleting it.");
 
-        return true;
+            if (!CanDeleteSelectedFolder)
+            {
+                throw new InvalidOperationException(
+                    "Permanent Chrome root folders cannot be deleted.");
+            }
+
+            var result = _deleteService.DeleteNode(
+                document,
+                folder);
+
+            RecordHistory(
+                new BookmarkDeleteHistoryEntry(result));
+            ClearBookmarkSelection();
+
+            await RefreshProjectionsAfterEditAsync(
+                    preferredFolder: result.SourceParent)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> MoveSelectedBookmarksToEndAsync(
         BookmarkFolder targetParent)
     {
-        ArgumentNullException.ThrowIfNull(targetParent);
-
-        var document = RequireEditableDocument();
-        var selected = GetEffectiveSelectedBookmarks();
-
-        if (selected.Count == 0)
-        {
-            return false;
-        }
-
-        var searchWasActive = IsSearchActive;
-        var selectedFolderBeforeMove = SelectedFolder;
-
-        var result = _moveService.MoveBookmarksToEnd(
-            document,
-            selected,
-            targetParent);
-
-        if (!result.Changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkBatchMoveHistoryEntry(
-                selected,
-                result));
-        ClearBookmarkSelection();
-
-        await RefreshProjectionsAfterMoveAsync(
-                preferredFolder: searchWasActive
-                    ? selectedFolderBeforeMove
-                    : targetParent)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            ArgumentNullException.ThrowIfNull(targetParent);
 
-        return true;
+            var document = RequireEditableDocument();
+            var selected = GetEffectiveSelectedBookmarks();
+
+            if (selected.Count == 0)
+            {
+                return false;
+            }
+
+            var searchWasActive = IsSearchActive;
+            var selectedFolderBeforeMove = SelectedFolder;
+
+            var result = _moveService.MoveBookmarksToEnd(
+                document,
+                selected,
+                targetParent);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkBatchMoveHistoryEntry(
+                    selected,
+                    result));
+            ClearBookmarkSelection();
+
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: searchWasActive
+                        ? selectedFolderBeforeMove
+                        : targetParent)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> MoveBookmarkToEndAsync(
         BookmarkUrl bookmark,
         BookmarkFolder targetParent)
     {
-        ArgumentNullException.ThrowIfNull(bookmark);
-        ArgumentNullException.ThrowIfNull(targetParent);
-
-        var document = RequireEditableDocument();
-        var searchWasActive = IsSearchActive;
-        var selectedFolderBeforeMove = SelectedFolder;
-        var result = _moveService.MoveToEnd(
-            document,
-            bookmark,
-            targetParent);
-
-        if (!result.Changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkMoveHistoryEntry(
-                bookmark,
-                result));
-        await RefreshProjectionsAfterMoveAsync(
-                preferredFolder: searchWasActive
-                    ? selectedFolderBeforeMove
-                    : result.TargetParent,
-                preferredBookmark: bookmark)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            ArgumentNullException.ThrowIfNull(bookmark);
+            ArgumentNullException.ThrowIfNull(targetParent);
 
-        return true;
+            var document = RequireEditableDocument();
+            var searchWasActive = IsSearchActive;
+            var selectedFolderBeforeMove = SelectedFolder;
+            var result = _moveService.MoveToEnd(
+                document,
+                bookmark,
+                targetParent);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkMoveHistoryEntry(
+                    bookmark,
+                    result));
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: searchWasActive
+                        ? selectedFolderBeforeMove
+                        : result.TargetParent,
+                    preferredBookmark: bookmark)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> MoveFolderToEndAsync(
         BookmarkFolder folder,
         BookmarkFolder targetParent)
     {
-        ArgumentNullException.ThrowIfNull(folder);
-        ArgumentNullException.ThrowIfNull(targetParent);
-
-        var document = RequireEditableDocument();
-        var result = _moveService.MoveToEnd(
-            document,
-            folder,
-            targetParent);
-
-        if (!result.Changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkMoveHistoryEntry(
-                folder,
-                result));
-        await RefreshProjectionsAfterMoveAsync(
-                preferredFolder: folder)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            ArgumentNullException.ThrowIfNull(folder);
+            ArgumentNullException.ThrowIfNull(targetParent);
 
-        return true;
+            var document = RequireEditableDocument();
+            var result = _moveService.MoveToEnd(
+                document,
+                folder,
+                targetParent);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkMoveHistoryEntry(
+                    folder,
+                    result));
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: folder)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> MoveBookmarkBeforeAsync(
         BookmarkUrl bookmark,
         BookmarkUrl target)
     {
-        EnsurePositionalBookmarkMoveAllowed();
-
-        var document = RequireEditableDocument();
-        var result = _moveService.MoveBookmarkBefore(
-            document,
-            bookmark,
-            target);
-
-        if (!result.Changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkMoveHistoryEntry(
-                bookmark,
-                result));
-        await RefreshProjectionsAfterMoveAsync(
-                preferredFolder: result.TargetParent,
-                preferredBookmark: bookmark)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            EnsurePositionalBookmarkMoveAllowed();
 
-        return true;
+            var document = RequireEditableDocument();
+            var result = _moveService.MoveBookmarkBefore(
+                document,
+                bookmark,
+                target);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkMoveHistoryEntry(
+                    bookmark,
+                    result));
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: result.TargetParent,
+                    preferredBookmark: bookmark)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> MoveBookmarkAfterAsync(
         BookmarkUrl bookmark,
         BookmarkUrl target)
     {
-        EnsurePositionalBookmarkMoveAllowed();
-
-        var document = RequireEditableDocument();
-        var result = _moveService.MoveBookmarkAfter(
-            document,
-            bookmark,
-            target);
-
-        if (!result.Changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkMoveHistoryEntry(
-                bookmark,
-                result));
-        await RefreshProjectionsAfterMoveAsync(
-                preferredFolder: result.TargetParent,
-                preferredBookmark: bookmark)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            EnsurePositionalBookmarkMoveAllowed();
 
-        return true;
+            var document = RequireEditableDocument();
+            var result = _moveService.MoveBookmarkAfter(
+                document,
+                bookmark,
+                target);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkMoveHistoryEntry(
+                    bookmark,
+                    result));
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: result.TargetParent,
+                    preferredBookmark: bookmark)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> MoveFolderBeforeAsync(
         BookmarkFolder folder,
         BookmarkFolder target)
     {
-        var document = RequireEditableDocument();
-        var result = _moveService.MoveFolderBefore(
-            document,
-            folder,
-            target);
-
-        if (!result.Changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkMoveHistoryEntry(
-                folder,
-                result));
-        await RefreshProjectionsAfterMoveAsync(
-                preferredFolder: folder)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var result = _moveService.MoveFolderBefore(
+                document,
+                folder,
+                target);
 
-        return true;
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkMoveHistoryEntry(
+                    folder,
+                    result));
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: folder)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public async Task<bool> MoveFolderAfterAsync(
         BookmarkFolder folder,
         BookmarkFolder target)
     {
-        var document = RequireEditableDocument();
-        var result = _moveService.MoveFolderAfter(
-            document,
-            folder,
-            target);
-
-        if (!result.Changed)
-        {
-            return false;
-        }
-
-        RecordHistory(
-            new BookmarkMoveHistoryEntry(
-                folder,
-                result));
-        await RefreshProjectionsAfterMoveAsync(
-                preferredFolder: folder)
+        await _documentOperationGate
+            .WaitAsync()
             .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var result = _moveService.MoveFolderAfter(
+                document,
+                folder,
+                target);
 
-        return true;
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkMoveHistoryEntry(
+                    folder,
+                    result));
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: folder)
+                .ConfigureAwait(true);
+
+            return true;
+        
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
     }
 
     public void NavigateToSearchResult(BookmarkUrl? bookmark)

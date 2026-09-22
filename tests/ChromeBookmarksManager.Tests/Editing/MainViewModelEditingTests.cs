@@ -82,6 +82,30 @@ public sealed class MainViewModelEditingTests
     }
 
     [Fact]
+    public async Task RenameFolderAsync_RightPaneChildRenamesChildWithoutChangingCurrentParent()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+
+        var changed = await viewModel.RenameFolderAsync(
+            fixture.ChildFolder,
+            "Renamed child");
+
+        Assert.True(changed);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal("Renamed child", fixture.ChildFolder.Name);
+        Assert.Equal("Bookmarks bar", fixture.BookmarkBar.Name);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+
+        var childTreeItem = Assert.Single(
+            viewModel.FolderRoots[0].Children);
+        Assert.Equal("Renamed child", childTreeItem.Name);
+    }
+
+    [Fact]
     public async Task RenameBookmark_NoOpDoesNotDirtyOrRefreshIndex()
     {
         var fixture = CreateFixture();

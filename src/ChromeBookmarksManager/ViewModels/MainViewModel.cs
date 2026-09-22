@@ -49,6 +49,9 @@ public sealed class MainViewModel : ViewModelBase
         Array.Empty<BookmarkUrl>();
     private IReadOnlyList<BookmarkListItemViewModel> _currentItems =
         Array.Empty<BookmarkListItemViewModel>();
+    private BookmarkListItemViewModel? _selectedContentItem;
+    private IReadOnlyList<BookmarkListItemViewModel> _selectedContentItems =
+        Array.Empty<BookmarkListItemViewModel>();
     private BookmarkUrl? _selectedBookmark;
     private IReadOnlyList<BookmarkUrl> _selectedBookmarks =
         Array.Empty<BookmarkUrl>();
@@ -225,6 +228,15 @@ public sealed class MainViewModel : ViewModelBase
     public IReadOnlyList<BookmarkListItemViewModel> CurrentItems =>
         _currentItems;
 
+    public BookmarkListItemViewModel? SelectedContentItem =>
+        _selectedContentItem;
+
+    public IReadOnlyList<BookmarkListItemViewModel> SelectedContentItems =>
+        _selectedContentItems;
+
+    public BookmarkFolder? SelectedContentFolder =>
+        _selectedContentItem?.Node as BookmarkFolder;
+
     public BookmarkUrl? SelectedBookmark
     {
         get => _selectedBookmark;
@@ -313,6 +325,21 @@ public sealed class MainViewModel : ViewModelBase
         SelectedFolder is not null &&
         !IsPermanentRoot(SelectedFolder);
 
+    public bool CanRenameSelectedContentFolder =>
+        CanEditDocument &&
+        SelectedContentFolder is not null &&
+        !IsPermanentRoot(SelectedContentFolder);
+
+    public bool CanMoveSelectedContentFolder =>
+        CanEditDocument &&
+        SelectedContentFolder is not null &&
+        !IsPermanentRoot(SelectedContentFolder);
+
+    public bool CanDeleteSelectedContentFolder =>
+        CanEditDocument &&
+        SelectedContentFolder is not null &&
+        !IsPermanentRoot(SelectedContentFolder);
+
     public bool CanRenameSelectedBookmark =>
         CanEditDocument &&
         SelectedBookmark is not null &&
@@ -347,6 +374,21 @@ public sealed class MainViewModel : ViewModelBase
         CanEditDocument &&
         (_selectedBookmarks.Count > 0 ||
          SelectedBookmark is not null);
+
+    public bool CanRenameSelectedContentBookmark =>
+        CanRenameSelectedBookmark;
+
+    public bool CanEditSelectedContentBookmarkUrl =>
+        CanEditSelectedBookmarkUrl;
+
+    public bool CanMoveSelectedContentBookmark =>
+        CanMoveSelectedBookmark;
+
+    public bool CanDeleteSelectedContentBookmarks =>
+        CanDeleteSelectedBookmarks;
+
+    public bool CanMoveSelectedContentBookmarks =>
+        CanMoveSelectedBookmarks;
 
     public bool CanOpenBookmarks =>
         State is not DocumentState.Loading and not DocumentState.Saving;
@@ -989,22 +1031,72 @@ public sealed class MainViewModel : ViewModelBase
             requested.Add(bookmark);
         }
 
-        var ordered = DisplayedBookmarks
+        var contentItems = DisplayedItems
+            .Where(
+                item =>
+                    item.Node is BookmarkUrl bookmark &&
+                    requested.Contains(bookmark))
+            .ToArray();
+
+        UpdateSelectedContentItems(contentItems);
+    }
+
+    public void UpdateSelectedContentItems(
+        IEnumerable<BookmarkListItemViewModel> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+
+        var requested = new HashSet<BookmarkListItemViewModel>();
+        foreach (var item in items)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+            requested.Add(item);
+        }
+
+        var ordered = DisplayedItems
             .Where(requested.Contains)
             .ToArray();
 
-        SetSelectedBookmarks(ordered);
+        var selectedFolderItem = ordered
+            .FirstOrDefault(item => item.IsFolder);
 
-        var primary =
+        if (selectedFolderItem is not null)
+        {
+            SetSelectedContentItems(
+                new[] { selectedFolderItem });
+            SetSelectedContentItem(selectedFolderItem);
+            ClearBookmarkSelection();
+            return;
+        }
+
+        var bookmarkItems = ordered
+            .Where(item => item.Node is BookmarkUrl)
+            .ToArray();
+        var bookmarks = bookmarkItems
+            .Select(item => (BookmarkUrl)item.Node)
+            .ToArray();
+
+        var primaryBookmark =
             _selectedBookmark is not null &&
-            ordered.Any(
+            bookmarks.Any(
                 bookmark => ReferenceEquals(
                     bookmark,
                     _selectedBookmark))
                 ? _selectedBookmark
-                : ordered.FirstOrDefault();
+                : bookmarks.FirstOrDefault();
 
-        SetSelectedBookmark(primary);
+        var primaryItem =
+            primaryBookmark is null
+                ? null
+                : bookmarkItems.FirstOrDefault(
+                    item => ReferenceEquals(
+                        item.Node,
+                        primaryBookmark));
+
+        SetSelectedContentItems(bookmarkItems);
+        SetSelectedContentItem(primaryItem);
+        SetSelectedBookmarks(bookmarks);
+        SetSelectedBookmark(primaryBookmark);
     }
 
     public async Task<bool> DeleteSelectedBookmarksAsync()
@@ -1037,7 +1129,7 @@ public sealed class MainViewModel : ViewModelBase
 
             RecordHistory(
                 new BookmarkBatchDeleteHistoryEntry(result));
-            ClearBookmarkSelection();
+            ClearContentSelection();
 
             await RefreshProjectionsAfterEditAsync(
                     preferredFolder: preferredFolder)
@@ -1076,7 +1168,7 @@ public sealed class MainViewModel : ViewModelBase
 
             RecordHistory(
                 new BookmarkDeleteHistoryEntry(result));
-            ClearBookmarkSelection();
+            ClearContentSelection();
 
             await RefreshProjectionsAfterEditAsync(
                     preferredFolder: result.SourceParent)
@@ -1126,7 +1218,7 @@ public sealed class MainViewModel : ViewModelBase
                 new BookmarkBatchMoveHistoryEntry(
                     selected,
                     result));
-            ClearBookmarkSelection();
+            ClearContentSelection();
 
             await RefreshProjectionsAfterMoveAsync(
                     preferredFolder: searchWasActive
@@ -1422,7 +1514,7 @@ public sealed class MainViewModel : ViewModelBase
             _selectedFolderItem.IsSelected = false;
         }
 
-        ClearBookmarkSelection();
+        ClearContentSelection();
         _selectedFolderItem = item;
 
         if (item is null)
@@ -1782,6 +1874,9 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanAddBookmark));
         OnPropertyChanged(nameof(CanAddFolder));
         OnPropertyChanged(nameof(CanRenameSelectedFolder));
+        OnPropertyChanged(nameof(CanRenameSelectedContentFolder));
+        OnPropertyChanged(nameof(CanMoveSelectedContentFolder));
+        OnPropertyChanged(nameof(CanDeleteSelectedContentFolder));
         OnPropertyChanged(nameof(CanRenameSelectedBookmark));
         OnPropertyChanged(nameof(CanEditSelectedBookmarkUrl));
         OnPropertyChanged(nameof(CanMoveSelectedBookmark));
@@ -1789,6 +1884,11 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanDeleteSelectedBookmarks));
         OnPropertyChanged(nameof(CanDeleteSelectedFolder));
         OnPropertyChanged(nameof(CanMoveSelectedBookmarks));
+        OnPropertyChanged(nameof(CanRenameSelectedContentBookmark));
+        OnPropertyChanged(nameof(CanEditSelectedContentBookmarkUrl));
+        OnPropertyChanged(nameof(CanMoveSelectedContentBookmark));
+        OnPropertyChanged(nameof(CanDeleteSelectedContentBookmarks));
+        OnPropertyChanged(nameof(CanMoveSelectedContentBookmarks));
     }
 
     private void BuildBrowserState(BookmarkDocument document)
@@ -1841,7 +1941,7 @@ public sealed class MainViewModel : ViewModelBase
         _folderLookup.Clear();
         SetFolderRoots(Array.Empty<FolderTreeItemViewModel>());
         SetSelectedFolder(null);
-        ClearBookmarkSelection();
+        ClearContentSelection();
         SetCurrentItems(Array.Empty<BookmarkListItemViewModel>());
         SetCurrentBookmarks(Array.Empty<BookmarkUrl>());
         SetDocumentSummaryText(string.Empty);
@@ -1856,7 +1956,7 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         _searchText = value;
-        ClearBookmarkSelection();
+        ClearContentSelection();
         OnPropertyChanged(nameof(SearchText));
         OnPropertyChanged(nameof(IsSearchActive));
         OnPropertyChanged(nameof(DisplayedBookmarks));
@@ -1891,7 +1991,7 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         _searchScope = value;
-        ClearBookmarkSelection();
+        ClearContentSelection();
         OnPropertyChanged(nameof(SearchScope));
 
         if (IsSearchActive)
@@ -2198,6 +2298,36 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    private void SetSelectedContentItem(
+        BookmarkListItemViewModel? value)
+    {
+        if (ReferenceEquals(_selectedContentItem, value))
+        {
+            return;
+        }
+
+        _selectedContentItem = value;
+        OnPropertyChanged(nameof(SelectedContentItem));
+        OnPropertyChanged(nameof(SelectedContentFolder));
+        NotifyEditingAvailabilityChanged();
+    }
+
+    private void SetSelectedContentItems(
+        IReadOnlyList<BookmarkListItemViewModel> value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (ReferenceSequenceEqualContentItems(
+                _selectedContentItems,
+                value))
+        {
+            return;
+        }
+
+        _selectedContentItems = value;
+        OnPropertyChanged(nameof(SelectedContentItems));
+    }
+
     private void SetSelectedBookmark(BookmarkUrl? value)
     {
         if (ReferenceEquals(_selectedBookmark, value))
@@ -2247,6 +2377,36 @@ public sealed class MainViewModel : ViewModelBase
         SetSelectedBookmarks(
             Array.Empty<BookmarkUrl>());
         SetSelectedBookmark(null);
+    }
+
+    private void ClearContentSelection()
+    {
+        SetSelectedContentItems(
+            Array.Empty<BookmarkListItemViewModel>());
+        SetSelectedContentItem(null);
+        ClearBookmarkSelection();
+    }
+
+    private static bool ReferenceSequenceEqualContentItems(
+        IReadOnlyList<BookmarkListItemViewModel> left,
+        IReadOnlyList<BookmarkListItemViewModel> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < left.Count; index++)
+        {
+            if (!ReferenceEquals(
+                    left[index],
+                    right[index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool ReferenceSequenceEqual(

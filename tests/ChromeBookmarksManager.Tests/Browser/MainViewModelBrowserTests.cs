@@ -86,8 +86,9 @@ public sealed class MainViewModelBrowserTests
         Assert.Equal("Child folder | 1 bookmarks", viewModel.SelectionSummaryText);
     }
 
+
     [Fact]
-    public async Task LoadBookmarksAsync_ReadFailure_ClearsPreviousBrowserState()
+    public async Task LoadBookmarksAsync_ReadFailure_PreservesPreviousBrowserState()
     {
         var fixture = CreateFixture();
         var call = 0;
@@ -107,23 +108,30 @@ public sealed class MainViewModelBrowserTests
         var viewModel = new MainViewModel(reader);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
-        Assert.NotEmpty(viewModel.FolderRoots);
+
+        var previousDocument = viewModel.Document;
+        var previousFolderRoots = viewModel.FolderRoots;
+        var previousSelectedFolder = viewModel.SelectedFolder;
+        var previousCurrentBookmarks = viewModel.CurrentBookmarks;
+        var previousSelectedBookmark = viewModel.SelectedBookmark;
+        var previousDocumentSummary = viewModel.DocumentSummaryText;
+        var previousSelectionSummary = viewModel.SelectionSummaryText;
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Invalid");
 
-        Assert.Equal(DocumentState.LoadFailed, viewModel.State);
-        Assert.Null(viewModel.Document);
-        Assert.Empty(viewModel.FolderRoots);
-        Assert.Null(viewModel.SelectedFolder);
-        Assert.Empty(viewModel.CurrentBookmarks);
-        Assert.Null(viewModel.SelectedBookmark);
-        Assert.False(viewModel.CanBrowseDocument);
-        Assert.Equal(string.Empty, viewModel.DocumentSummaryText);
-        Assert.Equal(string.Empty, viewModel.SelectionSummaryText);
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Same(previousDocument, viewModel.Document);
+        Assert.Same(previousFolderRoots, viewModel.FolderRoots);
+        Assert.Same(previousSelectedFolder, viewModel.SelectedFolder);
+        Assert.Same(previousCurrentBookmarks, viewModel.CurrentBookmarks);
+        Assert.Same(previousSelectedBookmark, viewModel.SelectedBookmark);
+        Assert.True(viewModel.CanBrowseDocument);
+        Assert.Equal(previousDocumentSummary, viewModel.DocumentSummaryText);
+        Assert.Equal(previousSelectionSummary, viewModel.SelectionSummaryText);
     }
 
     [Fact]
-    public async Task CancelLoad_ClearsPreviousBrowserState()
+    public async Task CancelReplacementLoad_PreservesPreviousBrowserState()
     {
         var fixture = CreateFixture();
         var entered = new TaskCompletionSource(
@@ -144,25 +152,34 @@ public sealed class MainViewModelBrowserTests
         var viewModel = new MainViewModel(reader);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var previousDocument = viewModel.Document;
+        var previousFolderRoots = viewModel.FolderRoots;
+        var previousSelectedFolder = viewModel.SelectedFolder;
+        var previousCurrentBookmarks = viewModel.CurrentBookmarks;
+        var previousSelectedBookmark = viewModel.SelectedBookmark;
+        var previousDocumentSummary = viewModel.DocumentSummaryText;
+        var previousSelectionSummary = viewModel.SelectionSummaryText;
+
         var load = viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks-2");
         await entered.Task;
 
         viewModel.CancelLoad();
         await load;
 
-        Assert.Equal(DocumentState.NoDocument, viewModel.State);
-        Assert.Null(viewModel.Document);
-        Assert.Empty(viewModel.FolderRoots);
-        Assert.Null(viewModel.SelectedFolder);
-        Assert.Empty(viewModel.CurrentBookmarks);
-        Assert.Null(viewModel.SelectedBookmark);
-        Assert.False(viewModel.CanBrowseDocument);
-        Assert.Equal(string.Empty, viewModel.DocumentSummaryText);
-        Assert.Equal(string.Empty, viewModel.SelectionSummaryText);
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Same(previousDocument, viewModel.Document);
+        Assert.Same(previousFolderRoots, viewModel.FolderRoots);
+        Assert.Same(previousSelectedFolder, viewModel.SelectedFolder);
+        Assert.Same(previousCurrentBookmarks, viewModel.CurrentBookmarks);
+        Assert.Same(previousSelectedBookmark, viewModel.SelectedBookmark);
+        Assert.True(viewModel.CanBrowseDocument);
+        Assert.Equal(previousDocumentSummary, viewModel.DocumentSummaryText);
+        Assert.Equal(previousSelectionSummary, viewModel.SelectionSummaryText);
     }
 
     [Fact]
-    public async Task LoadBookmarksAsync_SecondLoad_ClearsBrowserStateBeforeReaderCompletes()
+    public async Task LoadBookmarksAsync_SecondLoad_PreservesBrowserStateUntilReplacementCommits()
     {
         var first = CreateFixture();
         var second = CreateFixture("Second bar");
@@ -185,26 +202,37 @@ public sealed class MainViewModelBrowserTests
         var viewModel = new MainViewModel(reader);
 
         await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var previousDocument = viewModel.Document;
+        var previousFolderRoots = viewModel.FolderRoots;
+        var previousSelectedFolder = viewModel.SelectedFolder;
+        var previousCurrentBookmarks = viewModel.CurrentBookmarks;
+        var previousSelectedBookmark = viewModel.SelectedBookmark;
+        var previousDocumentSummary = viewModel.DocumentSummaryText;
+        var previousSelectionSummary = viewModel.SelectionSummaryText;
+
         var secondLoad = viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks-2");
         await entered.Task;
 
         Assert.Equal(DocumentState.Loading, viewModel.State);
-        Assert.Null(viewModel.Document);
-        Assert.Empty(viewModel.FolderRoots);
-        Assert.Null(viewModel.SelectedFolder);
-        Assert.Empty(viewModel.CurrentBookmarks);
-        Assert.Null(viewModel.SelectedBookmark);
+        Assert.Same(previousDocument, viewModel.Document);
+        Assert.Same(previousFolderRoots, viewModel.FolderRoots);
+        Assert.Same(previousSelectedFolder, viewModel.SelectedFolder);
+        Assert.Same(previousCurrentBookmarks, viewModel.CurrentBookmarks);
+        Assert.Same(previousSelectedBookmark, viewModel.SelectedBookmark);
         Assert.False(viewModel.CanBrowseDocument);
-        Assert.Equal(string.Empty, viewModel.DocumentSummaryText);
-        Assert.Equal(string.Empty, viewModel.SelectionSummaryText);
+        Assert.Equal(previousDocumentSummary, viewModel.DocumentSummaryText);
+        Assert.Equal(previousSelectionSummary, viewModel.SelectionSummaryText);
 
         release.SetResult(second.Document);
         await secondLoad;
 
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Same(second.Document, viewModel.Document);
         Assert.Same(second.BookmarkBar, viewModel.SelectedFolder);
         Assert.Equal("Second bar", viewModel.FolderRoots[0].Name);
+        Assert.True(viewModel.CanBrowseDocument);
     }
-
     [Fact]
     public async Task LoadBookmarksAsync_Reopen_ReplacesSummariesAndSourcePath()
     {

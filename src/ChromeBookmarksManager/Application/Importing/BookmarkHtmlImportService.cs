@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -410,7 +411,7 @@ public sealed class BookmarkHtmlImportService
                     urlCount + 1);
 
                 containers.Peek().Add(
-                    ParsedNode.Url(
+                    ParsedNode.Bookmark(
                         DecodeText(text),
                         WebUtility.HtmlDecode(href)));
                 index = nextIndex;
@@ -797,7 +798,7 @@ public sealed class BookmarkHtmlImportService
                 name,
                 null);
 
-        public static ParsedNode Url(
+        public static ParsedNode Bookmark(
             string name,
             string url) =>
             new(

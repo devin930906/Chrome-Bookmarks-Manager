@@ -122,6 +122,40 @@ public sealed class MainViewModelMoveTests
     }
 
     [Fact]
+    public async Task MoveNodeBeforeAsync_FolderBeforeBookmarkUsesMixedOrderAndHistory()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var changed = await viewModel.MoveNodeBeforeAsync(
+            fixture.ChildFolder,
+            fixture.BarFirst);
+
+        Assert.True(changed);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.ChildFolder,
+                fixture.BarFirst,
+                fixture.BarSecond
+            },
+            fixture.BookmarkBar.Children);
+        Assert.Equal("Move bookmark item", viewModel.UndoDescription);
+
+        Assert.True(await viewModel.UndoAsync());
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.BarFirst,
+                fixture.ChildFolder,
+                fixture.BarSecond
+            },
+            fixture.BookmarkBar.Children);
+    }
+
+    [Fact]
     public async Task GlobalSearch_MoveBookmarkKeepsSameSearchReferenceWithoutIndexRebuild()
     {
         var fixture = CreateFixture();

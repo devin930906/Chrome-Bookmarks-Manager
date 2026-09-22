@@ -234,10 +234,9 @@
                           Width="5"
                           HorizontalAlignment="Stretch" />
 
-            <GroupBox Grid.Column="2" Header="Bookmarks" Margin="8">
+            <GroupBox Grid.Column="2" Header="Contents" Margin="8">
                 <ListView x:Name="BookmarksList"
-                          ItemsSource="{Binding DisplayedBookmarks}"
-                          SelectedItem="{Binding SelectedBookmark, Mode=TwoWay}"
+                          ItemsSource="{Binding DisplayedItems}"
                           SelectionChanged="BookmarksList_SelectionChanged"
                           MouseDoubleClick="BookmarksList_MouseDoubleClick"
                           KeyDown="BookmarksList_KeyDown"
@@ -254,20 +253,43 @@
                           VirtualizingPanel.VirtualizationMode="Recycling"
                           ScrollViewer.CanContentScroll="True">
                     <ListView.ContextMenu>
-                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                            <MenuItem Header="Rename Bookmark..."
+                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                                     Opened="BookmarksContextMenu_Opened">
+                            <MenuItem x:Name="ContentOpenFolderMenuItem"
+                                      Header="Open Folder"
+                                      Click="OpenContentFolder_Click" />
+                            <MenuItem x:Name="ContentRenameFolderMenuItem"
+                                      Header="Rename Folder..."
+                                      InputGestureText="F2"
+                                      IsEnabled="{Binding CanRenameSelectedContentFolder}"
+                                      Click="RenameContentFolder_Click" />
+                            <MenuItem x:Name="ContentMoveFolderMenuItem"
+                                      Header="Move Folder to..."
+                                      IsEnabled="{Binding CanMoveSelectedContentFolder}"
+                                      Click="MoveContentFolder_Click" />
+                            <MenuItem x:Name="ContentDeleteFolderMenuItem"
+                                      Header="Delete Folder..."
+                                      InputGestureText="Delete"
+                                      IsEnabled="{Binding CanDeleteSelectedContentFolder}"
+                                      Click="DeleteContentFolder_Click" />
+                            <Separator x:Name="ContentFolderSeparator" />
+                            <MenuItem x:Name="ContentRenameBookmarkMenuItem"
+                                      Header="Rename Bookmark..."
                                       InputGestureText="F2"
                                       IsEnabled="{Binding CanRenameSelectedBookmark}"
                                       Click="RenameBookmark_Click" />
-                            <MenuItem Header="Edit URL..."
+                            <MenuItem x:Name="ContentEditUrlMenuItem"
+                                      Header="Edit URL..."
                                       InputGestureText="Ctrl+E"
                                       IsEnabled="{Binding CanEditSelectedBookmarkUrl}"
                                       Click="EditUrl_Click" />
-                            <MenuItem Header="Move to..."
+                            <MenuItem x:Name="ContentMoveBookmarkMenuItem"
+                                      Header="Move to..."
                                       IsEnabled="{Binding CanMoveSelectedBookmarks}"
                                       Click="MoveBookmark_Click" />
-                            <Separator />
-                            <MenuItem Header="Delete Bookmark(s)..."
+                            <Separator x:Name="ContentBookmarkSeparator" />
+                            <MenuItem x:Name="ContentDeleteBookmarkMenuItem"
+                                      Header="Delete Bookmark(s)..."
                                       InputGestureText="Delete"
                                       IsEnabled="{Binding CanDeleteSelectedBookmarks}"
                                       Click="DeleteSelectedBookmarks_Click" />
@@ -276,8 +298,37 @@
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Name"
-                                            Width="280"
-                                            DisplayMemberBinding="{Binding Name}" />
+                                            Width="320">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock x:Name="FolderGlyph"
+                                                       Text="📁"
+                                                       Margin="0,0,6,0"
+                                                       Visibility="Collapsed" />
+                                            <TextBlock x:Name="BookmarkGlyph"
+                                                       Text="🔖"
+                                                       Margin="0,0,6,0"
+                                                       Visibility="Collapsed" />
+                                            <TextBlock Text="{Binding Name}" />
+                                        </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsFolder}"
+                                                         Value="True">
+                                                <Setter TargetName="FolderGlyph"
+                                                        Property="Visibility"
+                                                        Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsBookmark}"
+                                                         Value="True">
+                                                <Setter TargetName="BookmarkGlyph"
+                                                        Property="Visibility"
+                                                        Value="Visible" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
                             <GridViewColumn Header="URL"
                                             Width="520"
                                             DisplayMemberBinding="{Binding Url}" />

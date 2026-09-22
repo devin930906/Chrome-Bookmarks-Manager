@@ -561,6 +561,9 @@ public sealed class MainViewModel : ViewModelBase
          (_selectedContentItems[0].Node is BookmarkUrl &&
           _urlLauncher is not null));
 
+    public bool CanImportBookmarksHtml =>
+        CanEditDocument && SelectedFolder is not null;
+
     public bool CanExportBookmarksHtml =>
         CanBrowseDocument && _document is not null;
 
@@ -635,6 +638,49 @@ public sealed class MainViewModel : ViewModelBase
                     writer,
                     cancellationToken)
                 .ConfigureAwait(true);
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
+    }
+
+    public async Task<BookmarkHtmlImportResult> ImportBookmarksHtmlAsync(
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        await _documentOperationGate
+            .WaitAsync(cancellationToken)
+            .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var targetParent = SelectedFolder
+                ?? throw new InvalidOperationException(
+                    "Select a folder before importing bookmarks.");
+
+            var result = await _htmlImportService
+                .ImportFileAsync(
+                    document,
+                    targetParent,
+                    path,
+                    cancellationToken)
+                .ConfigureAwait(true);
+
+            RecordHistory(
+                new BookmarkHtmlImportHistoryEntry(
+                    result));
+
+            ClearContentSelection();
+            NotifyEditingAvailabilityChanged();
+
+            await RefreshProjectionsAfterEditAsync(
+                    preferredFolder: result.ImportedFolder)
+                .ConfigureAwait(true);
+
+            return result;
         }
         finally
         {
@@ -2620,6 +2666,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanAddBookmark));
         OnPropertyChanged(nameof(CanAddFolder));
         OnPropertyChanged(nameof(CanSortSelectedFolder));
+        OnPropertyChanged(nameof(CanImportBookmarksHtml));
         OnPropertyChanged(nameof(CanRenameSelectedFolder));
         OnPropertyChanged(nameof(CanRenameSelectedContentFolder));
         OnPropertyChanged(nameof(CanMoveSelectedContentFolder));

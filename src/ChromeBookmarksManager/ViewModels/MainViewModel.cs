@@ -1345,6 +1345,71 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    public Task<bool> MoveNodeBeforeAsync(
+        BookmarkNode node,
+        BookmarkNode target) =>
+        MoveNodeRelativeAsync(
+            node,
+            target,
+            insertAfter: false);
+
+    public Task<bool> MoveNodeAfterAsync(
+        BookmarkNode node,
+        BookmarkNode target) =>
+        MoveNodeRelativeAsync(
+            node,
+            target,
+            insertAfter: true);
+
+    private async Task<bool> MoveNodeRelativeAsync(
+        BookmarkNode node,
+        BookmarkNode target,
+        bool insertAfter)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(target);
+
+        await _documentOperationGate
+            .WaitAsync()
+            .ConfigureAwait(true);
+        try
+        {
+            EnsurePositionalBookmarkMoveAllowed();
+
+            var document = RequireEditableDocument();
+            var result = insertAfter
+                ? _moveService.MoveNodeAfter(
+                    document,
+                    node,
+                    target)
+                : _moveService.MoveNodeBefore(
+                    document,
+                    node,
+                    target);
+
+            if (!result.Changed)
+            {
+                return false;
+            }
+
+            RecordHistory(
+                new BookmarkMoveHistoryEntry(
+                    node,
+                    result));
+
+            await RefreshProjectionsAfterMoveAsync(
+                    preferredFolder: result.TargetParent,
+                    preferredBookmark: node as BookmarkUrl)
+                .ConfigureAwait(true);
+
+            return true;
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
+    }
+
     public async Task<bool> MoveBookmarkBeforeAsync(
         BookmarkUrl bookmark,
         BookmarkUrl target)

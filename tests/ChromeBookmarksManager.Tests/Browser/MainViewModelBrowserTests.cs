@@ -86,6 +86,118 @@ public sealed class MainViewModelBrowserTests
     }
 
     [Fact]
+    public async Task SelectingChildFolderRow_DoesNotReplaceCurrentNavigationFolder()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var childRow = Assert.Single(
+            viewModel.CurrentItems,
+            item => item.IsFolder);
+
+        viewModel.UpdateSelectedContentItems(new[] { childRow });
+
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.Same(childRow, viewModel.SelectedContentItem);
+        Assert.Same(
+            fixture.ChildFolder,
+            viewModel.SelectedContentFolder);
+        Assert.Same(
+            childRow,
+            Assert.Single(viewModel.SelectedContentItems));
+        Assert.Empty(viewModel.SelectedBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+
+        Assert.False(viewModel.CanRenameSelectedFolder);
+        Assert.True(viewModel.CanRenameSelectedContentFolder);
+        Assert.True(viewModel.CanMoveSelectedContentFolder);
+        Assert.True(viewModel.CanDeleteSelectedContentFolder);
+    }
+
+    [Fact]
+    public async Task MixedContentSelection_NormalizesToSingleFolder()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var firstBookmark = viewModel.CurrentItems[0];
+        var childFolder = viewModel.CurrentItems[1];
+        var secondBookmark = viewModel.CurrentItems[2];
+
+        viewModel.UpdateSelectedContentItems(
+            new[] { firstBookmark, childFolder, secondBookmark });
+
+        Assert.Same(
+            childFolder,
+            Assert.Single(viewModel.SelectedContentItems));
+        Assert.Same(childFolder, viewModel.SelectedContentItem);
+        Assert.Same(
+            fixture.ChildFolder,
+            viewModel.SelectedContentFolder);
+        Assert.Empty(viewModel.SelectedBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+    }
+
+    [Fact]
+    public async Task BookmarkContentSelection_PreservesDisplayedOrderAndBatchSelection()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var firstBookmark = viewModel.CurrentItems[0];
+        var secondBookmark = viewModel.CurrentItems[2];
+
+        viewModel.UpdateSelectedContentItems(
+            new[] { secondBookmark, firstBookmark });
+
+        Assert.Collection(
+            viewModel.SelectedContentItems,
+            item => Assert.Same(firstBookmark, item),
+            item => Assert.Same(secondBookmark, item));
+        Assert.Collection(
+            viewModel.SelectedBookmarks,
+            bookmark => Assert.Same(fixture.BarUrlFirst, bookmark),
+            bookmark => Assert.Same(fixture.BarUrlSecond, bookmark));
+        Assert.Same(firstBookmark, viewModel.SelectedContentItem);
+        Assert.Same(fixture.BarUrlFirst, viewModel.SelectedBookmark);
+        Assert.Null(viewModel.SelectedContentFolder);
+    }
+
+    [Fact]
+    public async Task ChangingNavigationFolder_ClearsRightPaneContentSelection()
+    {
+        var fixture = CreateFixture();
+        var viewModel = new MainViewModel(
+            new StubReader((_, _) => Task.FromResult(fixture.Document)));
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        var childRow = Assert.Single(
+            viewModel.CurrentItems,
+            item => item.IsFolder);
+        viewModel.UpdateSelectedContentItems(new[] { childRow });
+
+        var childTreeItem = Assert.Single(
+            viewModel.FolderRoots[0].Children);
+        viewModel.SelectFolder(childTreeItem);
+
+        Assert.Same(fixture.ChildFolder, viewModel.SelectedFolder);
+        Assert.Empty(viewModel.SelectedContentItems);
+        Assert.Null(viewModel.SelectedContentItem);
+        Assert.Null(viewModel.SelectedContentFolder);
+        Assert.Empty(viewModel.SelectedBookmarks);
+        Assert.Null(viewModel.SelectedBookmark);
+    }
+
+    [Fact]
     public async Task SelectFolder_UsesOriginalFolderAndClearsBookmarkSelection()
     {
         var fixture = CreateFixture();

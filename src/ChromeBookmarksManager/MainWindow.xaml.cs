@@ -914,9 +914,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (ViewModel.SelectedContentFolder is { } folder)
+        if (TryOpenSelectedFolderFromUi())
         {
-            ViewModel.NavigateToFolder(folder);
             return;
         }
 
@@ -933,6 +932,16 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
+    }
+
+    private bool TryOpenSelectedFolderFromUi()
+    {
+        if (ViewModel.SelectedContentFolder is not { } folder)
+        {
+            return false;
+        }
+
+        return ViewModel.NavigateToFolder(folder);
     }
 
     private async void RenameContentFolder_Click(

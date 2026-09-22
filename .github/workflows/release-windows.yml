@@ -44,5 +44,5 @@ jobs:
             "artifacts/win-x64/ChromeBookmarksManager.exe" `
             "artifacts/win-x64/ChromeBookmarksManager.exe.sha256" `
             --title "Chrome Bookmarks Manager ${{ github.ref_name }}" `
-            --notes-file "docs/releases/v1.0.0.md" `
+            --notes-file "docs/releases/${{ github.ref_name }}.md" `
             --verify-tag

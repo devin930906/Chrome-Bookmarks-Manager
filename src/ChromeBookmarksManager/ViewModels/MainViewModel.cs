@@ -16,6 +16,7 @@ using ChromeBookmarksManager.Application.Sorting;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
 using ChromeBookmarksManager.Infrastructure.Persistence;
+using ChromeBookmarksManager.Localization;
 
 namespace ChromeBookmarksManager.ViewModels;
 
@@ -50,7 +51,9 @@ public sealed class MainViewModel : ViewModelBase
     private string? _sourcePath;
     private BookmarkSourceBaseline? _sourceBaseline;
     private DocumentState _state = DocumentState.NoDocument;
-    private string _statusText = "No Bookmarks file is open.";
+    private string _statusText = LocalizationService.GetString("StatusNoFileOpen");
+    private string? _statusResourceKey = "StatusNoFileOpen";
+    private object?[] _statusResourceArguments = Array.Empty<object?>();
     private IReadOnlyList<FolderTreeItemViewModel> _folderRoots =
         Array.Empty<FolderTreeItemViewModel>();
     private readonly Dictionary<BookmarkFolder, FolderTreeItemViewModel>
@@ -79,6 +82,8 @@ public sealed class MainViewModel : ViewModelBase
         Array.Empty<BookmarkListItemViewModel>();
     private bool _isSearchBusy;
     private string _searchSummaryText = string.Empty;
+    private string? _searchSummaryResourceKey;
+    private object?[] _searchSummaryResourceArguments = Array.Empty<object?>();
     private bool _suppressFolderSearchRefresh;
 
     public MainViewModel(IChromeBookmarksReader reader)
@@ -331,7 +336,7 @@ public sealed class MainViewModel : ViewModelBase
         ?? "0.0.0";
 
     public string ApplicationTitle =>
-        $"Chrome Bookmarks Manager {ApplicationVersion}";
+        LocalizationService.Format("ApplicationTitle", ApplicationVersion);
 
     public DocumentState State => _state;
 
@@ -435,10 +440,16 @@ public sealed class MainViewModel : ViewModelBase
         CanEditDocument && _history.CanRedo;
 
     public string? UndoDescription =>
-        CanUndo ? _history.UndoDescription : null;
+        CanUndo
+            ? LocalizationService.LocalizeHistoryDescription(
+                _history.UndoDescription)
+            : null;
 
     public string? RedoDescription =>
-        CanRedo ? _history.RedoDescription : null;
+        CanRedo
+            ? LocalizationService.LocalizeHistoryDescription(
+                _history.RedoDescription)
+            : null;
 
     public bool CanAddBookmark =>
         CanEditDocument && SelectedFolder is not null;
@@ -802,7 +813,7 @@ public sealed class MainViewModel : ViewModelBase
             CanBrowseDocument;
 
         SetState(DocumentState.Loading);
-        SetStatusText("Reading Bookmarks...");
+        SetLocalizedStatus("StatusReading");
 
         var cancellation = new CancellationTokenSource();
         _loadCancellation = cancellation;
@@ -813,13 +824,13 @@ public sealed class MainViewModel : ViewModelBase
         {
             if (_baselineService is not null)
             {
-                SetStatusText("Verifying Bookmarks source...");
+                SetLocalizedStatus("StatusVerifyingSource");
                 sourceBaseline = await _baselineService
                     .CaptureAsync(path, cancellation.Token)
                     .ConfigureAwait(true);
             }
 
-            SetStatusText("Reading Bookmarks...");
+            SetLocalizedStatus("StatusReading");
             var document = await _reader
                 .ReadFileAsync(path, cancellation.Token)
                 .ConfigureAwait(true);
@@ -834,7 +845,7 @@ public sealed class MainViewModel : ViewModelBase
                     .ConfigureAwait(true);
             }
 
-            SetStatusText("Building search index...");
+            SetLocalizedStatus("StatusBuildingSearch");
 
             var searchIndex = await _searchService
                 .BuildIndexAsync(document, cancellation.Token)
@@ -854,10 +865,11 @@ public sealed class MainViewModel : ViewModelBase
             SetSourceBaseline(sourceBaseline);
             BuildBrowserState(document);
             SetState(DocumentState.LoadedClean);
-            SetStatusText(
-                $"Loaded {document.UrlCount:N0} URLs and " +
-                $"{document.FolderCount:N0} folders in " +
-                $"{stopwatch.Elapsed.TotalSeconds:F1}s.");
+            SetLocalizedStatus(
+                "StatusLoaded",
+                document.UrlCount,
+                document.FolderCount,
+                stopwatch.Elapsed.TotalSeconds);
         }
         catch (OperationCanceledException)
             when (cancellation.IsCancellationRequested)
@@ -867,9 +879,7 @@ public sealed class MainViewModel : ViewModelBase
             if (hadExistingDocument)
             {
                 SetState(previousState);
-                SetStatusText(
-                    "Replacement loading was canceled. " +
-                    "The current document was kept unchanged.");
+                SetLocalizedStatus("StatusReplacementCanceled");
             }
             else
             {
@@ -882,7 +892,7 @@ public sealed class MainViewModel : ViewModelBase
                 SetSourceBaseline(null);
                 ClearBrowserState();
                 SetState(DocumentState.NoDocument);
-                SetStatusText("Loading was canceled.");
+                SetLocalizedStatus("StatusLoadingCanceled");
             }
         }
         catch (ChromeBookmarksReadException exception)
@@ -894,7 +904,8 @@ public sealed class MainViewModel : ViewModelBase
                 SetState(previousState);
                 SetStatusText(
                     exception.Message +
-                    " The current document was kept unchanged.");
+                    LocalizationService.GetString(
+                        "StatusCurrentDocumentKept"));
             }
             else
             {
@@ -919,7 +930,8 @@ public sealed class MainViewModel : ViewModelBase
                 SetState(previousState);
                 SetStatusText(
                     exception.Message +
-                    " The current document was kept unchanged.");
+                    LocalizationService.GetString(
+                        "StatusCurrentDocumentKept"));
             }
             else
             {
@@ -942,9 +954,7 @@ public sealed class MainViewModel : ViewModelBase
             if (hadExistingDocument)
             {
                 SetState(previousState);
-                SetStatusText(
-                    "Replacement loading failed while preparing search. " +
-                    "The current document was kept unchanged.");
+                SetLocalizedStatus("StatusReplacementSearchFailed");
             }
             else
             {
@@ -957,8 +967,7 @@ public sealed class MainViewModel : ViewModelBase
                 SetSourceBaseline(null);
                 ClearBrowserState();
                 SetState(DocumentState.LoadFailed);
-                SetStatusText(
-                    "Loading failed while preparing search.");
+                SetLocalizedStatus("StatusSearchPreparationFailed");
             }
         }
         finally
@@ -1000,7 +1009,7 @@ public sealed class MainViewModel : ViewModelBase
             var baseline = _sourceBaseline;
 
             SetState(DocumentState.Saving);
-            SetStatusText("Saving Bookmarks safely...");
+            SetLocalizedStatus("StatusSaving");
 
             try
             {
@@ -1017,8 +1026,9 @@ public sealed class MainViewModel : ViewModelBase
                 SetSourceBaseline(result.FinalBaseline);
                 _history.MarkClean();
                 SetState(DocumentState.LoadedClean);
-                SetStatusText(
-                    $"Saved and verified. Verified safety backup: {result.BackupPath}");
+                SetLocalizedStatus(
+                    "StatusSavedVerified",
+                    result.BackupPath);
                 NotifyHistoryAvailabilityChanged();
 
                 return result;
@@ -1032,13 +1042,16 @@ public sealed class MainViewModel : ViewModelBase
 
                     var recoveryBackup =
                         exception.HasVerifiedRecoveryBackup
-                            ? $" Verified recovery backup: {exception.BackupPath}"
+                            ? LocalizationService.Format(
+                                "StatusVerifiedRecoveryBackup",
+                                exception.BackupPath)
                             : string.Empty;
 
                     SetStatusText(
                         exception.Message +
                         recoveryBackup +
-                        " Reload or recover the Bookmarks source before saving again.");
+                        LocalizationService.GetString(
+                            "StatusReloadBeforeSave"));
                 }
                 else
                 {
@@ -1051,14 +1064,13 @@ public sealed class MainViewModel : ViewModelBase
             catch (OperationCanceledException)
             {
                 SetState(DocumentState.SaveFailed);
-                SetStatusText("Saving was canceled before replacement.");
+                SetLocalizedStatus("StatusSaveCanceled");
                 throw;
             }
             catch (Exception)
             {
                 SetState(DocumentState.SaveFailed);
-                SetStatusText(
-                    "Saving failed unexpectedly. The document remains unsaved and retryable.");
+                SetLocalizedStatus("StatusSaveUnexpected");
                 throw;
             }
         
@@ -2336,9 +2348,11 @@ public sealed class MainViewModel : ViewModelBase
         SetCurrentItems(items);
         SetCurrentBookmarks(bookmarks);
         SetSelectionSummaryText(
-            $"{item.Folder.Name} | " +
-            $"{FormatCount(folderCount, "folder")} | " +
-            $"{FormatCount(bookmarks.Length, "bookmark")}");
+            LocalizationService.Format(
+                "SelectionSummary",
+                item.Folder.Name,
+                FormatCount(folderCount, "folder"),
+                FormatCount(bookmarks.Length, "bookmark")));
 
         RerunSearchForFolderChange();
     }
@@ -2375,8 +2389,8 @@ public sealed class MainViewModel : ViewModelBase
         _pendingSearchTask = Task.CompletedTask;
         SetSearchResults(Array.Empty<BookmarkNode>());
         SetIsSearchBusy(false);
-        SetSearchSummaryText(
-            searchWasActive ? "Refreshing search index..." : string.Empty);
+        SetLocalizedSearchSummary(
+            searchWasActive ? "SearchRefreshingIndex" : null);
 
         var refreshedIndex = await _searchService
             .BuildIndexAsync(document, cancellationToken)
@@ -2475,8 +2489,8 @@ public sealed class MainViewModel : ViewModelBase
         _pendingSearchTask = Task.CompletedTask;
         SetSearchResults(Array.Empty<BookmarkNode>());
         SetIsSearchBusy(false);
-        SetSearchSummaryText(
-            searchWasActive ? "Refreshing search..." : string.Empty);
+        SetLocalizedSearchSummary(
+            searchWasActive ? "SearchRefreshing" : null);
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -2597,10 +2611,10 @@ public sealed class MainViewModel : ViewModelBase
                 ? DocumentState.LoadedClean
                 : DocumentState.LoadedDirty);
 
-        SetStatusText(
+        SetLocalizedStatus(
             isClean
-                ? "No unsaved in-memory changes. Source file has not been modified."
-                : "Unsaved in-memory changes. Changes are not saved to disk.");
+                ? "StatusNoUnsavedChanges"
+                : "StatusUnsavedChanges");
 
         NotifyHistoryAvailabilityChanged();
     }
@@ -2657,8 +2671,7 @@ public sealed class MainViewModel : ViewModelBase
                 "Only a loaded bookmark document can become dirty.");
         }
 
-        SetStatusText(
-            "Unsaved in-memory changes. Changes are not saved to disk.");
+        SetLocalizedStatus("StatusUnsavedChanges");
     }
 
     private void NotifyEditingAvailabilityChanged()
@@ -2702,9 +2715,7 @@ public sealed class MainViewModel : ViewModelBase
 
         BuildFolderLookup(roots);
         SetFolderRoots(roots);
-        SetDocumentSummaryText(
-            $"{document.UrlCount.ToString("N0", CultureInfo.InvariantCulture)} URLs | " +
-            $"{document.FolderCount.ToString("N0", CultureInfo.InvariantCulture)} folders");
+        UpdateDocumentSummary(document);
         SelectFolder(roots[0]);
     }
 
@@ -2869,7 +2880,7 @@ public sealed class MainViewModel : ViewModelBase
             }
 
             SetIsSearchBusy(true);
-            SetSearchSummaryText("Searching...");
+            SetLocalizedSearchSummary("SearchSearching");
 
             var results = await _searchService
                 .SearchAsync(
@@ -2888,10 +2899,16 @@ public sealed class MainViewModel : ViewModelBase
             }
 
             SetSearchResults(results);
-            SetSearchSummaryText(
-                results.Count == 0
-                    ? "No matches"
-                    : $"{results.Count.ToString("N0", CultureInfo.InvariantCulture)} matches");
+            if (results.Count == 0)
+            {
+                SetLocalizedSearchSummary("SearchNoMatches");
+            }
+            else
+            {
+                SetLocalizedSearchSummary(
+                    "SearchMatches",
+                    results.Count);
+            }
         }
         catch (OperationCanceledException)
             when (cancellation.IsCancellationRequested)
@@ -2902,7 +2919,7 @@ public sealed class MainViewModel : ViewModelBase
             if (IsLatestSearch(generation, cancellation))
             {
                 SetSearchResults(Array.Empty<BookmarkNode>());
-                SetSearchSummaryText("Search failed.");
+                SetLocalizedSearchSummary("SearchFailed");
             }
         }
         finally
@@ -3029,8 +3046,79 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanSave));
     }
 
+    public void RefreshLocalizedText()
+    {
+        OnPropertyChanged(nameof(ApplicationTitle));
+        NotifyHistoryAvailabilityChanged();
+
+        if (_statusResourceKey is not null)
+        {
+            _statusText = LocalizationService.Format(
+                _statusResourceKey,
+                _statusResourceArguments);
+            OnPropertyChanged(nameof(StatusText));
+        }
+
+        if (_searchSummaryResourceKey is not null)
+        {
+            _searchSummaryText = LocalizationService.Format(
+                _searchSummaryResourceKey,
+                _searchSummaryResourceArguments);
+            OnPropertyChanged(nameof(SearchSummaryText));
+        }
+
+        if (_document is not null)
+        {
+            UpdateDocumentSummary(_document);
+        }
+
+        if (_selectedFolderItem is not null)
+        {
+            var folderCount = _selectedFolderItem.Folder.Children
+                .Count(node => node is BookmarkFolder);
+            var bookmarkCount = _selectedFolderItem.Folder.Children
+                .Count(node => node is BookmarkUrl);
+
+            SetSelectionSummaryText(
+                LocalizationService.Format(
+                    "SelectionSummary",
+                    _selectedFolderItem.Folder.Name,
+                    FormatCount(folderCount, "folder"),
+                    FormatCount(bookmarkCount, "bookmark")));
+        }
+    }
+
+    private void UpdateDocumentSummary(BookmarkDocument document)
+    {
+        SetDocumentSummaryText(
+            LocalizationService.Format(
+                "DocumentSummary",
+                document.UrlCount,
+                document.FolderCount));
+    }
+
     private void SetStatusText(string value)
     {
+        _statusResourceKey = null;
+        _statusResourceArguments = Array.Empty<object?>();
+
+        if (string.Equals(_statusText, value, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _statusText = value;
+        OnPropertyChanged(nameof(StatusText));
+    }
+
+    private void SetLocalizedStatus(
+        string resourceKey,
+        params object?[] arguments)
+    {
+        _statusResourceKey = resourceKey;
+        _statusResourceArguments = arguments;
+        var value = LocalizationService.Format(resourceKey, arguments);
+
         if (string.Equals(_statusText, value, StringComparison.Ordinal))
         {
             return;
@@ -3254,9 +3342,21 @@ public sealed class MainViewModel : ViewModelBase
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(singularNoun);
 
-        return
-            $"{count.ToString("N0", CultureInfo.InvariantCulture)} " +
-            $"{singularNoun}{(count == 1 ? string.Empty : "s")}";
+        var key = singularNoun switch
+        {
+            "folder" => count == 1
+                ? "CountFolderOne"
+                : "CountFolderMany",
+            "bookmark" => count == 1
+                ? "CountBookmarkOne"
+                : "CountBookmarkMany",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(singularNoun),
+                singularNoun,
+                "Unsupported count noun.")
+        };
+
+        return LocalizationService.Format(key, count);
     }
 
     private void SetDocumentSummaryText(string value)
@@ -3326,6 +3426,35 @@ public sealed class MainViewModel : ViewModelBase
 
     private void SetSearchSummaryText(string value)
     {
+        _searchSummaryResourceKey = null;
+        _searchSummaryResourceArguments = Array.Empty<object?>();
+
+        if (string.Equals(
+                _searchSummaryText,
+                value,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _searchSummaryText = value;
+        OnPropertyChanged(nameof(SearchSummaryText));
+    }
+
+    private void SetLocalizedSearchSummary(
+        string? resourceKey,
+        params object?[] arguments)
+    {
+        if (resourceKey is null)
+        {
+            SetSearchSummaryText(string.Empty);
+            return;
+        }
+
+        _searchSummaryResourceKey = resourceKey;
+        _searchSummaryResourceArguments = arguments;
+        var value = LocalizationService.Format(resourceKey, arguments);
+
         if (string.Equals(
                 _searchSummaryText,
                 value,

@@ -51,7 +51,7 @@ requireText(xaml, 'IsEnabled="{Binding CanRenameSelectedBookmark}"', 'Bookmark r
 requireText(xaml, 'IsEnabled="{Binding CanEditSelectedBookmarkUrl}"', 'Bookmark URL editing must remain available through its guarded capability.');
 
 requireText(code, 'BookmarksList.SelectedItems', 'The WPF list selection must be sent to the ViewModel.');
-requireText(code, 'viewModel.UpdateSelectedBookmarks(', 'The ViewModel must own the selected bookmark set.');
+requireText(code, 'viewModel.UpdateSelectedContentItems(', 'The ViewModel must own the mixed right-pane selection and derive the selected bookmark set.');
 requireText(code, 'if (!item.IsSelected)', 'Right-click on an already-selected bookmark must preserve multi-selection.');
 requireText(code, 'BookmarksList.UnselectAll()', 'Right-click on an unselected bookmark must make it the only context-menu target.');
 requireText(code, 'BookmarksList.SelectAll()', 'Ctrl+A must select the displayed list rows.');
@@ -84,7 +84,7 @@ if (bookmarkDeleteStart >= 0 && folderDeleteStart > bookmarkDeleteStart) {
 if (folderDeleteStart >= 0 && confirmationStart > folderDeleteStart) {
   requireBefore(
     code.slice(folderDeleteStart, confirmationStart),
-    'ConfirmDestructiveOperation(',
+    'ConfirmFolderDeletion(',
     'await ViewModel.DeleteSelectedFolderAsync()',
     'Cancelling folder confirmation must return before any ViewModel mutation.');
 }

@@ -14,6 +14,9 @@ const requiredXaml = [
   'Header="Move Folder to..."',
   'Header="Delete Folder..."',
   'Header="Delete Selected Item(s)..."',
+  'Header="Move Selected Item(s) to..."',
+  'IsEnabled="{Binding CanMoveSelectedContentItems}"',
+  'Click="MoveSelectedContentItems_Click"',
   'IsEnabled="{Binding CanDeleteSelectedContentItems}"',
   'Click="DeleteSelectedContentItems_Click"',
   'IsFolder',
@@ -27,6 +30,8 @@ const requiredCode = [
   "DeleteFolderAsync",
   "DeleteSelectedContentItemsFromUiAsync",
   "DeleteSelectedContentItemsAsync",
+  "MoveSelectedContentItemsFromUiAsync",
+  "MoveSelectedContentItemsToEndAsync",
   "CountSelectedContentRemoval",
   "UpdateSelectedContentItems"
 ];

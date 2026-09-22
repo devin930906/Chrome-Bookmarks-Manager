@@ -16,6 +16,9 @@
                 <MenuItem Header="_Open Bookmarks..."
                           IsEnabled="{Binding CanOpenBookmarks}"
                           Click="OpenBookmarks_Click" />
+                <MenuItem Header="_Export Bookmarks HTML..."
+                          IsEnabled="{Binding CanExportBookmarksHtml}"
+                          Click="ExportBookmarksHtml_Click" />
                 <MenuItem Header="_Save"
                           InputGestureText="Ctrl+S"
                           IsEnabled="{Binding CanSave}"

@@ -6,6 +6,7 @@ using System.Windows.Media;
 using ChromeBookmarksManager.Application;
 using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
+using ChromeBookmarksManager.Application.Launching;
 using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Infrastructure.Processes;
 using ChromeBookmarksManager.Infrastructure.Persistence;
@@ -51,6 +52,7 @@ public partial class MainWindow : Window
             new BookmarkSearchService(),
             baselineService,
             saveService,
+            new WindowsExternalUrlLauncher(),
             TimeSpan.FromMilliseconds(250));
     }
 
@@ -810,41 +812,28 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void BookmarksList_MouseDoubleClick(
+    private async void BookmarksList_MouseDoubleClick(
         object sender,
         MouseButtonEventArgs e)
     {
-        if (ViewModel.IsSearchActive &&
-            ViewModel.SelectedBookmark is { } bookmark)
+        if (ViewModel.CanOpenSelectedContentItem)
         {
-            ViewModel.NavigateToSearchResult(bookmark);
-            return;
-        }
-
-        if (ViewModel.SelectedContentFolder is { } folder)
-        {
-            ViewModel.NavigateToFolder(folder);
+            await OpenSelectedContentItemFromUiAsync();
         }
     }
 
-    private void BookmarksList_KeyDown(object sender, KeyEventArgs e)
+    private async void BookmarksList_KeyDown(
+        object sender,
+        KeyEventArgs e)
     {
         if (e.Key != Key.Enter)
         {
             return;
         }
 
-        if (ViewModel.IsSearchActive &&
-            ViewModel.SelectedBookmark is { } bookmark)
+        if (ViewModel.CanOpenSelectedContentItem)
         {
-            ViewModel.NavigateToSearchResult(bookmark);
-            e.Handled = true;
-            return;
-        }
-
-        if (ViewModel.SelectedContentFolder is { } folder)
-        {
-            ViewModel.NavigateToFolder(folder);
+            await OpenSelectedContentItemFromUiAsync();
             e.Handled = true;
         }
     }
@@ -858,8 +847,14 @@ public partial class MainWindow : Window
         var multipleSelected =
             ViewModel.SelectedContentItems.Count > 1;
 
+        var bookmarkSelected =
+            ViewModel.SelectedContentItems.Count == 1 &&
+            ViewModel.SelectedContentItems[0].Node is BookmarkUrl;
+
         ContentOpenFolderMenuItem.Visibility =
             folderSelected ? Visibility.Visible : Visibility.Collapsed;
+        ContentOpenBookmarkMenuItem.Visibility =
+            bookmarkSelected ? Visibility.Visible : Visibility.Collapsed;
         ContentRenameFolderMenuItem.Visibility =
             folderSelected ? Visibility.Visible : Visibility.Collapsed;
         ContentMoveFolderMenuItem.Visibility =
@@ -898,13 +893,39 @@ public partial class MainWindow : Window
                 : Visibility.Collapsed;
     }
 
-    private void OpenContentFolder_Click(
+    private async void OpenContentFolder_Click(
         object sender,
         RoutedEventArgs e)
     {
-        if (ViewModel.SelectedContentFolder is { } folder)
+        await OpenSelectedContentItemFromUiAsync();
+    }
+
+    private async void OpenContentBookmark_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await OpenSelectedContentItemFromUiAsync();
+    }
+
+    private async Task OpenSelectedContentItemFromUiAsync()
+    {
+        if (!ViewModel.CanOpenSelectedContentItem)
         {
-            ViewModel.NavigateToFolder(folder);
+            return;
+        }
+
+        try
+        {
+            await ViewModel.OpenSelectedContentItemAsync();
+        }
+        catch (ExternalUrlLaunchException exception)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Open bookmark",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
     }
 

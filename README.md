@@ -4,13 +4,17 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Stable — V1.0.0**
+**Stable — V1.1.0**
 
-V1.0.0 is the first stable personal-use release. It preserves the V0.9 guarded Safe Save invariants and completes the local Chrome bookmark-manager parity scope for mixed folder/bookmark management, search, move/reorder/Drag & Drop, delete, Undo/Redo, clipboard operations, Sort by Name, bookmark opening, and Netscape bookmark HTML import/export. Windows 10 owner acceptance, post-merge `main` CI, the tagged release-readiness run, and the published GitHub Release are verified. The formal Release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
+V1.1.0 builds on the V1.0 stable personal-use release with a complete Simplified Chinese / English interface, instant language switching with remembered preference, and a branded Windows application icon. The existing local bookmark-management scope and guarded Safe Save invariants remain unchanged. V1.1 automated Windows CI and owner UI acceptance are complete; the formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
 
 The current application supports:
 
 - Chrome native bookmark file version `1`
+- Simplified Chinese UI by default on first launch
+- instant Simplified Chinese / English switching without restarting
+- remembered UI language preference stored separately from Chrome bookmark data
+- branded Windows EXE / window / taskbar application icon
 - `bookmark_bar`, `other`, and `synced` roots
 - nested folders and URL nodes while preserving child order and parent links
 - exact bookmark and folder counts
@@ -491,6 +495,7 @@ The application still does not write automatically: production persistence occur
 - **V0.8 — Undo / Redo: completed** — bounded reversible command history covers V0.5–V0.7 mutations with history-position dirty state and Ctrl+Z/Ctrl+Y/Ctrl+Shift+Z; automated validation, whole-branch review, Windows 10 owner acceptance, PR #8 merge, and post-merge verification are complete
 - **V0.9 — Safe Chrome Write: completed** — Chromium-compatible checksums, deterministic writer, external-change detection, Chrome-process guard, verified backup, atomic replace, explicit Save UI, persistence safety/scale gates, disposable-profile compatibility, Windows 10 production owner acceptance, PR #9 merge, and post-merge verification complete
 - **V1.0 — Stable personal-use release: completed**
+- **V1.1 — Bilingual UI and branded Windows icon: completed**
 
 ## Design and implementation documents
 

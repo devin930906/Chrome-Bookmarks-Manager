@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using ChromeBookmarksManager.Application;
+using ChromeBookmarksManager.Application.Clipboard;
 using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.Launching;
@@ -46,6 +47,8 @@ public partial class MainWindow : Window
             new ChromeProcessDetector(),
             baselineService,
             transaction);
+        var clipboardService = new BookmarkClipboardService();
+        var clipboardStore = new InMemoryBookmarkClipboardStore();
 
         DataContext = new MainViewModel(
             reader,
@@ -53,6 +56,8 @@ public partial class MainWindow : Window
             baselineService,
             saveService,
             new WindowsExternalUrlLauncher(),
+            clipboardService,
+            clipboardStore,
             TimeSpan.FromMilliseconds(250));
     }
 
@@ -907,6 +912,27 @@ public partial class MainWindow : Window
         await OpenSelectedContentItemFromUiAsync();
     }
 
+    private void CutSelectedContentItems_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        CutSelectedContentItemsFromUi();
+    }
+
+    private void CopySelectedContentItems_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        CopySelectedContentItemsFromUi();
+    }
+
+    private async void PasteClipboard_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await PasteClipboardFromUiAsync();
+    }
+
     private async Task OpenSelectedContentItemFromUiAsync()
     {
         if (!ViewModel.CanOpenSelectedContentItem)
@@ -942,6 +968,71 @@ public partial class MainWindow : Window
         }
 
         return ViewModel.NavigateToFolder(folder);
+    }
+
+    private void CopySelectedContentItemsFromUi()
+    {
+        if (!ViewModel.CanCopySelectedContentItems)
+        {
+            return;
+        }
+
+        try
+        {
+            ViewModel.CopySelectedContentItems();
+        }
+        catch (BookmarkClipboardException exception)
+        {
+            ShowClipboardError(exception);
+        }
+    }
+
+    private void CutSelectedContentItemsFromUi()
+    {
+        if (!ViewModel.CanCutSelectedContentItems)
+        {
+            return;
+        }
+
+        try
+        {
+            ViewModel.CutSelectedContentItems();
+        }
+        catch (BookmarkClipboardException exception)
+        {
+            ShowClipboardError(exception);
+        }
+    }
+
+    private async Task PasteClipboardFromUiAsync()
+    {
+        if (!ViewModel.CanPasteClipboard)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.PasteClipboardIntoSelectedFolderAsync();
+        }
+        catch (BookmarkClipboardException exception)
+        {
+            ShowClipboardError(exception);
+        }
+        catch (BookmarkMoveException exception)
+        {
+            ShowClipboardError(exception);
+        }
+    }
+
+    private void ShowClipboardError(Exception exception)
+    {
+        MessageBox.Show(
+            this,
+            exception.Message,
+            "Clipboard operation",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
     }
 
     private async void RenameContentFolder_Click(
@@ -1731,6 +1822,32 @@ public partial class MainWindow : Window
             }
 
             return;
+        }
+
+        if (!textInputOwnsFocus &&
+            BookmarksList.IsKeyboardFocusWithin &&
+            modifiers == ModifierKeys.Control)
+        {
+            if (e.Key == Key.X)
+            {
+                e.Handled = true;
+                CutSelectedContentItemsFromUi();
+                return;
+            }
+
+            if (e.Key == Key.C)
+            {
+                e.Handled = true;
+                CopySelectedContentItemsFromUi();
+                return;
+            }
+
+            if (e.Key == Key.V)
+            {
+                e.Handled = true;
+                await PasteClipboardFromUiAsync();
+                return;
+            }
         }
 
         if (e.Key == Key.A &&

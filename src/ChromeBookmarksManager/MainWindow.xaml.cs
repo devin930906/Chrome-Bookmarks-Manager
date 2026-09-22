@@ -822,6 +822,8 @@ public partial class MainWindow : Window
     {
         var folderSelected =
             ViewModel.SelectedContentFolder is not null;
+        var multipleSelected =
+            ViewModel.SelectedContentItems.Count > 1;
 
         ContentOpenFolderMenuItem.Visibility =
             folderSelected ? Visibility.Visible : Visibility.Collapsed;
@@ -831,8 +833,6 @@ public partial class MainWindow : Window
             folderSelected && !multipleSelected
                 ? Visibility.Visible
                 : Visibility.Collapsed;
-        var multipleSelected =
-            ViewModel.SelectedContentItems.Count > 1;
 
         ContentDeleteFolderMenuItem.Visibility =
             folderSelected && !multipleSelected

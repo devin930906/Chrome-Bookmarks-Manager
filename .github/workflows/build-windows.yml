@@ -71,6 +71,10 @@ jobs:
         shell: pwsh
         run: node scripts/Verify-V11LocalizationUi.mjs
 
+      - name: Verify V1.1.1 icon refresh contract
+        shell: pwsh
+        run: node scripts/Verify-V111IconRefresh.mjs
+
 
       - name: Verify V1.0 release asset scripts
         shell: pwsh

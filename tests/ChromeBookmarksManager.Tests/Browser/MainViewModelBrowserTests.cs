@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ChromeBookmarksManager.Application;
+using ChromeBookmarksManager.Application.Launching;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
 using ChromeBookmarksManager.ViewModels;
@@ -254,6 +255,77 @@ public sealed class MainViewModelBrowserTests
         Assert.Equal(
             "Child folder | 0 folders | 1 bookmark",
             viewModel.SelectionSummaryText);
+    }
+
+    [Fact]
+    public async Task OpenSelectedContentItem_FolderNavigatesWithoutLaunchingUrl()
+    {
+        var fixture = CreateFixture();
+        var launcher = new RecordingUrlLauncher();
+        var viewModel = CreateViewModel(
+            fixture.Document,
+            launcher);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        var folderRow = Assert.Single(
+            viewModel.CurrentItems,
+            item => item.IsFolder);
+        viewModel.UpdateSelectedContentItems(
+            new[] { folderRow });
+
+        Assert.True(viewModel.CanOpenSelectedContentItem);
+        Assert.True(
+            await viewModel.OpenSelectedContentItemAsync());
+
+        Assert.Same(fixture.ChildFolder, viewModel.SelectedFolder);
+        Assert.Empty(launcher.LaunchedUrls);
+    }
+
+    [Fact]
+    public async Task OpenSelectedContentItem_BookmarkInvokesExternalUrlLauncher()
+    {
+        var fixture = CreateFixture();
+        var launcher = new RecordingUrlLauncher();
+        var viewModel = CreateViewModel(
+            fixture.Document,
+            launcher);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        var bookmarkRow = viewModel.CurrentItems[0];
+        viewModel.UpdateSelectedContentItems(
+            new[] { bookmarkRow });
+
+        Assert.True(viewModel.CanOpenSelectedContentItem);
+        Assert.True(
+            await viewModel.OpenSelectedContentItemAsync());
+
+        Assert.Equal(
+            new[] { fixture.BarUrlFirst.Url },
+            launcher.LaunchedUrls);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+    }
+
+    [Fact]
+    public async Task OpenSelectedContentItem_MultipleRowsIsDisabledAndNoOp()
+    {
+        var fixture = CreateFixture();
+        var launcher = new RecordingUrlLauncher();
+        var viewModel = CreateViewModel(
+            fixture.Document,
+            launcher);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        viewModel.UpdateSelectedContentItems(
+            new[]
+            {
+                viewModel.CurrentItems[0],
+                viewModel.CurrentItems[1]
+            });
+
+        Assert.False(viewModel.CanOpenSelectedContentItem);
+        Assert.False(
+            await viewModel.OpenSelectedContentItemAsync());
+        Assert.Empty(launcher.LaunchedUrls);
     }
 
     [Fact]
@@ -535,6 +607,29 @@ public sealed class MainViewModelBrowserTests
 
     private static IReadOnlyDictionary<string, JsonElement> EmptyProperties() =>
         new Dictionary<string, JsonElement>();
+
+    private static MainViewModel CreateViewModel(
+        BookmarkDocument document,
+        IExternalUrlLauncher launcher) =>
+        new(
+            new StubReader((_, _) => Task.FromResult(document)),
+            new Application.Search.BookmarkSearchService(),
+            launcher,
+            TimeSpan.Zero);
+
+    private sealed class RecordingUrlLauncher : IExternalUrlLauncher
+    {
+        public List<string> LaunchedUrls { get; } = new();
+
+        public Task LaunchAsync(
+            string url,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            LaunchedUrls.Add(url);
+            return Task.CompletedTask;
+        }
+    }
 
     private sealed class StubReader(
         Func<string, CancellationToken, Task<BookmarkDocument>> read)

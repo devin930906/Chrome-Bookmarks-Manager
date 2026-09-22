@@ -22,7 +22,7 @@ public sealed class MainViewModelTests
         var viewModel = CreateViewModel();
 
         Assert.Equal(
-            "Chrome Bookmarks Manager 1.0.0",
+            "Chrome Bookmarks Manager 1.1.0",
             viewModel.ApplicationTitle);
     }
 
@@ -65,7 +65,9 @@ public sealed class MainViewModelTests
 
         Assert.Equal(DocumentState.LoadFailed, viewModel.State);
         Assert.Null(viewModel.Document);
-        Assert.Equal("Invalid file.", viewModel.StatusText);
+        Assert.Equal(
+            "The selected file is not a supported or valid Chrome Bookmarks file.",
+            viewModel.StatusText);
         Assert.True(viewModel.CanOpenBookmarks);
         Assert.False(viewModel.CanCancelLoad);
     }

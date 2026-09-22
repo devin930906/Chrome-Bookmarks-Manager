@@ -40,10 +40,10 @@ requireText(xaml, 'SelectionMode="Extended"', 'Bookmark rows must support Ctrl/S
 requireText(xaml, 'SelectionChanged="BookmarksList_SelectionChanged"', 'List selection changes must be forwarded to the ViewModel.');
 requireText(xaml, 'VirtualizingPanel.IsVirtualizing="True"', 'V0.7 must preserve list/tree virtualization.');
 requireText(xaml, 'VirtualizingPanel.VirtualizationMode="Recycling"', 'V0.7 must preserve recycling virtualization.');
-requireText(xaml, 'Header="Delete Bookmark(s)..."', 'Bookmark context menu must expose deletion.');
+requireText(xaml, 'Header="{DynamicResource ContextDeleteBookmarks}"', 'Bookmark context menu must expose deletion.');
 requireText(xaml, 'IsEnabled="{Binding CanDeleteSelectedBookmarks}"', 'Bookmark deletion must follow ViewModel capability.');
 requireText(xaml, 'Click="DeleteSelectedBookmarks_Click"', 'Bookmark deletion must route through its guarded UI handler.');
-requireText(xaml, 'Header="Delete Folder..."', 'Folder context menu must expose deletion.');
+requireText(xaml, 'Header="{DynamicResource ContextDeleteFolder}"', 'Folder context menu must expose deletion.');
 requireText(xaml, 'IsEnabled="{Binding CanDeleteSelectedFolder}"', 'Folder deletion must follow ordinary-folder capability.');
 requireText(xaml, 'Click="DeleteSelectedFolder_Click"', 'Folder deletion must route through its guarded UI handler.');
 requireText(xaml, 'IsEnabled="{Binding CanMoveSelectedBookmarks}"', 'Move to... must be enabled for a selected bookmark set.');
@@ -64,8 +64,8 @@ requireText(code, 'await DeleteSelectedFolderFromUiAsync()', 'Folder Delete must
 requireText(code, 'MessageBoxButton.YesNoCancel', 'Destructive confirmation must offer an explicit cancel path.');
 requireText(code, 'MessageBoxResult.Cancel', 'Destructive confirmation must default to Cancel.');
 requireText(code, 'MessageBoxResult.Yes', 'Deletion must proceed only after explicit Yes confirmation.');
-requireText(code, 'removed from the loaded document', 'Delete confirmation must explain that deletion first affects the loaded document.');
-requireText(code, 'Use Save to write the change safely', 'Delete confirmation must explain that source write-back requires explicit Save.');
+requireText(code, '"DeleteBookmarkPrompt"', 'Delete confirmation must use the localized loaded-document safety copy.');
+requireText(code, '"DeleteFolderPrompt"', 'Delete confirmation must use the localized explicit-Save safety copy.');
 requireText(code, 'MoveSelectedBookmarksToEndAsync', 'Move to... must dispatch multi-selection through the batch ViewModel method.');
 requireText(code, 'CountFolderDescendants(folder)', 'Folder confirmation must calculate descendant counts.');
 requireText(code, 'BookmarkDragPayload.ForContentRow(', 'V1.0 right-pane drag-and-drop must preserve the ordered selected node set when the pointer-down row is selected.');

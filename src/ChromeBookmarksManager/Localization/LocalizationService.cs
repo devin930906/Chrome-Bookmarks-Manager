@@ -1,0 +1,361 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+using System.Windows;
+using ChromeBookmarksManager.Application.Clipboard;
+using ChromeBookmarksManager.Application.Deleting;
+using ChromeBookmarksManager.Application.Editing;
+using ChromeBookmarksManager.Application.Importing;
+using ChromeBookmarksManager.Application.Launching;
+using ChromeBookmarksManager.Application.Moving;
+using ChromeBookmarksManager.Application.Saving;
+using ChromeBookmarksManager.Chrome;
+using ChromeBookmarksManager.Infrastructure;
+using ChromeBookmarksManager.Infrastructure.Persistence;
+
+namespace ChromeBookmarksManager.Localization;
+
+public static partial class LocalizationService
+{
+    public const string SimplifiedChinese = "zh-CN";
+    public const string English = "en-US";
+
+    private const string DictionaryPrefix =
+        "Localization/Strings.";
+
+    private static readonly IReadOnlyDictionary<string, string>
+        EnglishFallback = new Dictionary<string, string>(
+            StringComparer.Ordinal)
+        {
+            ["ApplicationTitle"] = "Chrome Bookmarks Manager {0}",
+            ["StatusNoFileOpen"] = "No Bookmarks file is open.",
+            ["StatusReading"] = "Reading Bookmarks...",
+            ["StatusVerifyingSource"] = "Verifying Bookmarks source...",
+            ["StatusBuildingSearch"] = "Building search index...",
+            ["StatusLoaded"] = "Loaded {0:N0} URLs and {1:N0} folders in {2:F1}s.",
+            ["StatusReplacementCanceled"] =
+                "Replacement loading was canceled. The current document was kept unchanged.",
+            ["StatusLoadingCanceled"] = "Loading was canceled.",
+            ["StatusCurrentDocumentKept"] =
+                " The current document was kept unchanged.",
+            ["StatusReplacementSearchFailed"] =
+                "Replacement loading failed while preparing search. The current document was kept unchanged.",
+            ["StatusSearchPreparationFailed"] =
+                "Loading failed while preparing search.",
+            ["StatusSaving"] = "Saving Bookmarks safely...",
+            ["StatusSavedVerified"] =
+                "Saved and verified. Verified safety backup: {0}",
+            ["StatusVerifiedRecoveryBackup"] =
+                " Verified recovery backup: {0}",
+            ["StatusReloadBeforeSave"] =
+                " Reload or recover the Bookmarks source before saving again.",
+            ["StatusSaveCanceled"] =
+                "Saving was canceled before replacement.",
+            ["StatusSaveUnexpected"] =
+                "Saving failed unexpectedly. The document remains unsaved and retryable.",
+            ["StatusNoUnsavedChanges"] =
+                "No unsaved in-memory changes. Source file has not been modified.",
+            ["StatusUnsavedChanges"] =
+                "Unsaved in-memory changes. Changes are not saved to disk.",
+            ["SearchRefreshingIndex"] = "Refreshing search index...",
+            ["SearchRefreshing"] = "Refreshing search...",
+            ["SearchSearching"] = "Searching...",
+            ["SearchNoMatches"] = "No matches",
+            ["SearchMatches"] = "{0:N0} matches",
+            ["SearchFailed"] = "Search failed.",
+            ["DocumentSummary"] = "{0:N0} URLs | {1:N0} folders",
+            ["SelectionSummary"] = "{0} | {1} | {2}",
+            ["CountFolderOne"] = "{0:N0} folder",
+            ["CountFolderMany"] = "{0:N0} folders",
+            ["CountBookmarkOne"] = "{0:N0} bookmark",
+            ["CountBookmarkMany"] = "{0:N0} bookmarks",
+            ["HistoryAddBookmark"] = "Add bookmark",
+            ["HistoryAddFolder"] = "Add folder",
+            ["HistoryDeleteFolder"] = "Delete folder",
+            ["HistoryDeleteBookmark"] = "Delete bookmark",
+            ["HistoryImportHtml"] = "Import bookmarks HTML",
+            ["HistoryMoveFolder"] = "Move folder",
+            ["HistoryMoveBookmark"] = "Move bookmark",
+            ["HistoryRenameFolder"] = "Rename folder",
+            ["HistoryRenameBookmark"] = "Rename bookmark",
+            ["HistorySortByName"] = "Sort by name",
+            ["HistoryEditUrl"] = "Edit bookmark URL",
+            ["HistoryDeleteBookmarks"] = "Delete {0:N0} bookmarks",
+            ["HistoryMoveBookmarks"] = "Move {0:N0} bookmarks",
+            ["HistoryMoveItems"] = "Move {0:N0} items",
+            ["HistoryPasteItemsOne"] = "Paste {0:N0} item",
+            ["HistoryPasteItemsMany"] = "Paste {0:N0} items",
+            ["ErrorGeneric"] = "The operation could not be completed.",
+            ["ErrorEditInvalidValue"] = "The bookmark value is invalid. Check the entered name or URL.",
+            ["ErrorEditProtectedRoot"] = "Permanent Chrome root folders cannot be edited.",
+            ["ErrorNodeNotInDocument"] = "The selected bookmark item no longer belongs to the active document.",
+            ["ErrorMoveProtectedRoot"] = "Permanent Chrome root folders cannot be moved.",
+            ["ErrorMoveTargetNotInDocument"] = "The move destination no longer belongs to the active document.",
+            ["ErrorMoveMissingParent"] = "The selected item has no movable parent folder.",
+            ["ErrorMoveSelfTarget"] = "A folder cannot be moved into itself.",
+            ["ErrorMoveDescendantTarget"] = "A folder cannot be moved into one of its descendants.",
+            ["ErrorMoveInvalidIndex"] = "The requested move position is invalid.",
+            ["ErrorMoveInvalidDropTarget"] = "The requested drag-and-drop target is invalid.",
+            ["ErrorDeleteProtectedRoot"] = "Permanent Chrome root folders cannot be deleted.",
+            ["ErrorDeleteMissingParent"] = "The selected item has no deletable parent folder.",
+            ["ErrorClipboardInvalidPayload"] = "The bookmark clipboard data is invalid.",
+            ["ErrorClipboardProtectedRoot"] = "Permanent Chrome root folders cannot be cut.",
+            ["ErrorClipboardSourceMismatch"] = "Cut items can only be pasted back into their source document.",
+            ["ErrorClipboardSourceMissing"] = "A cut item is no longer present in the source document.",
+            ["ErrorClipboardInvalidTarget"] = "The requested paste destination is invalid.",
+            ["ErrorOpenInvalidUrl"] = "The bookmark URL is not a valid absolute URL.",
+            ["ErrorOpenUnsupportedScheme"] = "Only http and https bookmark URLs can be opened.",
+            ["ErrorOpenLaunchFailed"] = "Windows could not open the bookmark URL with the default application.",
+            ["ErrorImportMalformed"] = "The bookmark HTML file is malformed or uses an unsupported structure.",
+            ["ErrorImportDepth"] = "The bookmark HTML folder structure is too deeply nested.",
+            ["ErrorImportNodes"] = "The bookmark HTML file contains too many items.",
+            ["ErrorImportTooLarge"] = "The bookmark HTML file is too large to import safely.",
+            ["ErrorImportInvalidTarget"] = "The import destination is no longer part of the active document.",
+            ["ErrorSaveChromeRunning"] = "Chrome is still running. Fully close Chrome before saving.",
+            ["ErrorSaveSourceChanged"] = "The source Bookmarks file changed outside this app. Reload it before saving.",
+            ["ErrorSaveSourceMissing"] = "The source Bookmarks file can no longer be found.",
+            ["ErrorSaveAccessDenied"] = "Windows denied access while saving the Bookmarks file.",
+            ["ErrorSaveRecoveryRequired"] = "Saving could not finish safely. Reload or recover the source before saving again.",
+            ["ErrorSaveCanceled"] = "Saving was canceled before the source file was replaced.",
+            ["ErrorSaveGeneric"] = "The Bookmarks file could not be saved safely.",
+            ["ErrorReadFileNotFound"] = "The selected Bookmarks file could not be found.",
+            ["ErrorReadAccessDenied"] = "Windows denied access to the selected Bookmarks file.",
+            ["ErrorReadIo"] = "The selected Bookmarks file could not be read because of an I/O error.",
+            ["ErrorReadFormat"] = "The selected file is not a supported or valid Chrome Bookmarks file."
+        };
+
+    private static string _currentLanguage = English;
+
+    public static event EventHandler? LanguageChanged;
+
+    public static string CurrentLanguage => _currentLanguage;
+
+    public static void Initialize(string? languageCode)
+    {
+        var normalized = UserSettingsStore.NormalizeLanguage(languageCode);
+        _currentLanguage = normalized;
+        ApplyLanguageResources(normalized);
+    }
+
+    public static void SetLanguage(string? languageCode)
+    {
+        var normalized = UserSettingsStore.NormalizeLanguage(languageCode);
+
+        if (string.Equals(
+                _currentLanguage,
+                normalized,
+                StringComparison.Ordinal))
+        {
+            ApplyLanguageResources(normalized);
+            return;
+        }
+
+        _currentLanguage = normalized;
+        ApplyLanguageResources(normalized);
+        LanguageChanged?.Invoke(null, EventArgs.Empty);
+    }
+
+    public static string GetString(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
+        if (System.Windows.Application.Current?.TryFindResource(key)
+            is string localized)
+        {
+            return localized;
+        }
+
+        return EnglishFallback.TryGetValue(key, out var fallback)
+            ? fallback
+            : key;
+    }
+
+    public static string Format(
+        string key,
+        params object?[] arguments) =>
+        string.Format(
+            CultureInfo.CurrentCulture,
+            GetString(key),
+            arguments);
+
+    public static string LocalizeExceptionMessage(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        var key = exception switch
+        {
+            BookmarkEditException edit => edit.Error switch
+            {
+                BookmarkEditError.InvalidValue => "ErrorEditInvalidValue",
+                BookmarkEditError.ProtectedRoot => "ErrorEditProtectedRoot",
+                BookmarkEditError.NodeNotInDocument => "ErrorNodeNotInDocument",
+                _ => "ErrorGeneric"
+            },
+            BookmarkMoveException move => move.Error switch
+            {
+                BookmarkMoveError.ProtectedRoot => "ErrorMoveProtectedRoot",
+                BookmarkMoveError.NodeNotInDocument => "ErrorNodeNotInDocument",
+                BookmarkMoveError.TargetNotInDocument => "ErrorMoveTargetNotInDocument",
+                BookmarkMoveError.MissingParent => "ErrorMoveMissingParent",
+                BookmarkMoveError.SelfTarget => "ErrorMoveSelfTarget",
+                BookmarkMoveError.DescendantTarget => "ErrorMoveDescendantTarget",
+                BookmarkMoveError.InvalidIndex => "ErrorMoveInvalidIndex",
+                BookmarkMoveError.InvalidDropTarget => "ErrorMoveInvalidDropTarget",
+                _ => "ErrorGeneric"
+            },
+            BookmarkDeleteException delete => delete.Error switch
+            {
+                BookmarkDeleteError.ProtectedRoot => "ErrorDeleteProtectedRoot",
+                BookmarkDeleteError.NodeNotInDocument => "ErrorNodeNotInDocument",
+                BookmarkDeleteError.MissingParent => "ErrorDeleteMissingParent",
+                _ => "ErrorGeneric"
+            },
+            BookmarkClipboardException clipboard => clipboard.Error switch
+            {
+                BookmarkClipboardError.InvalidPayload => "ErrorClipboardInvalidPayload",
+                BookmarkClipboardError.NodeNotInDocument => "ErrorNodeNotInDocument",
+                BookmarkClipboardError.ProtectedRoot => "ErrorClipboardProtectedRoot",
+                BookmarkClipboardError.SourceDocumentMismatch => "ErrorClipboardSourceMismatch",
+                BookmarkClipboardError.SourceNodeMissing => "ErrorClipboardSourceMissing",
+                BookmarkClipboardError.InvalidTargetIndex => "ErrorClipboardInvalidTarget",
+                _ => "ErrorGeneric"
+            },
+            ExternalUrlLaunchException launch => launch.Error switch
+            {
+                ExternalUrlLaunchError.InvalidUrl => "ErrorOpenInvalidUrl",
+                ExternalUrlLaunchError.UnsupportedScheme => "ErrorOpenUnsupportedScheme",
+                ExternalUrlLaunchError.LaunchFailed => "ErrorOpenLaunchFailed",
+                _ => "ErrorGeneric"
+            },
+            BookmarkHtmlImportException import => import.Error switch
+            {
+                BookmarkHtmlImportError.MalformedHtml => "ErrorImportMalformed",
+                BookmarkHtmlImportError.DepthLimitExceeded => "ErrorImportDepth",
+                BookmarkHtmlImportError.NodeLimitExceeded => "ErrorImportNodes",
+                BookmarkHtmlImportError.InputTooLarge => "ErrorImportTooLarge",
+                BookmarkHtmlImportError.InvalidTarget => "ErrorImportInvalidTarget",
+                _ => "ErrorGeneric"
+            },
+            ChromeBookmarksSaveException save => save.Error switch
+            {
+                ChromeBookmarksSaveError.ChromeRunning => "ErrorSaveChromeRunning",
+                ChromeBookmarksSaveError.SourceChangedExternally => "ErrorSaveSourceChanged",
+                ChromeBookmarksSaveError.SourceMissing => "ErrorSaveSourceMissing",
+                ChromeBookmarksSaveError.AccessDenied => "ErrorSaveAccessDenied",
+                ChromeBookmarksSaveError.RecoveryRequired => "ErrorSaveRecoveryRequired",
+                ChromeBookmarksSaveError.CanceledBeforeReplacement => "ErrorSaveCanceled",
+                _ => "ErrorSaveGeneric"
+            },
+            ChromeBookmarksReadException read => read.Error switch
+            {
+                ChromeBookmarksReadError.FileNotFound => "ErrorReadFileNotFound",
+                ChromeBookmarksReadError.AccessDenied => "ErrorReadAccessDenied",
+                ChromeBookmarksReadError.IoFailure => "ErrorReadIo",
+                _ => "ErrorReadFormat"
+            },
+            BookmarkSourceBaselineException baseline => baseline.Error switch
+            {
+                BookmarkSourceBaselineError.FileNotFound => "ErrorReadFileNotFound",
+                BookmarkSourceBaselineError.AccessDenied => "ErrorReadAccessDenied",
+                BookmarkSourceBaselineError.SourceChanged => "ErrorSaveSourceChanged",
+                BookmarkSourceBaselineError.IoFailure => "ErrorReadIo",
+                _ => "ErrorGeneric"
+            },
+            _ => "ErrorGeneric"
+        };
+
+        return GetString(key);
+    }
+
+    public static string? LocalizeHistoryDescription(
+        string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return description;
+        }
+
+        var key = description switch
+        {
+            "Add bookmark" => "HistoryAddBookmark",
+            "Add folder" => "HistoryAddFolder",
+            "Delete folder" => "HistoryDeleteFolder",
+            "Delete bookmark" => "HistoryDeleteBookmark",
+            "Import bookmarks HTML" => "HistoryImportHtml",
+            "Move folder" => "HistoryMoveFolder",
+            "Move bookmark" => "HistoryMoveBookmark",
+            "Rename folder" => "HistoryRenameFolder",
+            "Rename bookmark" => "HistoryRenameBookmark",
+            "Sort by name" => "HistorySortByName",
+            "Edit bookmark URL" => "HistoryEditUrl",
+            _ => null
+        };
+
+        if (key is not null)
+        {
+            return GetString(key);
+        }
+
+        var match = HistoryCountPattern().Match(description);
+        if (!match.Success ||
+            !int.TryParse(
+                match.Groups["count"].Value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var count))
+        {
+            return description;
+        }
+
+        return match.Groups["verb"].Value switch
+        {
+            "Delete" when match.Groups["noun"].Value == "bookmarks" =>
+                Format("HistoryDeleteBookmarks", count),
+            "Move" when match.Groups["noun"].Value == "bookmarks" =>
+                Format("HistoryMoveBookmarks", count),
+            "Move" when match.Groups["noun"].Value == "items" =>
+                Format("HistoryMoveItems", count),
+            "Paste" =>
+                Format(
+                    count == 1
+                        ? "HistoryPasteItemsOne"
+                        : "HistoryPasteItemsMany",
+                    count),
+            _ => description
+        };
+    }
+
+    private static void ApplyLanguageResources(string languageCode)
+    {
+        var resources = System.Windows.Application.Current?.Resources;
+        if (resources is null)
+        {
+            return;
+        }
+
+        var existing = resources.MergedDictionaries
+            .Where(dictionary =>
+                dictionary.Source?.OriginalString.Contains(
+                    DictionaryPrefix,
+                    StringComparison.OrdinalIgnoreCase) == true)
+            .ToArray();
+
+        foreach (var dictionary in existing)
+        {
+            resources.MergedDictionaries.Remove(dictionary);
+        }
+
+        resources.MergedDictionaries.Add(
+            new ResourceDictionary
+            {
+                Source = new Uri(
+                    $"pack://application:,,,/ChromeBookmarksManager;component/" +
+                    $"{DictionaryPrefix}{languageCode}.xaml",
+                    UriKind.Absolute)
+            });
+    }
+
+    [GeneratedRegex(
+        @"^(?<verb>Delete|Move|Paste) (?<count>\d+) (?<noun>bookmarks|items?)$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex HistoryCountPattern();
+}

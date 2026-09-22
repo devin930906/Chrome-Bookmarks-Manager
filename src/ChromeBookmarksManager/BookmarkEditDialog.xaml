@@ -23,7 +23,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0"
                        VerticalAlignment="Center"
-                       Text="Name:" />
+                       Text="{DynamicResource FieldName}" />
             <TextBox x:Name="NameBox"
                      Grid.Column="1"
                      MinWidth="360"
@@ -37,7 +37,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0"
                        VerticalAlignment="Center"
-                       Text="URL:" />
+                       Text="{DynamicResource FieldUrl}" />
             <TextBox x:Name="UrlBox"
                      Grid.Column="1"
                      MinWidth="360"
@@ -54,12 +54,12 @@
         <StackPanel Grid.Row="3"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right">
-            <Button Content="OK"
+            <Button Content="{DynamicResource ButtonOk}"
                     Width="88"
                     Margin="0,0,8,0"
                     IsDefault="True"
                     Click="Ok_Click" />
-            <Button Content="Cancel"
+            <Button Content="{DynamicResource ButtonCancel}"
                     Width="88"
                     IsCancel="True" />
         </StackPanel>

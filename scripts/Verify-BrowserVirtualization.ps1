@@ -83,8 +83,8 @@ Assert-XamlContains -Token 'x:Name="SearchBox"' -Description "named search TextB
 Assert-XamlContains -Token 'Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"' -Description "two-way SearchText binding"
 Assert-XamlContains -Token 'IsEnabled="{Binding CanSearchDocument}"' -Description "CanSearchDocument enablement"
 Assert-XamlContains -Token 'SelectedValue="{Binding SearchScope, Mode=TwoWay}"' -Description "two-way SearchScope binding"
-Assert-XamlContains -Token 'Content="All bookmarks"' -Description "All bookmarks scope option"
-Assert-XamlContains -Token 'Content="Current folder"' -Description "Current folder scope option"
+Assert-XamlContains -Token 'Content="{DynamicResource SearchScopeAllBookmarks}"' -Description "localized All bookmarks scope option"
+Assert-XamlContains -Token 'Content="{DynamicResource SearchScopeCurrentFolder}"' -Description "localized Current folder scope option"
 Assert-XamlContains -Token 'Text="{Binding SearchSummaryText}"' -Description "search summary status binding"
 
 Write-Host "Browser virtualization and V0.4 search UI contract verification passed."

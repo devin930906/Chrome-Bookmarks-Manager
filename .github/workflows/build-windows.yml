@@ -41,16 +41,16 @@ jobs:
         shell: pwsh
         run: node scripts/Verify-V10NormalCiContract.mjs
 
-      - name: Verify V1.0 project version
+      - name: Verify V1.1 project version
         shell: pwsh
-        run: pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag v1.0.0
+        run: pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag v1.1.0
 
-      - name: Verify V1.0 version mismatch is rejected
+      - name: Verify V1.1 version mismatch is rejected
         shell: pwsh
         run: |
-          $output = & pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag v1.0.1 2>&1
+          $output = & pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag v1.1.1 2>&1
           if ($LASTEXITCODE -eq 0) {
-            throw "Expected mismatched tag v1.0.1 to be rejected."
+            throw "Expected mismatched tag v1.1.1 to be rejected."
           }
           $text = $output | Out-String
           if ($text -notmatch "does not match project version") {
@@ -66,6 +66,10 @@ jobs:
       - name: Verify V1.0 right-pane browser parity
         shell: pwsh
         run: node scripts/Verify-V10RightPaneParity.mjs
+
+      - name: Verify V1.1 localization and icon contract
+        shell: pwsh
+        run: node scripts/Verify-V11LocalizationUi.mjs
 
 
       - name: Verify V1.0 release asset scripts
@@ -255,7 +259,7 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/SmokeTest-Windows.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe
 
-      - name: Verify V1.0 EXE version
+      - name: Verify V1.1 EXE version
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe
 

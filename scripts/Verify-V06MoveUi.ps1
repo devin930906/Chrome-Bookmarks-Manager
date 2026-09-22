@@ -37,7 +37,7 @@ function Require-Text {
 if (Require-File $mainWindowXaml) {
     $xaml = Get-Content -LiteralPath $mainWindowXaml -Raw
 
-    Require-Text $xaml 'Header="Move to..."' "Move to... must be exposed from context menus."
+    Require-Text $xaml 'Header="{DynamicResource ContextMoveTo}"' "Move to... must be exposed from context menus."
     Require-Text $xaml 'IsEnabled="{Binding CanMoveSelectedFolder}"' "Folder Move to... must follow CanMoveSelectedFolder."
     Require-Text $xaml 'IsEnabled="{Binding CanMoveSelectedBookmarks}"' "Bookmark Move to... must follow the selected-bookmark-set capability."
     Require-Text $xaml 'Click="MoveFolder_Click"' "Folder context menu must route Move to... through MoveFolder_Click."

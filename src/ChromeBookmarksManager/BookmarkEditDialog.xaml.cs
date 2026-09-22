@@ -1,4 +1,5 @@
 using System.Windows;
+using ChromeBookmarksManager.Localization;
 
 namespace ChromeBookmarksManager;
 
@@ -60,7 +61,7 @@ public partial class BookmarkEditDialog : Window
         if (_requireUrl &&
             string.IsNullOrWhiteSpace(UrlBox.Text))
         {
-            ValidationText.Text = "URL cannot be empty.";
+            ValidationText.Text = LocalizationService.GetString("ValidationUrlRequired");
             UrlBox.Focus();
             UrlBox.SelectAll();
             return;

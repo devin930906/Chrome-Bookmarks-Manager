@@ -10,7 +10,9 @@ using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.Importing;
 using ChromeBookmarksManager.Application.Launching;
 using ChromeBookmarksManager.Application.Moving;
+using ChromeBookmarksManager.Infrastructure;
 using ChromeBookmarksManager.Infrastructure.Processes;
+using ChromeBookmarksManager.Localization;
 using ChromeBookmarksManager.Infrastructure.Persistence;
 using ChromeBookmarksManager.Application.Saving;
 using ChromeBookmarksManager.Application.Search;
@@ -31,6 +33,7 @@ public partial class MainWindow : Window
     private ListViewItem? _bookmarkDropIndicatorItem;
     private TreeViewItem? _folderDropIndicatorItem;
     private bool _allowClose;
+    private readonly UserSettingsStore _userSettingsStore = new();
 
     public MainWindow()
     {
@@ -60,6 +63,48 @@ public partial class MainWindow : Window
             clipboardService,
             clipboardStore,
             TimeSpan.FromMilliseconds(250));
+
+        UpdateLanguageMenuChecks();
+    }
+
+    private static string L(string key) =>
+        LocalizationService.GetString(key);
+
+    private static string LF(
+        string key,
+        params object?[] arguments) =>
+        LocalizationService.Format(key, arguments);
+
+    private void SwitchToSimplifiedChinese_Click(
+        object sender,
+        RoutedEventArgs e) =>
+        SwitchLanguage(LocalizationService.SimplifiedChinese);
+
+    private void SwitchToEnglish_Click(
+        object sender,
+        RoutedEventArgs e) =>
+        SwitchLanguage(LocalizationService.English);
+
+    private void SwitchLanguage(string languageCode)
+    {
+        LocalizationService.SetLanguage(languageCode);
+        _userSettingsStore.SaveLanguage(languageCode);
+        UpdateLanguageMenuChecks();
+        ViewModel.RefreshLocalizedText();
+    }
+
+    private void UpdateLanguageMenuChecks()
+    {
+        SimplifiedChineseMenuItem.IsChecked =
+            string.Equals(
+                LocalizationService.CurrentLanguage,
+                LocalizationService.SimplifiedChinese,
+                StringComparison.Ordinal);
+        EnglishMenuItem.IsChecked =
+            string.Equals(
+                LocalizationService.CurrentLanguage,
+                LocalizationService.English,
+                StringComparison.Ordinal);
     }
 
     private MainViewModel ViewModel => (MainViewModel)DataContext;
@@ -99,7 +144,7 @@ public partial class MainWindow : Window
 
         e.Cancel = true;
 
-        var decision = await PromptDirtyDocumentAsync("closing the application");
+        var decision = await PromptDirtyDocumentAsync("DirtyActionClose");
         if (decision == SaveDiscardCancel.Cancel)
         {
             return;
@@ -115,14 +160,15 @@ public partial class MainWindow : Window
         Close();
     }
 
-    private Task<SaveDiscardCancel> PromptDirtyDocumentAsync(string action)
+    private Task<SaveDiscardCancel> PromptDirtyDocumentAsync(
+        string actionResourceKey)
     {
         var result = MessageBox.Show(
             this,
-            $"The current Bookmarks document has unsaved changes.\n\n" +
-            $"Save before {action}?\n\n" +
-            "Yes = Save\nNo = Discard\nCancel = Keep editing",
-            "Unsaved changes",
+            LF(
+                "DirtyPrompt",
+                L(actionResourceKey)),
+            L("TitleUnsavedChanges"),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Warning,
             MessageBoxResult.Cancel);
@@ -145,13 +191,13 @@ public partial class MainWindow : Window
         catch (ChromeBookmarksSaveException exception)
         {
             var recovery = exception.HasVerifiedRecoveryBackup
-                ? $"\n\nVerified recovery backup: {exception.BackupPath}"
+                ? $"\n\n{LF("VerifiedRecoveryBackup", exception.BackupPath)}"
                 : string.Empty;
 
             MessageBox.Show(
                 this,
-                exception.Message + recovery,
-                "Save failed",
+                LocalizationService.LocalizeExceptionMessage(exception) + recovery,
+                L("TitleSaveFailed"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             return false;
@@ -160,8 +206,8 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                "Saving was canceled before the replacement critical section.",
-                "Save canceled",
+                L("SaveCanceledBeforeCritical"),
+                L("TitleSaveCanceled"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return false;
@@ -170,8 +216,8 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                $"Saving failed unexpectedly.\n\n{exception.Message}",
-                "Save failed",
+                LF("SaveFailedUnexpected", exception.Message),
+                L("TitleSaveFailed"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             return false;
@@ -195,8 +241,9 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFileDialog
         {
+            Title = L("ToolbarOpenBookmarks"),
             FileName = "Bookmarks",
-            Filter = "Chrome Bookmarks file|Bookmarks|JSON files|*.json|All files|*.*",
+            Filter = L("OpenBookmarksFilter"),
             CheckFileExists = true
         };
 
@@ -209,7 +256,7 @@ public partial class MainWindow : Window
         if (ViewModel.IsDirty)
         {
             var decision =
-                await PromptDirtyDocumentAsync("opening another Bookmarks file");
+                await PromptDirtyDocumentAsync("DirtyActionOpenAnother");
 
             if (decision == SaveDiscardCancel.Cancel)
             {
@@ -245,12 +292,10 @@ public partial class MainWindow : Window
 
         var dialog = new OpenFileDialog
         {
-            Title = "Import bookmarks",
+            Title = L("TitleImportBookmarks"),
             CheckFileExists = true,
             Multiselect = false,
-            Filter =
-                "Bookmark HTML (*.html;*.htm)|*.html;*.htm|" +
-                "All files (*.*)|*.*"
+            Filter = L("ImportBookmarksFilter")
         };
 
         if (dialog.ShowDialog(this) != true)
@@ -267,8 +312,8 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                "Bookmark HTML import was canceled.",
-                "Import bookmarks",
+                L("ImportCanceled"),
+                L("TitleImportBookmarks"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
@@ -276,8 +321,8 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Import bookmarks",
+                LocalizationService.LocalizeExceptionMessage(exception),
+                L("TitleImportBookmarks"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -285,8 +330,8 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                $"Bookmark HTML import failed.\n\n{exception.Message}",
-                "Import bookmarks",
+                LF("ImportFailed", exception.Message),
+                L("TitleImportBookmarks"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -303,15 +348,12 @@ public partial class MainWindow : Window
 
         var dialog = new SaveFileDialog
         {
-            Title = "Export bookmarks",
+            Title = L("TitleExportBookmarks"),
             FileName = "bookmarks.html",
             DefaultExt = ".html",
             AddExtension = true,
             OverwritePrompt = true,
-            Filter =
-                "Bookmark HTML (*.html)|*.html|" +
-                "HTML files (*.htm)|*.htm|" +
-                "All files (*.*)|*.*"
+            Filter = L("ExportBookmarksFilter")
         };
 
         if (dialog.ShowDialog(this) != true)
@@ -327,8 +369,8 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                "Bookmark HTML export was canceled.",
-                "Export bookmarks",
+                L("ExportCanceled"),
+                L("TitleExportBookmarks"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
@@ -336,8 +378,8 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                $"Bookmark HTML export failed.\n\n{exception.Message}",
-                "Export bookmarks",
+                LF("ExportFailed", exception.Message),
+                L("TitleExportBookmarks"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -1074,8 +1116,8 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Open bookmark",
+                LocalizationService.LocalizeExceptionMessage(exception),
+                L("TitleOpenBookmark"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
@@ -1170,8 +1212,8 @@ public partial class MainWindow : Window
     {
         MessageBox.Show(
             this,
-            exception.Message,
-            "Clipboard operation",
+            LocalizationService.LocalizeExceptionMessage(exception),
+            L("TitleClipboardOperation"),
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
     }
@@ -1294,7 +1336,7 @@ public partial class MainWindow : Window
         }
 
         var dialog = CreateEditDialog(
-            "Add Bookmark",
+            L("DialogAddBookmark"),
             name: string.Empty,
             url: string.Empty,
             showName: true,
@@ -1326,7 +1368,7 @@ public partial class MainWindow : Window
         }
 
         var dialog = CreateEditDialog(
-            "Add Folder",
+            L("DialogAddFolder"),
             name: string.Empty,
             url: null,
             showName: true,
@@ -1357,7 +1399,7 @@ public partial class MainWindow : Window
         }
 
         var dialog = CreateEditDialog(
-            "Rename Folder",
+            L("DialogRenameFolder"),
             name: folder.Name,
             url: null,
             showName: true,
@@ -1441,7 +1483,7 @@ public partial class MainWindow : Window
         }
 
         var dialog = CreateEditDialog(
-            "Rename Folder",
+            L("DialogRenameFolder"),
             name: folder.Name,
             url: null,
             showName: true,
@@ -1472,7 +1514,7 @@ public partial class MainWindow : Window
         }
 
         var dialog = CreateEditDialog(
-            "Rename Bookmark",
+            L("DialogRenameBookmark"),
             name: bookmark.Name,
             url: null,
             showName: true,
@@ -1503,7 +1545,7 @@ public partial class MainWindow : Window
         }
 
         var dialog = CreateEditDialog(
-            "Edit Bookmark URL",
+            L("DialogEditBookmarkUrl"),
             name: bookmark.Name,
             url: bookmark.Url,
             showName: false,
@@ -1660,8 +1702,8 @@ public partial class MainWindow : Window
     {
         MessageBox.Show(
             this,
-            exception.Message,
-            "Bookmark editing",
+            LocalizationService.LocalizeExceptionMessage(exception),
+            L("TitleBookmarkEditing"),
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
     }
@@ -1670,8 +1712,8 @@ public partial class MainWindow : Window
     {
         MessageBox.Show(
             this,
-            exception.Message,
-            "Move bookmark item",
+            LocalizationService.LocalizeExceptionMessage(exception),
+            L("TitleMoveBookmarkItem"),
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
     }
@@ -1680,8 +1722,8 @@ public partial class MainWindow : Window
     {
         MessageBox.Show(
             this,
-            exception.Message,
-            "Delete bookmark item",
+            LocalizationService.LocalizeExceptionMessage(exception),
+            L("TitleDeleteBookmarkItem"),
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
     }
@@ -1702,23 +1744,22 @@ public partial class MainWindow : Window
         var (bookmarkCount, folderCount) =
             CountSelectedContentRemoval(selectedItems);
         var itemSummary = selectedItems.Count == 1
-            ? "1 selected item"
-            : $"{selectedItems.Count:N0} selected items";
+            ? L("SelectedItemOne")
+            : LF("SelectedItemsMany", selectedItems.Count);
         var bookmarkSummary = bookmarkCount == 1
-            ? "1 bookmark"
-            : $"{bookmarkCount:N0} bookmarks";
+            ? L("BookmarkOne")
+            : LF("BookmarksMany", bookmarkCount);
         var folderSummary = folderCount == 1
-            ? "1 folder"
-            : $"{folderCount:N0} folders";
-        var confirmation =
-            $"Delete {itemSummary}?\n\n" +
-            $"This will remove {bookmarkSummary} and {folderSummary}, " +
-            "including the contents of selected folders.\n\n" +
-            "The selected items will be removed from the loaded document.\n" +
-            "Use Save to write the change safely to the source Chrome Bookmarks file.";
+            ? L("FolderOne")
+            : LF("FoldersMany", folderCount);
+        var confirmation = LF(
+            "DeleteSelectedPrompt",
+            itemSummary,
+            bookmarkSummary,
+            folderSummary);
 
         if (!ConfirmDestructiveOperation(
-                "Confirm selected item deletion",
+                L("TitleConfirmSelectedDeletion"),
                 confirmation))
         {
             return;
@@ -1748,18 +1789,18 @@ public partial class MainWindow : Window
         }
 
         var targetDescription = selectedBookmarks.Count == 1
-            ? $"Delete bookmark \"{selectedBookmarks[0].Name}\"?"
-            : $"Delete {selectedBookmarks.Count:N0} selected bookmarks?";
+            ? LF("DeleteBookmarkNamed", selectedBookmarks[0].Name)
+            : LF("DeleteBookmarksSelected", selectedBookmarks.Count);
         var removalSubject = selectedBookmarks.Count == 1
-            ? "This bookmark"
-            : "These bookmarks";
-        var confirmation =
-            $"{targetDescription}\n\n" +
-            $"{removalSubject} will be removed from the loaded document.\n" +
-            "Use Save to write the change safely to the source Chrome Bookmarks file.";
+            ? L("ThisBookmark")
+            : L("TheseBookmarks");
+        var confirmation = LF(
+            "DeleteBookmarkPrompt",
+            targetDescription,
+            removalSubject);
 
         if (!ConfirmDestructiveOperation(
-                "Confirm bookmark deletion",
+                L("TitleConfirmBookmarkDeletion"),
                 confirmation))
         {
             return;
@@ -1804,19 +1845,19 @@ public partial class MainWindow : Window
         var (bookmarkCount, folderCount) =
             CountFolderDescendants(folder);
         var bookmarkSummary = bookmarkCount == 1
-            ? "1 bookmark"
-            : $"{bookmarkCount:N0} bookmarks";
+            ? L("BookmarkOne")
+            : LF("BookmarksMany", bookmarkCount);
         var folderSummary = folderCount == 1
-            ? "1 nested folder"
-            : $"{folderCount:N0} nested folders";
-        var confirmation =
-            $"Delete folder \"{folder.Name}\" and its entire subtree?\n\n" +
-            $"This includes {bookmarkSummary} and {folderSummary}.\n\n" +
-            "The subtree will be removed from the loaded document.\n" +
-            "Use Save to write the change safely to the source Chrome Bookmarks file.";
+            ? L("NestedFolderOne")
+            : LF("NestedFoldersMany", folderCount);
+        var confirmation = LF(
+            "DeleteFolderPrompt",
+            folder.Name,
+            bookmarkSummary,
+            folderSummary);
 
         return ConfirmDestructiveOperation(
-            "Confirm folder deletion",
+            L("TitleConfirmFolderDeletion"),
             confirmation);
     }
 

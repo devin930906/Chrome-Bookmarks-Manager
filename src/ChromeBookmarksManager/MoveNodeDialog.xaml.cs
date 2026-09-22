@@ -1,5 +1,6 @@
 using System.Windows;
 using ChromeBookmarksManager.Domain;
+using ChromeBookmarksManager.Localization;
 using ChromeBookmarksManager.ViewModels;
 
 namespace ChromeBookmarksManager;
@@ -24,8 +25,8 @@ public partial class MoveNodeDialog : Window
         ArgumentNullException.ThrowIfNull(movingNode);
 
         Title = movingNode is BookmarkFolder
-            ? "Move Folder"
-            : "Move Bookmark";
+            ? LocalizationService.GetString("DialogMoveFolder")
+            : LocalizationService.GetString("DialogMoveBookmark");
 
         Roots = MoveTargetTreeItemViewModel.BuildRoots(
             document,

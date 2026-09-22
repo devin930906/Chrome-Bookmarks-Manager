@@ -27,16 +27,16 @@ const xaml = readRequired(xamlPath);
 const code = readRequired(codePath);
 const viewModel = readRequired(viewModelPath);
 
-requireText(xaml, 'Header="_Undo"', 'Edit menu must expose Undo.');
-requireText(xaml, 'Header="_Redo"', 'Edit menu must expose Redo.');
+requireText(xaml, 'Header="{DynamicResource MenuUndo}"', 'Edit menu must expose Undo.');
+requireText(xaml, 'Header="{DynamicResource MenuRedo}"', 'Edit menu must expose Redo.');
 requireText(xaml, 'InputGestureText="Ctrl+Z"', 'Undo must advertise Ctrl+Z.');
 requireText(xaml, 'InputGestureText="Ctrl+Y / Ctrl+Shift+Z"', 'Redo must advertise both supported shortcuts.');
 requireText(xaml, 'IsEnabled="{Binding CanUndo}"', 'Undo UI must bind to CanUndo.');
 requireText(xaml, 'IsEnabled="{Binding CanRedo}"', 'Redo UI must bind to CanRedo.');
 requireText(xaml, 'Click="Undo_Click"', 'Undo UI must route through Undo_Click.');
 requireText(xaml, 'Click="Redo_Click"', 'Redo UI must route through Redo_Click.');
-requireText(xaml, 'Content="Undo"', 'A visible Undo toolbar button is required.');
-requireText(xaml, 'Content="Redo"', 'A visible Redo toolbar button is required.');
+requireText(xaml, 'Content="{DynamicResource ToolbarUndo}"', 'A visible Undo toolbar button is required.');
+requireText(xaml, 'Content="{DynamicResource ToolbarRedo}"', 'A visible Redo toolbar button is required.');
 requireText(xaml, 'ToolTip="{Binding UndoDescription}"', 'Undo description must be surfaced in the UI.');
 requireText(xaml, 'ToolTip="{Binding RedoDescription}"', 'Redo description must be surfaced in the UI.');
 

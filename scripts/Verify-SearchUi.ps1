@@ -46,8 +46,8 @@ $requiredUiTokens = @(
     'Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"',
     'IsEnabled="{Binding CanSearchDocument}"',
     'SelectedValue="{Binding SearchScope, Mode=TwoWay}"',
-    'Content="All bookmarks"',
-    'Content="Current folder"',
+    'Content="{DynamicResource SearchScopeAllBookmarks}"',
+    'Content="{DynamicResource SearchScopeCurrentFolder}"',
     'Text="{Binding SearchSummaryText}"'
 )
 

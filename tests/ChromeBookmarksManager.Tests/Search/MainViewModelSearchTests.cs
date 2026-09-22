@@ -139,6 +139,34 @@ public sealed class MainViewModelSearchTests
     }
 
     [Fact]
+    public async Task ActivatingSearch_ClearsRightPaneFolderSelection()
+    {
+        var fixture = CreateFixture();
+        var service = new StubSearchService
+        {
+            Search = (_, _, _, _, _) =>
+                Task.FromResult<IReadOnlyList<BookmarkUrl>>(
+                    new[] { fixture.OtherUrl })
+        };
+        var viewModel = CreateViewModel(fixture, service);
+
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+        var folderRow = Assert.Single(
+            viewModel.CurrentItems,
+            item => item.IsFolder);
+        viewModel.UpdateSelectedContentItems(new[] { folderRow });
+        Assert.Same(fixture.ChildFolder, viewModel.SelectedContentFolder);
+
+        viewModel.SearchText = "target";
+        await viewModel.WaitForPendingSearchAsync();
+
+        Assert.Null(viewModel.SelectedContentFolder);
+        Assert.Null(viewModel.SelectedContentItem);
+        Assert.Empty(viewModel.SelectedContentItems);
+        Assert.Empty(viewModel.SelectedBookmarks);
+    }
+
+    [Fact]
     public async Task Debounce_RapidTextChangesCollapsesToLatestSearch()
     {
         var fixture = CreateFixture();

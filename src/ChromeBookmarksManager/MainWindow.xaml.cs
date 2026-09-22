@@ -22,7 +22,7 @@ namespace ChromeBookmarksManager;
 public partial class MainWindow : Window
 {
     private Point? _bookmarkDragStartPoint;
-    private BookmarkNode? _bookmarkDragCandidate;
+    private BookmarkDragPayload? _bookmarkDragCandidate;
     private Point? _folderDragStartPoint;
     private BookmarkFolder? _folderDragCandidate;
     private ListViewItem? _bookmarkDropIndicatorItem;
@@ -302,7 +302,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var payload = new BookmarkDragPayload(folder);
+        var payload = new BookmarkDragPayload(
+            new BookmarkNode[] { folder });
         ResetFolderDragSource();
 
         try
@@ -351,7 +352,12 @@ public partial class MainWindow : Window
                 return;
             }
 
-            _bookmarkDragCandidate = listItem.Node;
+            _bookmarkDragCandidate =
+                BookmarkDragPayload.ForContentRow(
+                    listItem.Node,
+                    ViewModel.SelectedContentItems
+                        .Select(selected => selected.Node)
+                        .ToArray());
             _bookmarkDragStartPoint = e.GetPosition(BookmarksList);
             return;
         }
@@ -364,7 +370,7 @@ public partial class MainWindow : Window
         MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed ||
-            _bookmarkDragCandidate is not { } node ||
+            _bookmarkDragCandidate is not { } payload ||
             _bookmarkDragStartPoint is not { } startPoint)
         {
             if (e.LeftButton != MouseButtonState.Pressed)
@@ -388,24 +394,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (node is BookmarkUrl bookmark)
-        {
-            ViewModel.SelectedBookmark = bookmark;
-        }
-        else if (node is BookmarkFolder)
-        {
-            var selectedItem = ViewModel.DisplayedItems
-                .FirstOrDefault(item =>
-                    ReferenceEquals(item.Node, node));
-
-            if (selectedItem is not null)
-            {
-                ViewModel.UpdateSelectedContentItems(
-                    new[] { selectedItem });
-            }
-        }
-
-        var payload = new BookmarkDragPayload(node);
         ResetBookmarkDragSource();
 
         try
@@ -448,9 +436,11 @@ public partial class MainWindow : Window
         ClearBookmarkDropIndicator();
         e.Effects = DragDropEffects.None;
 
+        var draggedNodes = GetBookmarkDragPayload(e)?.Nodes;
         if (!DragDropRules.CanPositionallyReorderBookmarks(
                 ViewModel.IsSearchActive) ||
-            GetBookmarkDragPayload(e)?.Node is not { } draggedNode)
+            draggedNodes is null ||
+            draggedNodes.Count == 0)
         {
             e.Handled = true;
             return;
@@ -462,8 +452,8 @@ public partial class MainWindow : Window
         if (targetItem is null)
         {
             if (ViewModel.SelectedFolder is { } currentFolder &&
-                DragDropRules.CanMoveContentNodeInto(
-                    draggedNode,
+                DragDropRules.CanMoveContentNodesInto(
+                    draggedNodes,
                     currentFolder))
             {
                 e.Effects = DragDropEffects.Move;
@@ -474,7 +464,6 @@ public partial class MainWindow : Window
         }
 
         if (targetItem.DataContext is not BookmarkListItemViewModel targetItemViewModel ||
-            ReferenceEquals(draggedNode, targetItemViewModel.Node) ||
             targetItem.ActualHeight <= 0)
         {
             e.Handled = true;
@@ -489,11 +478,11 @@ public partial class MainWindow : Window
 
         var valid = placement == DropPlacement.Into
             ? targetNode is BookmarkFolder targetFolder &&
-              DragDropRules.CanMoveContentNodeInto(
-                  draggedNode,
+              DragDropRules.CanMoveContentNodesInto(
+                  draggedNodes,
                   targetFolder)
-            : DragDropRules.CanMoveContentNodeRelativeTo(
-                draggedNode,
+            : DragDropRules.CanMoveContentNodesRelativeTo(
+                draggedNodes,
                 targetNode);
 
         if (!valid)
@@ -521,9 +510,11 @@ public partial class MainWindow : Window
         ClearBookmarkDropIndicator();
         e.Effects = DragDropEffects.None;
 
+        var draggedNodes = GetBookmarkDragPayload(e)?.Nodes;
         if (!DragDropRules.CanPositionallyReorderBookmarks(
                 ViewModel.IsSearchActive) ||
-            GetBookmarkDragPayload(e)?.Node is not { } draggedNode)
+            draggedNodes is null ||
+            draggedNodes.Count == 0)
         {
             e.Handled = true;
             return;
@@ -539,31 +530,22 @@ public partial class MainWindow : Window
             if (targetItem is null)
             {
                 if (ViewModel.SelectedFolder is not { } currentFolder ||
-                    !DragDropRules.CanMoveContentNodeInto(
-                        draggedNode,
+                    !DragDropRules.CanMoveContentNodesInto(
+                        draggedNodes,
                         currentFolder))
                 {
                     e.Handled = true;
                     return;
                 }
 
-                changed = draggedNode switch
-                {
-                    BookmarkUrl bookmark =>
-                        await ViewModel.MoveBookmarkToEndAsync(
-                            bookmark,
-                            currentFolder),
-                    BookmarkFolder folder =>
-                        await ViewModel.MoveFolderToEndAsync(
-                            folder,
-                            currentFolder),
-                    _ => false
-                };
+                changed = await ViewModel.MoveContentNodesAsync(
+                    draggedNodes,
+                    currentFolder,
+                    currentFolder.Children.Count);
             }
             else
             {
                 if (targetItem.DataContext is not BookmarkListItemViewModel targetItemViewModel ||
-                    ReferenceEquals(draggedNode, targetItemViewModel.Node) ||
                     targetItem.ActualHeight <= 0)
                 {
                     e.Handled = true;
@@ -578,11 +560,11 @@ public partial class MainWindow : Window
 
                 var valid = placement == DropPlacement.Into
                     ? targetNode is BookmarkFolder targetFolder &&
-                      DragDropRules.CanMoveContentNodeInto(
-                          draggedNode,
+                      DragDropRules.CanMoveContentNodesInto(
+                          draggedNodes,
                           targetFolder)
-                    : DragDropRules.CanMoveContentNodeRelativeTo(
-                        draggedNode,
+                    : DragDropRules.CanMoveContentNodesRelativeTo(
+                        draggedNodes,
                         targetNode);
 
                 if (!valid)
@@ -591,30 +573,41 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                changed = placement switch
+                if (placement == DropPlacement.Into &&
+                    targetNode is BookmarkFolder intoFolder)
                 {
-                    DropPlacement.Before =>
-                        await ViewModel.MoveNodeBeforeAsync(
-                            draggedNode,
-                            targetNode),
-                    DropPlacement.After =>
-                        await ViewModel.MoveNodeAfterAsync(
-                            draggedNode,
-                            targetNode),
-                    DropPlacement.Into when
-                        targetNode is BookmarkFolder bookmarkTargetFolder &&
-                        draggedNode is BookmarkUrl bookmark =>
-                            await ViewModel.MoveBookmarkToEndAsync(
-                                bookmark,
-                                bookmarkTargetFolder),
-                    DropPlacement.Into when
-                        targetNode is BookmarkFolder folderTargetFolder &&
-                        draggedNode is BookmarkFolder folder =>
-                            await ViewModel.MoveFolderToEndAsync(
-                                folder,
-                                folderTargetFolder),
-                    _ => false
-                };
+                    changed = await ViewModel.MoveContentNodesAsync(
+                        draggedNodes,
+                        intoFolder,
+                        intoFolder.Children.Count);
+                }
+                else
+                {
+                    var targetParent = targetNode.Parent;
+                    if (targetParent is null)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
+                    var targetIndex =
+                        targetParent.IndexOfChild(targetNode);
+                    if (targetIndex < 0)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
+                    if (placement == DropPlacement.After)
+                    {
+                        targetIndex++;
+                    }
+
+                    changed = await ViewModel.MoveContentNodesAsync(
+                        draggedNodes,
+                        targetParent,
+                        targetIndex);
+                }
             }
 
             e.Effects = changed
@@ -636,16 +629,35 @@ public partial class MainWindow : Window
         ClearFolderDropIndicator();
         e.Effects = DragDropEffects.None;
 
-        var draggedNode = GetBookmarkDragPayload(e)?.Node;
+        var draggedNodes = GetBookmarkDragPayload(e)?.Nodes;
         var targetItem = FindVisualParent<TreeViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (draggedNode is null ||
+        if (draggedNodes is null ||
+            draggedNodes.Count == 0 ||
             targetItem?.DataContext is not FolderTreeItemViewModel target)
         {
             e.Handled = true;
             return;
         }
+
+        if (draggedNodes.Count > 1)
+        {
+            if (DragDropRules.CanMoveContentNodesInto(
+                    draggedNodes,
+                    target.Folder))
+            {
+                SetFolderDropIndicator(
+                    targetItem,
+                    DropPlacement.Into);
+                e.Effects = DragDropEffects.Move;
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        var draggedNode = draggedNodes[0];
 
         if (draggedNode is BookmarkUrl)
         {
@@ -700,11 +712,12 @@ public partial class MainWindow : Window
         ClearFolderDropIndicator();
         e.Effects = DragDropEffects.None;
 
-        var draggedNode = GetBookmarkDragPayload(e)?.Node;
+        var draggedNodes = GetBookmarkDragPayload(e)?.Nodes;
         var targetItem = FindVisualParent<TreeViewItem>(
             e.OriginalSource as DependencyObject);
 
-        if (draggedNode is null ||
+        if (draggedNodes is null ||
+            draggedNodes.Count == 0 ||
             targetItem?.DataContext is not FolderTreeItemViewModel target)
         {
             e.Handled = true;
@@ -715,54 +728,74 @@ public partial class MainWindow : Window
         {
             bool changed;
 
-            if (draggedNode is BookmarkUrl bookmark)
+            if (draggedNodes.Count > 1)
             {
-                changed = await ViewModel.MoveBookmarkToEndAsync(
-                    bookmark,
-                    target.Folder);
-            }
-            else if (draggedNode is BookmarkFolder movingFolder &&
-                     targetItem.ActualHeight > 0)
-            {
-                var placement = DragDropRules.GetFolderRowPlacement(
-                    e.GetPosition(targetItem).Y,
-                    targetItem.ActualHeight,
-                    target.Folder.Parent is null);
-
-                var valid = placement == DropPlacement.Into
-                    ? DragDropRules.CanMoveFolderInto(
-                        movingFolder,
-                        target.Folder)
-                    : DragDropRules.CanMoveFolderRelativeTo(
-                        movingFolder,
-                        target.Folder);
-
-                if (!valid)
+                if (!DragDropRules.CanMoveContentNodesInto(
+                        draggedNodes,
+                        target.Folder))
                 {
                     e.Handled = true;
                     return;
                 }
 
-                changed = placement switch
-                {
-                    DropPlacement.Before =>
-                        await ViewModel.MoveFolderBeforeAsync(
-                            movingFolder,
-                            target.Folder),
-                    DropPlacement.After =>
-                        await ViewModel.MoveFolderAfterAsync(
-                            movingFolder,
-                            target.Folder),
-                    _ =>
-                        await ViewModel.MoveFolderToEndAsync(
-                            movingFolder,
-                            target.Folder)
-                };
+                changed = await ViewModel.MoveContentNodesAsync(
+                    draggedNodes,
+                    target.Folder,
+                    target.Folder.Children.Count);
             }
             else
             {
-                e.Handled = true;
-                return;
+                var draggedNode = draggedNodes[0];
+
+                if (draggedNode is BookmarkUrl bookmark)
+                {
+                    changed = await ViewModel.MoveBookmarkToEndAsync(
+                        bookmark,
+                        target.Folder);
+                }
+                else if (draggedNode is BookmarkFolder movingFolder &&
+                         targetItem.ActualHeight > 0)
+                {
+                    var placement = DragDropRules.GetFolderRowPlacement(
+                        e.GetPosition(targetItem).Y,
+                        targetItem.ActualHeight,
+                        target.Folder.Parent is null);
+
+                    var valid = placement == DropPlacement.Into
+                        ? DragDropRules.CanMoveFolderInto(
+                            movingFolder,
+                            target.Folder)
+                        : DragDropRules.CanMoveFolderRelativeTo(
+                            movingFolder,
+                            target.Folder);
+
+                    if (!valid)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
+                    changed = placement switch
+                    {
+                        DropPlacement.Before =>
+                            await ViewModel.MoveFolderBeforeAsync(
+                                movingFolder,
+                                target.Folder),
+                        DropPlacement.After =>
+                            await ViewModel.MoveFolderAfterAsync(
+                                movingFolder,
+                                target.Folder),
+                        _ =>
+                            await ViewModel.MoveFolderToEndAsync(
+                                movingFolder,
+                                target.Folder)
+                    };
+                }
+                else
+                {
+                    e.Handled = true;
+                    return;
+                }
             }
 
             e.Effects = changed

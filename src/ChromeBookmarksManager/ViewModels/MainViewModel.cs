@@ -7,6 +7,7 @@ using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.Exporting;
 using ChromeBookmarksManager.Application.History;
+using ChromeBookmarksManager.Application.Importing;
 using ChromeBookmarksManager.Application.Launching;
 using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Application.Search;
@@ -30,6 +31,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IBookmarkDeleteService _deleteService;
     private readonly BookmarkSortService _sortService = new();
     private readonly BookmarkHtmlExportService _htmlExportService = new();
+    private readonly BookmarkHtmlImportService _htmlImportService = new();
     private readonly IBookmarkClipboardService? _clipboardService;
     private readonly IBookmarkClipboardStore? _clipboardStore;
     private readonly IExternalUrlLauncher? _urlLauncher;
@@ -633,6 +635,49 @@ public sealed class MainViewModel : ViewModelBase
                     writer,
                     cancellationToken)
                 .ConfigureAwait(true);
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
+    }
+
+    public async Task<BookmarkHtmlImportResult> ImportBookmarksHtmlAsync(
+        TextReader reader,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+
+        await _documentOperationGate
+            .WaitAsync(cancellationToken)
+            .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var targetParent = SelectedFolder
+                ?? throw new InvalidOperationException(
+                    "Select a folder before importing bookmarks.");
+
+            var result = await _htmlImportService
+                .ImportAsync(
+                    document,
+                    targetParent,
+                    reader,
+                    cancellationToken)
+                .ConfigureAwait(true);
+
+            RecordHistory(
+                new BookmarkHtmlImportHistoryEntry(
+                    result));
+
+            ClearContentSelection();
+            NotifyEditingAvailabilityChanged();
+
+            await RefreshProjectionsAfterEditAsync(
+                    preferredFolder: result.ImportedFolder)
+                .ConfigureAwait(true);
+
+            return result;
         }
         finally
         {

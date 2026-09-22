@@ -51,7 +51,7 @@ public sealed class WindowsExternalUrlLauncher : IExternalUrlLauncher
         {
             throw new ExternalUrlLaunchException(
                 ExternalUrlLaunchError.UnsupportedScheme,
-                $"The bookmark URL scheme "{uri.Scheme}" is not supported. Only http and https URLs can be opened.");
+                $"The bookmark URL scheme '{uri.Scheme}' is not supported. Only http and https URLs can be opened.");
         }
 
         var startInfo = new ProcessStartInfo

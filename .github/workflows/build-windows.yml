@@ -63,6 +63,11 @@ jobs:
         shell: pwsh
         run: node scripts/Verify-V10UiContract.mjs
 
+      - name: Verify V1.0 right-pane browser parity
+        shell: pwsh
+        run: node scripts/Verify-V10RightPaneParity.mjs
+
+
       - name: Verify V1.0 release asset scripts
         shell: pwsh
         run: |

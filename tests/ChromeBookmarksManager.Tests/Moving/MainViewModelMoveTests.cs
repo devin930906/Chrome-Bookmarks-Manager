@@ -153,6 +153,16 @@ public sealed class MainViewModelMoveTests
                 fixture.BarSecond
             },
             fixture.BookmarkBar.Children);
+
+        Assert.True(await viewModel.RedoAsync());
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.ChildFolder,
+                fixture.BarFirst,
+                fixture.BarSecond
+            },
+            fixture.BookmarkBar.Children);
     }
 
     [Fact]

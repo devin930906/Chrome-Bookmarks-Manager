@@ -142,7 +142,7 @@ public sealed class MainViewModelMoveTests
                 fixture.BarSecond
             },
             fixture.BookmarkBar.Children);
-        Assert.Equal("Move bookmark item", viewModel.UndoDescription);
+        Assert.Equal("Move folder", viewModel.UndoDescription);
 
         Assert.True(await viewModel.UndoAsync());
         Assert.Equal(

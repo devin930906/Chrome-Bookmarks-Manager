@@ -265,7 +265,9 @@ public sealed class MainViewModel : ViewModelBase
     public string SearchSummaryText => _searchSummaryText;
 
     public bool IsDirty =>
-        State is DocumentState.LoadedDirty or DocumentState.SaveFailed;
+        State is DocumentState.LoadedDirty or
+            DocumentState.SaveFailed or
+            DocumentState.RecoveryRequired;
 
     public bool CanSave =>
         _saveService is not null &&
@@ -273,11 +275,16 @@ public sealed class MainViewModel : ViewModelBase
         _document is not null &&
         State is DocumentState.LoadedDirty or DocumentState.SaveFailed;
 
+    private bool CanEditDocument =>
+        State is DocumentState.LoadedClean or
+            DocumentState.LoadedDirty or
+            DocumentState.SaveFailed;
+
     public bool CanUndo =>
-        CanBrowseDocument && _history.CanUndo;
+        CanEditDocument && _history.CanUndo;
 
     public bool CanRedo =>
-        CanBrowseDocument && _history.CanRedo;
+        CanEditDocument && _history.CanRedo;
 
     public string? UndoDescription =>
         CanUndo ? _history.UndoDescription : null;
@@ -286,48 +293,48 @@ public sealed class MainViewModel : ViewModelBase
         CanRedo ? _history.RedoDescription : null;
 
     public bool CanAddBookmark =>
-        CanBrowseDocument && SelectedFolder is not null;
+        CanEditDocument && SelectedFolder is not null;
 
     public bool CanAddFolder =>
-        CanBrowseDocument && SelectedFolder is not null;
+        CanEditDocument && SelectedFolder is not null;
 
     public bool CanRenameSelectedFolder =>
-        CanBrowseDocument &&
+        CanEditDocument &&
         SelectedFolder is not null &&
         !IsPermanentRoot(SelectedFolder);
 
     public bool CanRenameSelectedBookmark =>
-        CanBrowseDocument &&
+        CanEditDocument &&
         SelectedBookmark is not null &&
         !HasMultipleSelectedBookmarks;
 
     public bool CanEditSelectedBookmarkUrl =>
-        CanBrowseDocument &&
+        CanEditDocument &&
         SelectedBookmark is not null &&
         !HasMultipleSelectedBookmarks;
 
     public bool CanMoveSelectedBookmark =>
-        CanBrowseDocument &&
+        CanEditDocument &&
         SelectedBookmark is not null &&
         !HasMultipleSelectedBookmarks;
 
     public bool CanMoveSelectedFolder =>
-        CanBrowseDocument &&
+        CanEditDocument &&
         SelectedFolder is not null &&
         !IsPermanentRoot(SelectedFolder);
 
     public bool CanDeleteSelectedBookmarks =>
-        CanBrowseDocument &&
+        CanEditDocument &&
         (_selectedBookmarks.Count > 0 ||
          SelectedBookmark is not null);
 
     public bool CanDeleteSelectedFolder =>
-        CanBrowseDocument &&
+        CanEditDocument &&
         SelectedFolder is not null &&
         !IsPermanentRoot(SelectedFolder);
 
     public bool CanMoveSelectedBookmarks =>
-        CanBrowseDocument &&
+        CanEditDocument &&
         (_selectedBookmarks.Count > 0 ||
          SelectedBookmark is not null);
 
@@ -339,7 +346,8 @@ public sealed class MainViewModel : ViewModelBase
     public bool CanBrowseDocument =>
         State is DocumentState.LoadedClean or
             DocumentState.LoadedDirty or
-            DocumentState.SaveFailed;
+            DocumentState.SaveFailed or
+            DocumentState.RecoveryRequired;
 
     public Task LoadBookmarksAsync(
         string path,
@@ -635,8 +643,27 @@ public sealed class MainViewModel : ViewModelBase
             }
             catch (ChromeBookmarksSaveException exception)
             {
-                SetState(DocumentState.SaveFailed);
-                SetStatusText(exception.Message);
+                if (exception.Error ==
+                    ChromeBookmarksSaveError.RecoveryRequired)
+                {
+                    SetState(DocumentState.RecoveryRequired);
+
+                    var recoveryBackup =
+                        exception.HasVerifiedRecoveryBackup
+                            ? $" Verified recovery backup: {exception.BackupPath}"
+                            : string.Empty;
+
+                    SetStatusText(
+                        exception.Message +
+                        recoveryBackup +
+                        " Reload or recover the Bookmarks source before saving again.");
+                }
+                else
+                {
+                    SetState(DocumentState.SaveFailed);
+                    SetStatusText(exception.Message);
+                }
+
                 throw;
             }
             catch (OperationCanceledException)
@@ -1421,7 +1448,7 @@ public sealed class MainViewModel : ViewModelBase
         BookmarkUrl? preferredBookmark = null,
         CancellationToken cancellationToken = default)
     {
-        if (_document is null || !CanBrowseDocument)
+        if (_document is null || !CanEditDocument)
         {
             throw new InvalidOperationException(
                 "An editable bookmark document must be loaded before projections can be refreshed.");
@@ -1455,7 +1482,7 @@ public sealed class MainViewModel : ViewModelBase
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!ReferenceEquals(_document, document) || !CanBrowseDocument)
+        if (!ReferenceEquals(_document, document) || !CanEditDocument)
         {
             throw new InvalidOperationException(
                 "The active bookmark document changed while edit projections were refreshing.");
@@ -1521,7 +1548,7 @@ public sealed class MainViewModel : ViewModelBase
         BookmarkUrl? preferredBookmark = null,
         CancellationToken cancellationToken = default)
     {
-        if (_document is null || !CanBrowseDocument)
+        if (_document is null || !CanEditDocument)
         {
             throw new InvalidOperationException(
                 "An editable bookmark document must be loaded before move projections can be refreshed.");
@@ -1551,7 +1578,7 @@ public sealed class MainViewModel : ViewModelBase
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!ReferenceEquals(_document, document) || !CanBrowseDocument)
+        if (!ReferenceEquals(_document, document) || !CanEditDocument)
         {
             throw new InvalidOperationException(
                 "The active bookmark document changed while move projections were refreshing.");
@@ -1622,10 +1649,12 @@ public sealed class MainViewModel : ViewModelBase
 
     private BookmarkDocument RequireEditableDocument()
     {
-        if (_document is null || !CanBrowseDocument)
+        if (_document is null || !CanEditDocument)
         {
             throw new InvalidOperationException(
-                "An editable bookmark document is not loaded.");
+                State == DocumentState.RecoveryRequired
+                    ? "The Bookmarks source requires recovery or reload before editing or saving again."
+                    : "An editable bookmark document is not loaded.");
         }
 
         return _document;

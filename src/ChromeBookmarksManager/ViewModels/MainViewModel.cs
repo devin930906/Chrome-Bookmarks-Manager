@@ -4,6 +4,7 @@ using ChromeBookmarksManager.Application;
 using ChromeBookmarksManager.Application.Deleting;
 using ChromeBookmarksManager.Application.Editing;
 using ChromeBookmarksManager.Application.History;
+using ChromeBookmarksManager.Application.Launching;
 using ChromeBookmarksManager.Application.Moving;
 using ChromeBookmarksManager.Application.Search;
 using ChromeBookmarksManager.Application.Saving;
@@ -23,6 +24,7 @@ public sealed class MainViewModel : ViewModelBase
     private readonly IBookmarkEditingService _editingService;
     private readonly IBookmarkMoveService _moveService;
     private readonly IBookmarkDeleteService _deleteService;
+    private readonly IExternalUrlLauncher? _urlLauncher;
     private readonly IBookmarkSourceBaselineService? _baselineService;
     private readonly IChromeBookmarksSaveService? _saveService;
     private readonly BookmarkHistoryManager _history = new();
@@ -88,6 +90,24 @@ public sealed class MainViewModel : ViewModelBase
             new BookmarkEditingService(),
             new BookmarkMoveService(),
             new BookmarkDeleteService(),
+            searchDebounce)
+    {
+    }
+
+    internal MainViewModel(
+        IChromeBookmarksReader reader,
+        IBookmarkSearchService searchService,
+        IExternalUrlLauncher urlLauncher,
+        TimeSpan searchDebounce)
+        : this(
+            reader,
+            searchService,
+            new BookmarkEditingService(),
+            new BookmarkMoveService(),
+            new BookmarkDeleteService(),
+            baselineService: null,
+            saveService: null,
+            urlLauncher,
             searchDebounce)
     {
     }
@@ -163,11 +183,54 @@ public sealed class MainViewModel : ViewModelBase
     internal MainViewModel(
         IChromeBookmarksReader reader,
         IBookmarkSearchService searchService,
+        IBookmarkSourceBaselineService baselineService,
+        IChromeBookmarksSaveService saveService,
+        IExternalUrlLauncher urlLauncher,
+        TimeSpan searchDebounce)
+        : this(
+            reader,
+            searchService,
+            new BookmarkEditingService(),
+            new BookmarkMoveService(),
+            new BookmarkDeleteService(),
+            baselineService,
+            saveService,
+            urlLauncher,
+            searchDebounce)
+    {
+    }
+
+    internal MainViewModel(
+        IChromeBookmarksReader reader,
+        IBookmarkSearchService searchService,
         IBookmarkEditingService editingService,
         IBookmarkMoveService moveService,
         IBookmarkDeleteService deleteService,
         IBookmarkSourceBaselineService? baselineService,
         IChromeBookmarksSaveService? saveService,
+        TimeSpan searchDebounce)
+        : this(
+            reader,
+            searchService,
+            editingService,
+            moveService,
+            deleteService,
+            baselineService,
+            saveService,
+            urlLauncher: null,
+            searchDebounce)
+    {
+    }
+
+    internal MainViewModel(
+        IChromeBookmarksReader reader,
+        IBookmarkSearchService searchService,
+        IBookmarkEditingService editingService,
+        IBookmarkMoveService moveService,
+        IBookmarkDeleteService deleteService,
+        IBookmarkSourceBaselineService? baselineService,
+        IChromeBookmarksSaveService? saveService,
+        IExternalUrlLauncher? urlLauncher,
         TimeSpan searchDebounce)
     {
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));
@@ -179,6 +242,7 @@ public sealed class MainViewModel : ViewModelBase
             ?? throw new ArgumentNullException(nameof(moveService));
         _deleteService = deleteService
             ?? throw new ArgumentNullException(nameof(deleteService));
+        _urlLauncher = urlLauncher;
         _baselineService = baselineService;
         _saveService = saveService;
 
@@ -404,6 +468,13 @@ public sealed class MainViewModel : ViewModelBase
             item =>
                 item.Node is not BookmarkFolder folder ||
                 !IsPermanentRoot(folder));
+
+    public bool CanOpenSelectedContentItem =>
+        CanBrowseDocument &&
+        _selectedContentItems.Count == 1 &&
+        (_selectedContentItems[0].Node is BookmarkFolder ||
+         (_selectedContentItems[0].Node is BookmarkUrl &&
+          _urlLauncher is not null));
 
     public bool CanOpenBookmarks =>
         State is not DocumentState.Loading and not DocumentState.Saving;
@@ -1040,6 +1111,37 @@ public sealed class MainViewModel : ViewModelBase
         {
             _documentOperationGate.Release();
         }
+    }
+
+    public async Task<bool> OpenSelectedContentItemAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (!CanOpenSelectedContentItem ||
+            _selectedContentItems.Count != 1)
+        {
+            return false;
+        }
+
+        var node = _selectedContentItems[0].Node;
+
+        if (node is BookmarkFolder folder)
+        {
+            return NavigateToFolder(folder);
+        }
+
+        if (node is not BookmarkUrl bookmark ||
+            _urlLauncher is null)
+        {
+            return false;
+        }
+
+        await _urlLauncher
+            .LaunchAsync(
+                bookmark.Url,
+                cancellationToken)
+            .ConfigureAwait(true);
+
+        return true;
     }
 
     public void UpdateSelectedBookmarks(
@@ -2159,6 +2261,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanDeleteSelectedContentItems));
         OnPropertyChanged(nameof(CanMoveSelectedContentBookmarks));
         OnPropertyChanged(nameof(CanMoveSelectedContentItems));
+        OnPropertyChanged(nameof(CanOpenSelectedContentItem));
     }
 
     private void BuildBrowserState(BookmarkDocument document)

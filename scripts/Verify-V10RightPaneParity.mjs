@@ -9,10 +9,29 @@ const violations = [];
 
 const requiredXaml = [
   'ItemsSource="{Binding DisplayedItems}"',
+  'SelectionMode="Extended"',
   'Header="Open Folder"',
   'Header="Open Bookmark"',
   'IsEnabled="{Binding CanOpenSelectedContentItem}"',
   'Click="OpenContentBookmark_Click"',
+  'Header="_Import Bookmarks HTML..."',
+  'IsEnabled="{Binding CanImportBookmarksHtml}"',
+  'Click="ImportBookmarksHtml_Click"',
+  'Header="_Export Bookmarks HTML..."',
+  'IsEnabled="{Binding CanExportBookmarksHtml}"',
+  'Click="ExportBookmarksHtml_Click"',
+  'Header="_Cut"',
+  'InputGestureText="Ctrl+X"',
+  'IsEnabled="{Binding CanCutSelectedContentItems}"',
+  'Header="_Copy"',
+  'InputGestureText="Ctrl+C"',
+  'IsEnabled="{Binding CanCopySelectedContentItems}"',
+  'Header="_Paste"',
+  'InputGestureText="Ctrl+V"',
+  'IsEnabled="{Binding CanPasteClipboard}"',
+  'Header="Sort by _Name"',
+  'IsEnabled="{Binding CanSortSelectedFolder}"',
+  'Click="SortSelectedFolder_Click"',
   'Header="Rename Folder..."',
   'Header="Move Folder to..."',
   'Header="Delete Folder..."',
@@ -30,6 +49,7 @@ const requiredCode = [
   "BookmarkListItemViewModel",
   "NavigateToFolder",
   "OpenSelectedContentItemAsync",
+  "OpenSelectedContentItemFromUiAsync",
   "CanOpenSelectedContentItem",
   "WindowsExternalUrlLauncher",
   "RenameFolderAsync",
@@ -42,11 +62,35 @@ const requiredCode = [
   "BookmarkDragPayload.ForContentRow",
   "GetBookmarkDragPayload(e)?.Nodes",
   "CountSelectedContentRemoval",
-  "UpdateSelectedContentItems"
+  "UpdateSelectedContentItems",
+  "CutSelectedContentItemsFromUi",
+  "CopySelectedContentItemsFromUi",
+  "PasteClipboardFromUiAsync",
+  "SortSelectedFolderByNameAsync",
+  "ImportBookmarksHtmlAsync",
+  "BookmarksList.SelectAll();",
+  "BookmarksList.UnselectAll();",
+  "e.Key == Key.Escape",
+  "e.Key == Key.Enter",
+  "e.Key == Key.X",
+  "e.Key == Key.C",
+  "e.Key == Key.V"
 ];
 
 const forbiddenXaml = [
-  'ItemsSource="{Binding DisplayedBookmarks}"'
+  'ItemsSource="{Binding DisplayedBookmarks}"',
+  'Header="Delete Bookmark(s)..."'
+];
+
+const forbiddenCodeBehind = [
+  ".AddChild(",
+  ".InsertChild(",
+  ".RemoveChildAt(",
+  ".RecordAddedNode(",
+  ".RecordRemovedSubtree(",
+  ".RecordRestoredSubtree(",
+  ".AllocateNextNodeId(",
+  ".AllocateUniqueGuid("
 ];
 
 for (const text of requiredXaml) {
@@ -67,10 +111,17 @@ for (const text of forbiddenXaml) {
   }
 }
 
+for (const text of forbiddenCodeBehind) {
+  if (code.includes(text)) {
+    violations.push(
+      `Forbidden direct bookmark hierarchy mutation in code-behind: ${text}`);
+  }
+}
+
 if (violations.length > 0) {
   throw new Error(
     "V1.0 right-pane parity violations:\n- " +
     violations.join("\n- "));
 }
 
-console.log("V1.0 right-pane browser-manager parity verified.");
+console.log("V1.0 command/menu/shortcut and right-pane parity verified.");

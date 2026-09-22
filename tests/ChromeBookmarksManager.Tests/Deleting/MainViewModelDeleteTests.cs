@@ -85,7 +85,8 @@ public sealed class MainViewModelDeleteTests
 
         viewModel.SearchText = "https://example.com/first";
         await viewModel.WaitForPendingSearchAsync();
-        var result = Assert.Single(viewModel.SearchResults);
+        var result = Assert.IsType<BookmarkUrl>(
+            Assert.Single(viewModel.SearchResults));
         viewModel.UpdateSelectedBookmarks(new[] { result });
 
         var changed = await viewModel.DeleteSelectedBookmarksAsync();

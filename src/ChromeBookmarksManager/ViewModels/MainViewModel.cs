@@ -820,22 +820,32 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
-    public async Task<bool> RenameSelectedFolderAsync(string newName)
+    public Task<bool> RenameSelectedFolderAsync(string newName)
     {
+        var folder = SelectedFolder
+            ?? throw new InvalidOperationException(
+                "Select a folder before renaming it.");
+
+        return RenameFolderAsync(folder, newName);
+    }
+
+    public async Task<bool> RenameFolderAsync(
+        BookmarkFolder folder,
+        string newName)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+
         await _documentOperationGate
             .WaitAsync()
             .ConfigureAwait(true);
         try
         {
             var document = RequireEditableDocument();
-            var folder = SelectedFolder
-                ?? throw new InvalidOperationException(
-                    "Select a folder before renaming it.");
 
-            if (!CanRenameSelectedFolder)
+            if (IsPermanentRoot(folder))
             {
                 throw new InvalidOperationException(
-                    "The selected Chrome root folder cannot be renamed.");
+                    "Permanent Chrome root folders cannot be renamed.");
             }
 
             var oldName = folder.Name;
@@ -854,12 +864,12 @@ public sealed class MainViewModel : ViewModelBase
                     folder,
                     oldName,
                     folder.Name));
+
             await RefreshProjectionsAfterEditAsync(
-                    preferredFolder: folder)
+                    preferredFolder: SelectedFolder ?? folder)
                 .ConfigureAwait(true);
 
             return true;
-        
         }
         finally
         {
@@ -1144,23 +1154,35 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
-    public async Task<bool> DeleteSelectedFolderAsync()
+    public Task<bool> DeleteSelectedFolderAsync()
     {
+        var folder = SelectedFolder
+            ?? throw new InvalidOperationException(
+                "Select a folder before deleting it.");
+
+        return DeleteFolderAsync(folder);
+    }
+
+    public async Task<bool> DeleteFolderAsync(BookmarkFolder folder)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+
         await _documentOperationGate
             .WaitAsync()
             .ConfigureAwait(true);
         try
         {
             var document = RequireEditableDocument();
-            var folder = SelectedFolder
-                ?? throw new InvalidOperationException(
-                    "Select a folder before deleting it.");
 
-            if (!CanDeleteSelectedFolder)
+            if (IsPermanentRoot(folder))
             {
                 throw new InvalidOperationException(
                     "Permanent Chrome root folders cannot be deleted.");
             }
+
+            var selectedFolderBeforeDelete = SelectedFolder;
+            var deletingNavigationFolder =
+                ReferenceEquals(selectedFolderBeforeDelete, folder);
 
             var result = _deleteService.DeleteNode(
                 document,
@@ -1171,11 +1193,14 @@ public sealed class MainViewModel : ViewModelBase
             ClearContentSelection();
 
             await RefreshProjectionsAfterEditAsync(
-                    preferredFolder: result.SourceParent)
+                    preferredFolder:
+                        deletingNavigationFolder
+                            ? result.SourceParent
+                            : selectedFolderBeforeDelete ??
+                              result.SourceParent)
                 .ConfigureAwait(true);
 
             return true;
-        
         }
         finally
         {
@@ -1495,6 +1520,26 @@ public sealed class MainViewModel : ViewModelBase
         SelectFolder(targetFolder);
         SearchText = string.Empty;
         SetSelectedBookmark(bookmark);
+    }
+
+    public bool NavigateToFolder(BookmarkFolder folder)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+
+        if (!_folderLookup.TryGetValue(folder, out var targetFolder))
+        {
+            return false;
+        }
+
+        var ancestor = targetFolder.Parent;
+        while (ancestor is not null)
+        {
+            ancestor.IsExpanded = true;
+            ancestor = ancestor.Parent;
+        }
+
+        SelectFolder(targetFolder);
+        return true;
     }
 
     public void SelectFolder(FolderTreeItemViewModel? item)

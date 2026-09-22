@@ -1,0 +1,49 @@
+name: V1.0 Post-Parity RC Readiness
+
+on:
+  push:
+    branches:
+      - ci/v1.0-post-parity-readiness
+
+permissions:
+  contents: read
+
+jobs:
+  rc-readiness:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout exact post-parity RC source
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Run complete V1.0 release readiness
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/Invoke-V10ReleaseReadiness.ps1
+
+      - name: Inspect final release payload and hash
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem artifacts/win-x64 -File)
+          $files | Select-Object Name, Length | Format-Table -AutoSize
+          $hash = Get-FileHash artifacts/win-x64/ChromeBookmarksManager.exe -Algorithm SHA256
+          Write-Host "EXE_SHA256=$($hash.Hash.ToLowerInvariant())"
+          Write-Host "CHECKSUM_FILE:"
+          Get-Content artifacts/win-x64/ChromeBookmarksManager.exe.sha256
+          if ($files.Count -ne 2) {
+            throw "Expected exactly two formal release files, found $($files.Count)."
+          }
+
+      - name: Upload exact post-parity RC
+        uses: actions/upload-artifact@v6
+        with:
+          name: ChromeBookmarksManager-v1.0.0-rc-post-parity
+          path: |
+            artifacts/win-x64/ChromeBookmarksManager.exe
+            artifacts/win-x64/ChromeBookmarksManager.exe.sha256
+          if-no-files-found: error
+          retention-days: 1

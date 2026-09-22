@@ -10,33 +10,33 @@ const violations = [];
 const requiredXaml = [
   'ItemsSource="{Binding DisplayedItems}"',
   'SelectionMode="Extended"',
-  'Header="Open Folder"',
-  'Header="Open Bookmark"',
+  'Header="{DynamicResource ContextOpenFolder}"',
+  'Header="{DynamicResource ContextOpenBookmark}"',
   'IsEnabled="{Binding CanOpenSelectedContentItem}"',
   'Click="OpenContentBookmark_Click"',
-  'Header="_Import Bookmarks HTML..."',
+  'Header="{DynamicResource MenuImportBookmarksHtml}"',
   'IsEnabled="{Binding CanImportBookmarksHtml}"',
   'Click="ImportBookmarksHtml_Click"',
-  'Header="_Export Bookmarks HTML..."',
+  'Header="{DynamicResource MenuExportBookmarksHtml}"',
   'IsEnabled="{Binding CanExportBookmarksHtml}"',
   'Click="ExportBookmarksHtml_Click"',
-  'Header="_Cut"',
+  'Header="{DynamicResource MenuCut}"',
   'InputGestureText="Ctrl+X"',
   'IsEnabled="{Binding CanCutSelectedContentItems}"',
-  'Header="_Copy"',
+  'Header="{DynamicResource MenuCopy}"',
   'InputGestureText="Ctrl+C"',
   'IsEnabled="{Binding CanCopySelectedContentItems}"',
-  'Header="_Paste"',
+  'Header="{DynamicResource MenuPaste}"',
   'InputGestureText="Ctrl+V"',
   'IsEnabled="{Binding CanPasteClipboard}"',
-  'Header="Sort by _Name"',
+  'Header="{DynamicResource MenuSortByName}"',
   'IsEnabled="{Binding CanSortSelectedFolder}"',
   'Click="SortSelectedFolder_Click"',
-  'Header="Rename Folder..."',
-  'Header="Move Folder to..."',
-  'Header="Delete Folder..."',
-  'Header="_Delete Selected Item(s)..."',
-  'Header="Move Selected Item(s) to..."',
+  'Header="{DynamicResource ContextRenameFolder}"',
+  'Header="{DynamicResource ContextMoveFolderTo}"',
+  'Header="{DynamicResource ContextDeleteFolder}"',
+  'Header="{DynamicResource MenuDeleteSelectedItems}"',
+  'Header="{DynamicResource ContextMoveSelectedItemsTo}"',
   'IsEnabled="{Binding CanMoveSelectedContentItems}"',
   'Click="MoveSelectedContentItems_Click"',
   'IsEnabled="{Binding CanDeleteSelectedContentItems}"',
@@ -119,8 +119,8 @@ for (const text of forbiddenCodeBehind) {
 
 if (violations.length > 0) {
   throw new Error(
-    "V1.0 right-pane parity violations:\n- " +
+    "V1.1 right-pane parity violations:\n- " +
     violations.join("\n- "));
 }
 
-console.log("V1.0 command/menu/shortcut and right-pane parity verified.");
+console.log("V1.1 command/menu/shortcut and right-pane parity verified.");

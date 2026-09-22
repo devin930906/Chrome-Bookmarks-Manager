@@ -16,7 +16,7 @@ public sealed class BookmarkSearchService : IBookmarkSearchService
             cancellationToken);
     }
 
-    public Task<IReadOnlyList<BookmarkUrl>> SearchAsync(
+    public Task<IReadOnlyList<BookmarkNode>> SearchAsync(
         BookmarkSearchIndex index,
         string query,
         BookmarkSearchScope scope,
@@ -30,8 +30,8 @@ public sealed class BookmarkSearchService : IBookmarkSearchService
         var trimmedQuery = query.Trim();
         if (trimmedQuery.Length == 0)
         {
-            return Task.FromResult<IReadOnlyList<BookmarkUrl>>(
-                Array.Empty<BookmarkUrl>());
+            return Task.FromResult<IReadOnlyList<BookmarkNode>>(
+                Array.Empty<BookmarkNode>());
         }
 
         return scope switch
@@ -40,8 +40,8 @@ public sealed class BookmarkSearchService : IBookmarkSearchService
                 () => SearchAll(index, trimmedQuery, cancellationToken),
                 cancellationToken),
             BookmarkSearchScope.CurrentFolder when currentFolder is null =>
-                Task.FromResult<IReadOnlyList<BookmarkUrl>>(
-                    Array.Empty<BookmarkUrl>()),
+                Task.FromResult<IReadOnlyList<BookmarkNode>>(
+                    Array.Empty<BookmarkNode>()),
             BookmarkSearchScope.CurrentFolder => Task.Run(
                 () => SearchCurrentFolder(
                     currentFolder!,
@@ -55,20 +55,20 @@ public sealed class BookmarkSearchService : IBookmarkSearchService
         };
     }
 
-    private static IReadOnlyList<BookmarkUrl> SearchAll(
+    private static IReadOnlyList<BookmarkNode> SearchAll(
         BookmarkSearchIndex index,
         string query,
         CancellationToken cancellationToken)
     {
-        var matches = new List<BookmarkUrl>();
+        var matches = new List<BookmarkNode>();
 
-        foreach (var bookmark in index.Bookmarks)
+        foreach (var node in index.Nodes)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (Matches(bookmark, query))
+            if (Matches(node, query))
             {
-                matches.Add(bookmark);
+                matches.Add(node);
             }
         }
 
@@ -76,20 +76,20 @@ public sealed class BookmarkSearchService : IBookmarkSearchService
         return matches.AsReadOnly();
     }
 
-    private static IReadOnlyList<BookmarkUrl> SearchCurrentFolder(
+    private static IReadOnlyList<BookmarkNode> SearchCurrentFolder(
         BookmarkFolder currentFolder,
         string query,
         CancellationToken cancellationToken)
     {
-        var matches = new List<BookmarkUrl>();
+        var matches = new List<BookmarkNode>();
 
         foreach (var child in currentFolder.Children)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (child is BookmarkUrl bookmark && Matches(bookmark, query))
+            if (Matches(child, query))
             {
-                matches.Add(bookmark);
+                matches.Add(child);
             }
         }
 
@@ -97,7 +97,22 @@ public sealed class BookmarkSearchService : IBookmarkSearchService
         return matches.AsReadOnly();
     }
 
-    private static bool Matches(BookmarkUrl bookmark, string query) =>
-        bookmark.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-        bookmark.Url.Contains(query, StringComparison.OrdinalIgnoreCase);
+    private static bool Matches(
+        BookmarkNode node,
+        string query) =>
+        node switch
+        {
+            BookmarkFolder folder =>
+                folder.Name.Contains(
+                    query,
+                    StringComparison.OrdinalIgnoreCase),
+            BookmarkUrl bookmark =>
+                bookmark.Name.Contains(
+                    query,
+                    StringComparison.OrdinalIgnoreCase) ||
+                bookmark.Url.Contains(
+                    query,
+                    StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
 }

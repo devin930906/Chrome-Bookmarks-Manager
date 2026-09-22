@@ -36,7 +36,7 @@ $forbiddenRegexPatterns = @(
     '(?i)\b(?:System\.IO\.)?(?:File|FileInfo|Directory|DirectoryInfo)\s*\.\s*(?:WriteAllText|WriteAllBytes|WriteAllLines|AppendAllText|AppendAllLines|Replace|Move|Copy|Delete|Create|CreateText|AppendText|Open|OpenWrite|OpenHandle|MoveTo|CopyTo|CreateDirectory|SetAttributes|SetCreationTime|SetLastAccessTime|SetLastWriteTime|SetUnixFileMode|Encrypt|Decrypt)\s*\(',
     '(?im)^\s*using\s+(?:(?:[A-Za-z_][A-Za-z0-9_]*\s*=\s*)?)(?:static\s+)?(?:(?:global::)?System\.IO\.)?(?:File|FileInfo|FileStream|Directory|DirectoryInfo|StreamWriter|BinaryWriter)\s*;',
     '(?i)\b(?:new\s+)?(?:global::)?(?:System\.IO\.)?(?:StreamWriter|BinaryWriter)\s*\(',
-    '(?i)\.\s*(?:Write|WriteAsync|WriteByte|BeginWrite|EndWrite|CopyTo|CopyToAsync|SetLength|Flush|FlushAsync)\s*\('
+    '(?i)(?<!Volatile)\.\s*(?:Write|WriteAsync|WriteByte|BeginWrite|EndWrite|CopyTo|CopyToAsync|SetLength|Flush|FlushAsync)\s*\('
 )
 
 $fileStreamCallPattern = '(?is)\b(?:new\s+)?(?:(?:global::)?System\.IO\.)?FileStream\s*\((?<Arguments>[^)]*)\)'

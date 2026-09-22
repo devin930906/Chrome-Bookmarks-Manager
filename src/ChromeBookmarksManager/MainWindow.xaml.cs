@@ -828,7 +828,9 @@ public partial class MainWindow : Window
         ContentRenameFolderMenuItem.Visibility =
             folderSelected ? Visibility.Visible : Visibility.Collapsed;
         ContentMoveFolderMenuItem.Visibility =
-            folderSelected ? Visibility.Visible : Visibility.Collapsed;
+            folderSelected && !multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         var multipleSelected =
             ViewModel.SelectedContentItems.Count > 1;
 
@@ -848,7 +850,13 @@ public partial class MainWindow : Window
         ContentEditUrlMenuItem.Visibility =
             folderSelected ? Visibility.Collapsed : Visibility.Visible;
         ContentMoveBookmarkMenuItem.Visibility =
-            folderSelected ? Visibility.Collapsed : Visibility.Visible;
+            !folderSelected && !multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        ContentMoveSelectionMenuItem.Visibility =
+            multipleSelected
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         ContentBookmarkSeparator.Visibility =
             folderSelected ? Visibility.Collapsed : Visibility.Visible;
         ContentDeleteBookmarkMenuItem.Visibility =
@@ -937,6 +945,13 @@ public partial class MainWindow : Window
     private async void MoveBookmark_Click(object sender, RoutedEventArgs e)
     {
         await MoveBookmarkFromUiAsync();
+    }
+
+    private async void MoveSelectedContentItems_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await MoveSelectedContentItemsFromUiAsync();
     }
 
     private async void DeleteSelectedBookmarks_Click(
@@ -1218,6 +1233,37 @@ public partial class MainWindow : Window
         try
         {
             await ViewModel.MoveFolderToEndAsync(folder, target);
+        }
+        catch (BookmarkMoveException exception)
+        {
+            ShowMoveError(exception);
+        }
+    }
+
+    private async Task MoveSelectedContentItemsFromUiAsync()
+    {
+        var selectedItems = ViewModel.SelectedContentItems;
+
+        if (!ViewModel.CanMoveSelectedContentItems ||
+            selectedItems.Count == 0 ||
+            ViewModel.Document is not { } document)
+        {
+            return;
+        }
+
+        var dialog = CreateMoveDialog(
+            document,
+            selectedItems[0].Node);
+        if (dialog.ShowDialog() != true ||
+            dialog.SelectedTarget is not { } target)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.MoveSelectedContentItemsToEndAsync(
+                target);
         }
         catch (BookmarkMoveException exception)
         {

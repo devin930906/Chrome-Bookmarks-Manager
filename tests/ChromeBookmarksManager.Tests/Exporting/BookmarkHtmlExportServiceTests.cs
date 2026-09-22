@@ -104,6 +104,52 @@ public sealed class BookmarkHtmlExportServiceTests
     }
 
     [Fact]
+    public async Task ExportFileAsync_WritesUtf8WithoutBomAndUsesStreamingExporter()
+    {
+        var document = Document(
+            Folder(
+                "1",
+                "Bookmarks bar",
+                Url(
+                    "10",
+                    "Unicode 标题",
+                    "https://example.com/export")),
+            Folder("2", "Other bookmarks"),
+            Folder("3", "Mobile bookmarks"));
+        var service = new BookmarkHtmlExportService();
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"cbm-export-{Guid.NewGuid():N}.html");
+
+        try
+        {
+            await service.ExportFileAsync(
+                document,
+                path,
+                CancellationToken.None);
+
+            var bytes = await File.ReadAllBytesAsync(path);
+            Assert.False(
+                bytes.Length >= 3 &&
+                bytes[0] == 0xEF &&
+                bytes[1] == 0xBB &&
+                bytes[2] == 0xBF);
+
+            var html = await File.ReadAllTextAsync(path);
+            Assert.Contains(
+                "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
+                html);
+            Assert.Contains(
+                "<DT><A HREF=\"https://example.com/export\">Unicode 标题</A>",
+                html);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public async Task ExportBookmarksHtmlAsync_DoesNotDirtyOrMutateLoadedDocument()
     {
         var first = Url(

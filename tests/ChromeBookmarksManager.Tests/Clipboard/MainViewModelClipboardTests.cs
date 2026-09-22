@@ -43,8 +43,8 @@ public sealed class MainViewModelClipboardTests
             await viewModel.PasteClipboardIntoSelectedFolderAsync());
 
         Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
-        Assert.Equal(6, fixture.Document.UrlCount);
-        Assert.Equal(5, fixture.Document.FolderCount);
+        Assert.Equal(7, fixture.Document.UrlCount);
+        Assert.Equal(7, fixture.Document.FolderCount);
         Assert.Equal(2, fixture.Other.Children.Count);
         Assert.Same(fixture.BookmarkBar, fixture.BarFirst.Parent);
         Assert.Same(fixture.BookmarkBar, fixture.Project.Parent);
@@ -59,7 +59,7 @@ public sealed class MainViewModelClipboardTests
 
         Assert.Empty(fixture.Other.Children);
         Assert.Equal(4, fixture.Document.UrlCount);
-        Assert.Equal(4, fixture.Document.FolderCount);
+        Assert.Equal(5, fixture.Document.FolderCount);
         Assert.Equal(DocumentState.LoadedClean, viewModel.State);
         Assert.True(store.HasPayload);
 
@@ -68,8 +68,8 @@ public sealed class MainViewModelClipboardTests
         Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
         Assert.Same(firstClone, fixture.Other.Children[0]);
         Assert.Same(projectClone, fixture.Other.Children[1]);
-        Assert.Equal(6, fixture.Document.UrlCount);
-        Assert.Equal(5, fixture.Document.FolderCount);
+        Assert.Equal(7, fixture.Document.UrlCount);
+        Assert.Equal(7, fixture.Document.FolderCount);
     }
 
     [Fact]

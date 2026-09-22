@@ -235,7 +235,9 @@ public sealed class MainViewModel : ViewModelBase
         _selectedContentItems;
 
     public BookmarkFolder? SelectedContentFolder =>
-        _selectedContentItem?.Node as BookmarkFolder;
+        _selectedContentItems.Count == 1
+            ? _selectedContentItems[0].Node as BookmarkFolder
+            : null;
 
     public BookmarkUrl? SelectedBookmark
     {
@@ -342,18 +344,15 @@ public sealed class MainViewModel : ViewModelBase
 
     public bool CanRenameSelectedBookmark =>
         CanEditDocument &&
-        SelectedBookmark is not null &&
-        !HasMultipleSelectedBookmarks;
+        HasUnambiguousSelectedBookmark();
 
     public bool CanEditSelectedBookmarkUrl =>
         CanEditDocument &&
-        SelectedBookmark is not null &&
-        !HasMultipleSelectedBookmarks;
+        HasUnambiguousSelectedBookmark();
 
     public bool CanMoveSelectedBookmark =>
         CanEditDocument &&
-        SelectedBookmark is not null &&
-        !HasMultipleSelectedBookmarks;
+        HasUnambiguousSelectedBookmark();
 
     public bool CanMoveSelectedFolder =>
         CanEditDocument &&
@@ -1067,24 +1066,21 @@ public sealed class MainViewModel : ViewModelBase
             .Where(requested.Contains)
             .ToArray();
 
-        var selectedFolderItem = ordered
-            .FirstOrDefault(item => item.IsFolder);
-
-        if (selectedFolderItem is not null)
-        {
-            SetSelectedContentItems(
-                new[] { selectedFolderItem });
-            SetSelectedContentItem(selectedFolderItem);
-            ClearBookmarkSelection();
-            return;
-        }
-
         var bookmarkItems = ordered
             .Where(item => item.Node is BookmarkUrl)
             .ToArray();
         var bookmarks = bookmarkItems
             .Select(item => (BookmarkUrl)item.Node)
             .ToArray();
+
+        var primaryItem =
+            _selectedContentItem is not null &&
+            ordered.Any(
+                item => ReferenceEquals(
+                    item,
+                    _selectedContentItem))
+                ? _selectedContentItem
+                : ordered.FirstOrDefault();
 
         var primaryBookmark =
             _selectedBookmark is not null &&
@@ -1095,15 +1091,7 @@ public sealed class MainViewModel : ViewModelBase
                 ? _selectedBookmark
                 : bookmarks.FirstOrDefault();
 
-        var primaryItem =
-            primaryBookmark is null
-                ? null
-                : bookmarkItems.FirstOrDefault(
-                    item => ReferenceEquals(
-                        item.Node,
-                        primaryBookmark));
-
-        SetSelectedContentItems(bookmarkItems);
+        SetSelectedContentItems(ordered);
         SetSelectedContentItem(primaryItem);
         SetSelectedBookmarks(bookmarks);
         SetSelectedBookmark(primaryBookmark);
@@ -2436,6 +2424,24 @@ public sealed class MainViewModel : ViewModelBase
 
         _selectedContentItems = value;
         OnPropertyChanged(nameof(SelectedContentItems));
+        OnPropertyChanged(nameof(SelectedContentFolder));
+        NotifyEditingAvailabilityChanged();
+    }
+
+    private bool HasUnambiguousSelectedBookmark()
+    {
+        if (SelectedBookmark is null ||
+            HasMultipleSelectedBookmarks)
+        {
+            return false;
+        }
+
+        return _selectedContentItems.Count switch
+        {
+            0 => true,
+            1 => _selectedContentItems[0].Node is BookmarkUrl,
+            _ => false
+        };
     }
 
     private void SetSelectedBookmark(BookmarkUrl? value)

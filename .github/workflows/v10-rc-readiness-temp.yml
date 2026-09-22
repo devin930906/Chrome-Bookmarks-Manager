@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - ci/v1.0-rc-readiness
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read

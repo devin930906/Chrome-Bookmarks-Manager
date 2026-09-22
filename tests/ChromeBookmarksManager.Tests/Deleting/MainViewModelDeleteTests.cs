@@ -333,6 +333,64 @@ public sealed class MainViewModelDeleteTests
     }
 
     [Fact]
+    public async Task DeleteSelectedContentItems_MixedSelection_UndoRedoRestoresExactOrderCountsAndIdentity()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        viewModel.UpdateSelectedContentItems(
+            new[]
+            {
+                viewModel.CurrentItems[2],
+                viewModel.CurrentItems[1],
+                viewModel.CurrentItems[0]
+            });
+
+        Assert.True(viewModel.CanDeleteSelectedContentItems);
+        Assert.True(
+            await viewModel.DeleteSelectedContentItemsAsync());
+
+        Assert.Empty(fixture.BookmarkBar.Children);
+        Assert.Null(fixture.BarFirst.Parent);
+        Assert.Null(fixture.ChildFolder.Parent);
+        Assert.Null(fixture.BarSecond.Parent);
+        Assert.Same(fixture.ChildFolder, fixture.Nested.Parent);
+        Assert.Equal(2, fixture.Document.UrlCount);
+        Assert.Equal(3, fixture.Document.FolderCount);
+        Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
+
+        Assert.True(await viewModel.UndoAsync());
+
+        Assert.Equal(
+            new BookmarkNode[]
+            {
+                fixture.BarFirst,
+                fixture.ChildFolder,
+                fixture.BarSecond
+            },
+            fixture.BookmarkBar.Children);
+        Assert.Same(fixture.BookmarkBar, fixture.BarFirst.Parent);
+        Assert.Same(fixture.BookmarkBar, fixture.ChildFolder.Parent);
+        Assert.Same(fixture.ChildFolder, fixture.Nested.Parent);
+        Assert.Same(fixture.BookmarkBar, fixture.BarSecond.Parent);
+        Assert.Equal(5, fixture.Document.UrlCount);
+        Assert.Equal(4, fixture.Document.FolderCount);
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+
+        Assert.True(await viewModel.RedoAsync());
+
+        Assert.Empty(fixture.BookmarkBar.Children);
+        Assert.Null(fixture.BarFirst.Parent);
+        Assert.Null(fixture.ChildFolder.Parent);
+        Assert.Null(fixture.BarSecond.Parent);
+        Assert.Same(fixture.ChildFolder, fixture.Nested.Parent);
+        Assert.Equal(2, fixture.Document.UrlCount);
+        Assert.Equal(3, fixture.Document.FolderCount);
+        Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
+    }
+
+    [Fact]
     public async Task DeleteFolderSubtree_UndoRedo_RestoresExactSubtreeCountsAndSelection()
     {
         var fixture = CreateFixture();

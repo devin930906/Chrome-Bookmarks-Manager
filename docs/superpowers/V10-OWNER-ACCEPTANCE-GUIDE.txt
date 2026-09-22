@@ -103,11 +103,14 @@ Verify:
 - case-insensitive matching;
 - All bookmarks scope;
 - Current folder scope;
-- search results contain bookmark results only; child-folder rows are not exposed as fake search results;
+- folder-title matches appear as folder search results and bookmark title/URL matches remain intact;
+- Current folder scope returns only matching direct child folders/bookmarks from that folder;
+- All bookmarks scope searches the complete loaded tree;
+- activating a folder search result enters that folder and synchronizes the left tree;
+- activating a bookmark search result returns to its owning folder and selects/navigates to the bookmark;
 - right-pane positional Drag & Drop is disabled while search results are active;
 - rapid query replacement / latest-query-wins behavior;
-- clearing search restores the normal mixed folder/bookmark view;
-- result navigation returns to the original folder/bookmark.
+- clearing search restores the normal mixed folder/bookmark view.
 
 Use private search terms only locally. Do not paste them into reports.
 
@@ -121,7 +124,10 @@ Use a harmless temporary test location/bookmark and verify:
 - select a child-folder row in the right pane and use Move to...; verify the child moves and the currently open parent is not moved;
 - select a child-folder row in the right pane and delete it after confirmation; verify the child is deleted and the currently open parent remains intact;
 - edit bookmark URL;
-- dirty state appears after editing;
+- select a bookmark and use Open / Enter / double-click; verify the URL opens through the normal Windows browser handler;
+- verify a folder row Enter/double-click navigates internally instead of attempting to launch a URL;
+- verify Sort by Name places folders first, bookmarks second, and sorts names within each group; Undo restores the exact previous mixed order and Redo reapplies the sort;
+- dirty state appears after editing/sorting;
 - Cancel/Discard behavior on replacement load still behaves correctly.
 
 Do not perform broad real-library cleanup during acceptance.
@@ -143,7 +149,11 @@ Verify both bookmark and folder management:
 - in the right pane, drag a folder to a bookmark row edge and verify the mixed folder/bookmark sequence reorders correctly;
 - in the right pane, drag a bookmark to a folder row edge and verify it reorders beside the folder rather than entering it;
 - in the right pane, drop a movable row onto empty pane space and verify it moves to the end of the current folder;
-- bookmark Ctrl/Shift multi-selection and batch move remain functional after mixed folder rows are present;
+- Ctrl/Shift extended selection can contain bookmarks and folders together in displayed order;
+- Ctrl+A selects the current right-pane rows;
+- a mixed bookmark+folder selection can batch Move to... without collapsing to one node;
+- dragging an already-selected row moves the complete selected node set in displayed order;
+- dragging an unselected row moves only that row;
 - hierarchy and item identity remain correct after each operation.
 
 Attempt one disposable safety rejection: moving a folder into itself or one of its descendants must be rejected without hierarchy corruption.
@@ -152,12 +162,29 @@ STEP 8 — DELETE / UNDO / REDO ACCEPTANCE
 Using temporary test content, verify:
 - single bookmark delete;
 - single folder delete;
-- batch delete;
+- bookmark-only batch delete;
+- mixed bookmark+folder batch delete;
+- ancestor+descendant mixed selection does not double-delete descendants;
+- Escape clears a right-pane selection when search is not active;
 - Undo restores exact structure/order/content;
 - Redo reapplies the delete;
 - perform a mixed-order folder-before-bookmark move, then Undo and Redo; verify the complete child sequence is exact at all three positions;
 - Undo/Redo remains available across the expected bounded history;
 - dirty state follows the current history position correctly.
+
+STEP 8A — CLIPBOARD / IMPORT / EXPORT ACCEPTANCE
+Using temporary test content only, verify:
+- Copy (Ctrl+C) on a mixed bookmark+folder selection, then Paste (Ctrl+V) into a target folder; verify copied content receives independent identities and the source remains intact;
+- Cut (Ctrl+X) on a mixed selection, then Paste into another folder; verify the originals move only after successful Paste;
+- Undo/Redo around Paste restores exact structure/order and dirty state;
+- failed/invalid Paste does not partially mutate the document;
+- Export Bookmarks HTML... creates a readable HTML file without dirtying or mutating the loaded document;
+- Import Bookmarks HTML... imports a small disposable exported fixture under an Imported bookmarks folder;
+- imported names, URLs, nested order and Unicode survive the round trip;
+- Undo removes the complete import as one operation and Redo restores it;
+- malformed disposable HTML is rejected without partial import.
+
+Do not import untrusted huge files during production acceptance. Use a small disposable HTML fixture created from temporary test content.
 
 STEP 9 — CHROME-CLOSED PRODUCTION SAVE
 Before saving:
@@ -305,7 +332,11 @@ On the reviewed V1.0 EXE, confirm:
 - search;
 - add/edit;
 - move/reorder/Drag & Drop;
-- batch operations;
+- mixed selection / batch operations;
+- Cut / Copy / Paste;
+- Sort by Name;
+- Open bookmark;
+- HTML Import / Export;
 - delete;
 - Undo/Redo;
 - explicit Save;
@@ -332,6 +363,10 @@ Allowed acceptance report:
 - BackupLengthMatchesSource=True/False;
 - search checks PASS/FAIL;
 - edit/move/delete/Undo/Redo checks PASS/FAIL;
+- mixed selection / Ctrl+A / Escape checks PASS/FAIL;
+- Open bookmark / Sort by Name checks PASS/FAIL;
+- Cut / Copy / Paste checks PASS/FAIL;
+- HTML Import / Export round-trip checks PASS/FAIL;
 - Chrome-closed Save PASS/FAIL;
 - Edit -> Save -> Clean / Undo -> Dirty / Redo -> Clean PASS/FAIL;
 - V1.0 reopen PASS/FAIL;
@@ -358,6 +393,7 @@ V1.0 Windows 10 owner acceptance passes only when:
 - the independent external backup matches the pre-save baseline;
 - the application-generated backup matches the pre-save baseline;
 - real-library browsing/search/edit/move/delete/history behavior passes;
+- mixed selection, keyboard, Open, Sort, Cut/Copy/Paste, and HTML Import/Export acceptance passes;
 - Chrome-closed Save succeeds;
 - saved checkpoint behavior passes;
 - VerifyFinal reports all structural booleans True;

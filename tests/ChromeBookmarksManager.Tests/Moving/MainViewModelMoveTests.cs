@@ -175,7 +175,8 @@ public sealed class MainViewModelMoveTests
 
         viewModel.SearchText = "First";
         await viewModel.WaitForPendingSearchAsync();
-        var result = Assert.Single(viewModel.SearchResults);
+        var result = Assert.IsType<BookmarkUrl>(
+            Assert.Single(viewModel.SearchResults));
         Assert.Same(fixture.BarFirst, result);
         viewModel.SelectedBookmark = result;
 

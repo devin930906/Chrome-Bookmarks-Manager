@@ -506,6 +506,7 @@ The application still does not write automatically: production persistence occur
 - **V1.0 — Stable personal-use release: completed**
 - **V1.1 — Bilingual UI and branded Windows icon: completed**
 - **V1.1.1 — Branded Windows icon refresh: completed**
+- **V1.2.0 — Native Bookmarks drag-and-drop + bulk URL/TXT import: completed** — strict external-drop filtering, multiline/TXT bulk add, invalid-line blocking, one-step batch Undo/Redo, left/right bulk-add entry points, automated CI, and Windows owner acceptance complete
 
 ## Design and implementation documents
 

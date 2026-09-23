@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using ChromeBookmarksManager.Application;
 using ChromeBookmarksManager.Application.Editing;
+using ChromeBookmarksManager.Application.Importing;
 using ChromeBookmarksManager.Application.Search;
 using ChromeBookmarksManager.Chrome;
 using ChromeBookmarksManager.Domain;
@@ -157,6 +158,46 @@ public sealed class MainViewModelEditingTests
         Assert.Same(added, viewModel.SelectedBookmark);
         Assert.Contains(viewModel.CurrentBookmarks, bookmark => ReferenceEquals(bookmark, added));
         Assert.Equal("4 URLs | 4 folders", viewModel.DocumentSummaryText);
+    }
+
+    [Fact]
+    public async Task AddBookmarks_BatchIsSingleUndoRedoOperation()
+    {
+        var fixture = CreateFixture();
+        var viewModel = CreateViewModel(fixture.Document);
+        await viewModel.LoadBookmarksAsync(@"C:\Synthetic\Bookmarks");
+
+        var added = await viewModel.AddBookmarksAsync(
+            new[]
+            {
+                new BookmarkTextImportItem(
+                    "first.example",
+                    "https://first.example/path",
+                    1),
+                new BookmarkTextImportItem(
+                    "second.example",
+                    "https://second.example/path",
+                    2)
+            });
+
+        Assert.Equal(2, added.Count);
+        Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
+        Assert.Equal("5 URLs | 4 folders", viewModel.DocumentSummaryText);
+        Assert.Same(added[1], viewModel.SelectedBookmark);
+        Assert.True(viewModel.CanUndo);
+
+        Assert.True(await viewModel.UndoAsync());
+        Assert.Equal(DocumentState.LoadedClean, viewModel.State);
+        Assert.Equal("3 URLs | 4 folders", viewModel.DocumentSummaryText);
+        Assert.DoesNotContain(
+            fixture.BookmarkBar.Children,
+            child => added.Any(bookmark => ReferenceEquals(bookmark, child)));
+
+        Assert.True(await viewModel.RedoAsync());
+        Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
+        Assert.Equal("5 URLs | 4 folders", viewModel.DocumentSummaryText);
+        Assert.Same(added[0], fixture.BookmarkBar.Children[^2]);
+        Assert.Same(added[1], fixture.BookmarkBar.Children[^1]);
     }
 
     [Fact]

@@ -1,0 +1,1 @@
+Trigger the one-shot V1.2.0 release workflow for approved target a10f4cb69771d1372c407626cc53d2cdcf560ebb.

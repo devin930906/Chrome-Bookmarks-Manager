@@ -10,7 +10,10 @@
         MinHeight="560"
         WindowStartupLocation="CenterScreen"
         PreviewKeyDown="Window_PreviewKeyDown"
-        Closing="Window_Closing">
+        Closing="Window_Closing"
+        AllowDrop="True"
+        DragOver="Window_DragOver"
+        Drop="Window_Drop">
     <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="{DynamicResource MenuFile}">
@@ -61,6 +64,9 @@
                           InputGestureText="Ctrl+Shift+B"
                           IsEnabled="{Binding CanAddBookmark}"
                           Click="AddBookmark_Click" />
+                <MenuItem Header="{DynamicResource MenuAddBookmarksBatch}"
+                          IsEnabled="{Binding CanAddBookmark}"
+                          Click="AddBookmarksBatch_Click" />
                 <MenuItem Header="{DynamicResource MenuAddFolder}"
                           InputGestureText="Ctrl+Shift+F"
                           IsEnabled="{Binding CanAddFolder}"
@@ -230,6 +236,9 @@
                             <MenuItem Header="{DynamicResource ContextAddBookmark}"
                                       IsEnabled="{Binding CanAddBookmark}"
                                       Click="AddBookmark_Click" />
+                            <MenuItem Header="{DynamicResource ContextAddBookmarksBatch}"
+                                      IsEnabled="{Binding CanAddBookmark}"
+                                      Click="AddBookmarksBatch_Click" />
                             <MenuItem Header="{DynamicResource ContextAddFolder}"
                                       IsEnabled="{Binding CanAddFolder}"
                                       Click="AddFolder_Click" />
@@ -311,6 +320,10 @@
                                       InputGestureText="Ctrl+V"
                                       IsEnabled="{Binding CanPasteClipboard}"
                                       Click="PasteClipboard_Click" />
+                            <MenuItem x:Name="ContentAddBookmarksBatchMenuItem"
+                                      Header="{DynamicResource ContextAddBookmarksBatch}"
+                                      IsEnabled="{Binding CanAddBookmark}"
+                                      Click="AddBookmarksBatch_Click" />
                             <Separator />
                             <MenuItem x:Name="ContentRenameFolderMenuItem"
                                       Header="{DynamicResource ContextRenameFolder}"

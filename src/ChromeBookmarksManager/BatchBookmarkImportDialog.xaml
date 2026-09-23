@@ -1,0 +1,61 @@
+<Window x:Class="ChromeBookmarksManager.BatchBookmarkImportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource DialogBatchAddBookmarks}"
+        Width="700"
+        Height="520"
+        MinWidth="560"
+        MinHeight="380"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Margin="0,0,0,10"
+                   Text="{DynamicResource BatchImportInstructions}"
+                   TextWrapping="Wrap" />
+
+        <TextBox x:Name="UrlsBox"
+                 Grid.Row="1"
+                 AcceptsReturn="True"
+                 AcceptsTab="False"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 TextWrapping="NoWrap" />
+
+        <Grid Grid.Row="2" Margin="0,10,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0"
+                    Width="112"
+                    Content="{DynamicResource ButtonImportTxt}"
+                    Click="ImportTxt_Click" />
+            <TextBlock x:Name="ValidationText"
+                       Grid.Column="1"
+                       Margin="12,3,0,0"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" />
+        </Grid>
+
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button Width="108"
+                    Margin="0,0,8,0"
+                    Content="{DynamicResource ButtonAddBookmarks}"
+                    IsDefault="True"
+                    Click="Ok_Click" />
+            <Button Width="88"
+                    Content="{DynamicResource ButtonCancel}"
+                    IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>

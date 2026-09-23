@@ -1,4 +1,5 @@
 using System.IO;
+
 namespace ChromeBookmarksManager.DragDrop;
 
 public static class ExternalBookmarksDropRules
@@ -12,12 +13,8 @@ public static class ExternalBookmarksDropRules
 
         var fileName = Path.GetFileName(path);
         return string.Equals(
-                   fileName,
-                   "Bookmarks",
-                   StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(
-                   fileName,
-                   "Bookmarks.bak",
-                   StringComparison.OrdinalIgnoreCase);
+            fileName,
+            "Bookmarks",
+            StringComparison.OrdinalIgnoreCase);
     }
 }

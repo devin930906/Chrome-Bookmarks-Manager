@@ -2316,15 +2316,7 @@ public partial class MainWindow : Window
             return null;
         }
 
-        var fileName = Path.GetFileName(path);
-        return string.Equals(
-                   fileName,
-                   "Bookmarks",
-                   StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(
-                   fileName,
-                   "Bookmarks.bak",
-                   StringComparison.OrdinalIgnoreCase)
+        return ExternalBookmarksDropRules.IsSupportedBookmarksFile(path)
             ? path
             : null;
     }

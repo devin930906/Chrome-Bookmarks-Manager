@@ -86,14 +86,22 @@ V1.2 External Drop Rejection = PASS
 STEP 5 — OPEN THE BULK-ADD DIALOG
 Select a disposable test folder inside the loaded Bookmarks copy.
 
-Use:
-Edit -> Add Bookmarks in Bulk...
-or the equivalent Simplified Chinese menu:
-编辑 -> 批量添加书签...
+Use either entry point:
+- Edit -> Add Bookmarks in Bulk...
+- Left folder-tree context menu -> Add Bookmarks in Bulk...
+- Right contents-pane context menu -> Add Bookmarks in Bulk...
+
+Simplified Chinese:
+- 编辑 -> 批量添加书签...
+- 左侧文件夹树右键 -> 批量添加书签...
+- 右侧内容列表右键 -> 批量添加书签...
 
 Required:
 - the original single Add Bookmark command still exists;
-- the new bulk-add command opens a multiline dialog;
+- the left-side bulk-add entry opens the multiline dialog;
+- the right-side bulk-add entry opens the SAME multiline dialog;
+- both left and right entry points add into the currently open/selected folder;
+- right-clicking a bookmark row does not make the import target that bookmark; the target remains the current folder;
 - the dialog includes an Import TXT button;
 - Chinese/English switching continues to update the UI normally.
 

@@ -252,6 +252,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        await OpenBookmarksPathAsync(dialog.FileName);
+    }
+
+    private async Task OpenBookmarksPathAsync(string path)
+    {
         var discardDirtyChanges = false;
         if (ViewModel.IsDirty)
         {
@@ -277,7 +282,7 @@ public partial class MainWindow : Window
         }
 
         await ViewModel.LoadBookmarksAsync(
-            dialog.FileName,
+            path,
             discardDirtyChanges);
     }
 
@@ -592,6 +597,11 @@ public partial class MainWindow : Window
         object sender,
         DragEventArgs e)
     {
+        if (TryHandleExternalBookmarksDragOver(e))
+        {
+            return;
+        }
+
         ClearBookmarkDropIndicator();
         e.Effects = DragDropEffects.None;
 
@@ -666,6 +676,11 @@ public partial class MainWindow : Window
         object sender,
         DragEventArgs e)
     {
+        if (await TryHandleExternalBookmarksDropAsync(e))
+        {
+            return;
+        }
+
         ClearBookmarkDropIndicator();
         e.Effects = DragDropEffects.None;
 
@@ -785,6 +800,11 @@ public partial class MainWindow : Window
         object sender,
         DragEventArgs e)
     {
+        if (TryHandleExternalBookmarksDragOver(e))
+        {
+            return;
+        }
+
         ClearFolderDropIndicator();
         e.Effects = DragDropEffects.None;
 
@@ -868,6 +888,11 @@ public partial class MainWindow : Window
         object sender,
         DragEventArgs e)
     {
+        if (await TryHandleExternalBookmarksDropAsync(e))
+        {
+            return;
+        }
+
         ClearFolderDropIndicator();
         e.Effects = DragDropEffects.None;
 
@@ -1260,6 +1285,11 @@ public partial class MainWindow : Window
         await AddBookmarkFromUiAsync();
     }
 
+    private async void AddBookmarksBatch_Click(object sender, RoutedEventArgs e)
+    {
+        await AddBookmarksBatchFromUiAsync();
+    }
+
     private async void AddFolder_Click(object sender, RoutedEventArgs e)
     {
         await AddFolderFromUiAsync();
@@ -1357,6 +1387,42 @@ public partial class MainWindow : Window
         catch (BookmarkEditException exception)
         {
             ShowEditError(exception);
+        }
+    }
+
+    private async Task AddBookmarksBatchFromUiAsync()
+    {
+        if (!ViewModel.CanAddBookmark)
+        {
+            return;
+        }
+
+        var dialog = new BatchBookmarkImportDialog
+        {
+            Owner = this
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            await ViewModel.AddBookmarksAsync(dialog.Items);
+        }
+        catch (BookmarkEditException exception)
+        {
+            ShowEditError(exception);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                LF("BatchImportFailed", exception.Message),
+                L("DialogBatchAddBookmarks"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -2184,6 +2250,83 @@ public partial class MainWindow : Window
 
         return e.Data.GetData(typeof(BookmarkDragPayload))
             as BookmarkDragPayload;
+    }
+
+    private void Window_DragOver(object sender, DragEventArgs e)
+    {
+        TryHandleExternalBookmarksDragOver(e);
+    }
+
+    private async void Window_Drop(object sender, DragEventArgs e)
+    {
+        await TryHandleExternalBookmarksDropAsync(e);
+    }
+
+    private bool TryHandleExternalBookmarksDragOver(DragEventArgs e)
+    {
+        if (GetDroppedBookmarksPath(e) is null ||
+            !ViewModel.CanOpenBookmarks)
+        {
+            return false;
+        }
+
+        ClearBookmarkDropIndicator();
+        ClearFolderDropIndicator();
+        e.Effects = DragDropEffects.Copy;
+        e.Handled = true;
+        return true;
+    }
+
+    private async Task<bool> TryHandleExternalBookmarksDropAsync(
+        DragEventArgs e)
+    {
+        var path = GetDroppedBookmarksPath(e);
+        if (path is null)
+        {
+            return false;
+        }
+
+        ClearBookmarkDropIndicator();
+        ClearFolderDropIndicator();
+        e.Effects = DragDropEffects.None;
+        e.Handled = true;
+
+        if (!ViewModel.CanOpenBookmarks)
+        {
+            return true;
+        }
+
+        await OpenBookmarksPathAsync(path);
+        e.Effects = DragDropEffects.Copy;
+        return true;
+    }
+
+    private static string? GetDroppedBookmarksPath(DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop) ||
+            e.Data.GetData(DataFormats.FileDrop) is not string[] paths ||
+            paths.Length != 1)
+        {
+            return null;
+        }
+
+        var path = paths[0];
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        var fileName = Path.GetFileName(path);
+        return string.Equals(
+                   fileName,
+                   "Bookmarks",
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   fileName,
+                   "Bookmarks.bak",
+                   StringComparison.OrdinalIgnoreCase)
+            ? path
+            : null;
     }
 
     private void SetBookmarkDropIndicator(

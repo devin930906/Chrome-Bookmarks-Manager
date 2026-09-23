@@ -2,7 +2,6 @@ import fs from "node:fs";
 
 const projectPath = "src/ChromeBookmarksManager/ChromeBookmarksManager.csproj";
 const iconPath = "src/ChromeBookmarksManager/Assets/ChromeBookmarksManager.ico";
-const expectedVersion = "1.1.1";
 const requiredSizes = [16, 24, 32, 48, 64, 128];
 
 const project = fs.readFileSync(projectPath, "utf8");
@@ -10,9 +9,6 @@ const icon = fs.readFileSync(iconPath);
 
 const violations = [];
 
-if (!project.includes(`<VersionPrefix>${expectedVersion}</VersionPrefix>`)) {
-  violations.push(`Project VersionPrefix must be ${expectedVersion}.`);
-}
 
 if (!project.includes("<ApplicationIcon>Assets\\ChromeBookmarksManager.ico</ApplicationIcon>")) {
   violations.push("ApplicationIcon must point to Assets\\ChromeBookmarksManager.ico.");
@@ -66,8 +62,8 @@ if (icon.length < 6) {
 
 if (violations.length > 0) {
   throw new Error(
-    "V1.1.1 icon refresh contract violations:\n- " +
+    "Application icon contract violations:\n- " +
     violations.join("\n- "));
 }
 
-console.log("V1.1.1 icon refresh contract verified.");
+console.log("Application icon contract verified.");

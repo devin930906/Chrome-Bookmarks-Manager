@@ -1,5 +1,7 @@
 # Chrome Bookmarks Manager
 
+**English** | [简体中文](README.zh-CN.md)
+
 Chrome Bookmarks Manager is a Windows desktop application for managing very large Chrome bookmark libraries. The project is designed around local-first operation, explicit data-safety boundaries, reproducible builds, and safe editing of Chrome's native `Bookmarks` file.
 
 ## Project status

@@ -16,6 +16,7 @@
     <system:String x:Key="MenuCopy">复制</system:String>
     <system:String x:Key="MenuPaste">粘贴</system:String>
     <system:String x:Key="MenuAddBookmark">添加书签...</system:String>
+    <system:String x:Key="MenuAddBookmarksBatch">批量添加书签...</system:String>
     <system:String x:Key="MenuAddFolder">添加文件夹...</system:String>
     <system:String x:Key="MenuSortByName">按名称排序</system:String>
     <system:String x:Key="MenuRenameFolder">重命名文件夹...</system:String>
@@ -42,6 +43,7 @@
     <system:String x:Key="PanelContents">内容</system:String>
 
     <system:String x:Key="ContextAddBookmark">添加书签...</system:String>
+    <system:String x:Key="ContextAddBookmarksBatch">批量添加书签...</system:String>
     <system:String x:Key="ContextAddFolder">添加文件夹...</system:String>
     <system:String x:Key="ContextRenameFolder">重命名文件夹...</system:String>
     <system:String x:Key="ContextMoveTo">移动到...</system:String>
@@ -107,6 +109,15 @@
     <system:String x:Key="CountBookmarkMany">{0:N0} 个书签</system:String>
 
     <system:String x:Key="DialogAddBookmark">添加书签</system:String>
+    <system:String x:Key="DialogBatchAddBookmarks">批量添加书签</system:String>
+    <system:String x:Key="BatchImportInstructions">每行输入或粘贴一个网址，也可以导入 .txt 文件。example.com、www.example.com 这类地址会自动补上 https://。</system:String>
+    <system:String x:Key="ButtonImportTxt">导入 TXT...</system:String>
+    <system:String x:Key="ButtonAddBookmarks">添加书签</system:String>
+    <system:String x:Key="BatchImportTxtFilter">文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*</system:String>
+    <system:String x:Key="BatchImportNoUrls">请至少输入一个有效网址。</system:String>
+    <system:String x:Key="BatchImportInvalidLines">以下行的网址无效：{0}。请修正后再导入。</system:String>
+    <system:String x:Key="BatchImportTxtFailed">无法读取 TXT 文件：{0}</system:String>
+    <system:String x:Key="BatchImportFailed">无法添加这些书签：{0}</system:String>
     <system:String x:Key="DialogAddFolder">添加文件夹</system:String>
     <system:String x:Key="DialogRenameFolder">重命名文件夹</system:String>
     <system:String x:Key="DialogRenameBookmark">重命名书签</system:String>
@@ -156,6 +167,7 @@
     <system:String x:Key="DeleteFolderPrompt">删除文件夹“{0}”及其全部子内容？&#10;&#10;其中包含{1}和{2}。&#10;&#10;整个子树会先从当前加载的文档中移除。&#10;点击“保存”后才会安全写入 Chrome Bookmarks 源文件。</system:String>
 
     <system:String x:Key="HistoryAddBookmark">添加书签</system:String>
+    <system:String x:Key="HistoryAddBookmarks">添加 {0:N0} 个书签</system:String>
     <system:String x:Key="HistoryAddFolder">添加文件夹</system:String>
     <system:String x:Key="HistoryDeleteFolder">删除文件夹</system:String>
     <system:String x:Key="HistoryDeleteBookmark">删除书签</system:String>

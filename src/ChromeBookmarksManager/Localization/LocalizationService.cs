@@ -69,6 +69,7 @@ public static partial class LocalizationService
             ["CountBookmarkOne"] = "{0:N0} bookmark",
             ["CountBookmarkMany"] = "{0:N0} bookmarks",
             ["HistoryAddBookmark"] = "Add bookmark",
+            ["HistoryAddBookmarks"] = "Add {0:N0} bookmarks",
             ["HistoryAddFolder"] = "Add folder",
             ["HistoryDeleteFolder"] = "Delete folder",
             ["HistoryDeleteBookmark"] = "Delete bookmark",
@@ -308,6 +309,8 @@ public static partial class LocalizationService
 
         return match.Groups["verb"].Value switch
         {
+            "Add" when match.Groups["noun"].Value == "bookmarks" =>
+                Format("HistoryAddBookmarks", count),
             "Delete" when match.Groups["noun"].Value == "bookmarks" =>
                 Format("HistoryDeleteBookmarks", count),
             "Move" when match.Groups["noun"].Value == "bookmarks" =>
@@ -355,7 +358,7 @@ public static partial class LocalizationService
     }
 
     [GeneratedRegex(
-        @"^(?<verb>Delete|Move|Paste) (?<count>\d+) (?<noun>bookmarks|items?)$",
+        @"^(?<verb>Add|Delete|Move|Paste) (?<count>\d+) (?<noun>bookmarks|items?)$",
         RegexOptions.CultureInvariant)]
     private static partial Regex HistoryCountPattern();
 }

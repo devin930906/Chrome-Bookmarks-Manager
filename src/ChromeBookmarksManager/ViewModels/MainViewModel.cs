@@ -1129,6 +1129,87 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    public async Task<IReadOnlyList<BookmarkUrl>> AddBookmarksAsync(
+        IReadOnlyList<BookmarkTextImportItem> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+
+        await _documentOperationGate
+            .WaitAsync()
+            .ConfigureAwait(true);
+        try
+        {
+            var document = RequireEditableDocument();
+            var parent = SelectedFolder
+                ?? throw new InvalidOperationException(
+                    "Select a folder before adding bookmarks.");
+
+            if (items.Count == 0)
+            {
+                return Array.Empty<BookmarkUrl>();
+            }
+
+            foreach (var item in items)
+            {
+                if (item is null ||
+                    item.Name is null ||
+                    string.IsNullOrWhiteSpace(item.Url))
+                {
+                    throw new BookmarkEditException(
+                        BookmarkEditError.InvalidValue,
+                        "Batch bookmark items require a name and URL.");
+                }
+            }
+
+            var insertionIndex = parent.Children.Count;
+            var added = new List<BookmarkUrl>(items.Count);
+
+            try
+            {
+                foreach (var item in items)
+                {
+                    added.Add(
+                        _editingService.AddBookmark(
+                            document,
+                            parent,
+                            item.Name,
+                            item.Url));
+                }
+            }
+            catch
+            {
+                for (var index = added.Count - 1; index >= 0; index--)
+                {
+                    BookmarkHistoryMutation.DetachWithCounts(
+                        document,
+                        added[index],
+                        parent,
+                        insertionIndex + index,
+                        urlCount: 1,
+                        folderCount: 0);
+                }
+
+                throw;
+            }
+
+            RecordHistory(
+                new BookmarkBatchAddHistoryEntry(
+                    added,
+                    parent,
+                    insertionIndex));
+            await RefreshProjectionsAfterEditAsync(
+                    preferredFolder: parent,
+                    preferredBookmark: added[^1])
+                .ConfigureAwait(true);
+
+            return added;
+        }
+        finally
+        {
+            _documentOperationGate.Release();
+        }
+    }
+
     public async Task<BookmarkFolder> AddFolderAsync(string name)
     {
         await _documentOperationGate

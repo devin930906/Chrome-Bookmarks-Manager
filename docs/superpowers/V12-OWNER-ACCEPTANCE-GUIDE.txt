@@ -1,0 +1,276 @@
+Chrome Bookmarks Manager V1.2 — Windows Owner Acceptance Guide
+
+PURPOSE
+This guide validates the V1.2 external Bookmarks drag-and-drop and bulk URL/TXT import features before merge. It intentionally uses a disposable copy first so the production Chrome Bookmarks file is not modified during feature acceptance.
+
+REVIEWED CANDIDATE
+- Pull Request: #18
+- Branch: feature/v1.2-bulk-import-dragdrop
+- Reviewed head: cc928139785279bb461cc9feaa8f1fdb8a53f27d
+- GitHub Actions run: #570
+- Automated result: SUCCESS
+- Artifact: ChromeBookmarksManager-win-x64
+
+HARD SAFETY RULES
+1. Do not replace the installed/stable V1.1.1 executable yet.
+2. Do not merge PR #18 until every required V1.2 owner-acceptance item passes.
+3. First test against a disposable COPY of the Chrome Bookmarks file, not the production source.
+4. Keep an independent backup of the production Bookmarks file outside the Chrome profile before any real Save.
+5. Do not upload, commit, paste, or screenshot private bookmark titles, URLs, raw Bookmarks JSON, profile paths, or backup contents.
+6. V1.2 external file drop accepts only a file whose file name is exactly Bookmarks (case-insensitive). Chrome's Bookmarks.bak and unrelated HTML/TXT/JSON files must not be treated as the native Bookmarks file.
+7. TXT import is for the bulk-add dialog. TXT files must not be treated as native Bookmarks files when dragged onto the main window.
+
+STEP 1 — DOWNLOAD THE REVIEWED CI ARTIFACT
+Open GitHub Actions run #570 for PR #18.
+
+Download:
+ChromeBookmarksManager-win-x64
+
+Extract the ZIP to a temporary V1.2 test folder.
+
+Required:
+- ChromeBookmarksManager.exe exists.
+- Do not overwrite the current stable V1.1.1 EXE yet.
+
+STEP 2 — CREATE A DISPOSABLE BOOKMARKS COPY
+Close Chrome before making the copy so the source is stable.
+
+Find the active Chrome profile locally using:
+chrome://version
+
+The active native file is:
+<Profile Path>\Bookmarks
+
+Copy it to a temporary test folder and KEEP THE FILE NAME:
+Bookmarks
+
+Example concept only:
+D:\CBM-V12-Test\Bookmarks
+
+Do not rename the disposable test file to Bookmarks.txt or Bookmarks.json.
+
+Re-open Chrome only after the copy has been made if desired. Note that Safe Save intentionally requires Chrome to be fully closed.
+
+STEP 3 — EXTERNAL BOOKMARKS DRAG-AND-DROP
+Start the reviewed V1.2 ChromeBookmarksManager.exe.
+
+Without using File -> Open:
+- drag the disposable file named Bookmarks from Windows File Explorer onto the main application window.
+
+Required:
+- the mouse indicates an accepted file drop;
+- the Bookmarks document loads;
+- URL/folder counts are plausible;
+- the three permanent Chrome roots appear;
+- normal folder browsing still works;
+- internal bookmark/folder drag-and-drop still works after loading;
+- there is no corruption/recovery warning.
+
+PASS statement:
+V1.2 External Bookmarks Drop = PASS
+
+STEP 4 — EXTERNAL DROP REJECTION
+Using harmless disposable files, confirm the main window DOES NOT treat these as native Bookmarks input:
+- Bookmarks.bak
+- bookmarks.html
+- bookmarks.txt
+- bookmarks.json
+- arbitrary.txt
+
+Required:
+- none of those files replaces the currently loaded native Bookmarks document through external file drop.
+
+PASS statement:
+V1.2 External Drop Rejection = PASS
+
+STEP 5 — OPEN THE BULK-ADD DIALOG
+Select a disposable test folder inside the loaded Bookmarks copy.
+
+Use:
+Edit -> Add Bookmarks in Bulk...
+or the equivalent Simplified Chinese menu:
+编辑 -> 批量添加书签...
+
+Required:
+- the original single Add Bookmark command still exists;
+- the new bulk-add command opens a multiline dialog;
+- the dialog includes an Import TXT button;
+- Chinese/English switching continues to update the UI normally.
+
+PASS statement:
+V1.2 Bulk Add Dialog = PASS
+
+STEP 6 — MANUAL MULTILINE URL ENTRY
+Paste only synthetic/non-private test URLs such as:
+
+https://example.com/one
+example.org/two
+www.example.net/three
+localhost:3000/test
+
+Leave at least one blank line between entries.
+
+Add the bookmarks.
+
+Required:
+- blank lines are ignored;
+- four bookmarks are created;
+- bare example.org/two becomes https://example.org/two;
+- www.example.net/three becomes https://www.example.net/three;
+- localhost:3000/test becomes https://localhost:3000/test;
+- explicit https://example.com/one stays unchanged;
+- generated names are usable host-based names rather than empty titles;
+- the document becomes Dirty;
+- the new bookmarks appear in the selected folder.
+
+PASS statement:
+V1.2 Manual Bulk URLs = PASS
+
+STEP 7 — BULK UNDO / REDO
+Immediately after Step 6:
+
+Press Ctrl+Z once.
+
+Required:
+- the complete batch disappears with one Undo;
+- counts return to their previous values;
+- no partial batch remains.
+
+Press Ctrl+Y once.
+
+Required:
+- the complete batch returns with one Redo;
+- the original batch order is preserved;
+- counts return to the post-import values.
+
+PASS statement:
+V1.2 Bulk Undo Redo = PASS
+
+STEP 8 — INVALID LINE PROTECTION
+Open the bulk-add dialog again and enter:
+
+https://valid.example/path
+not a url
+second.example/path
+
+Attempt to add.
+
+Required:
+- the operation is blocked;
+- the validation message identifies line 2;
+- no partial bookmarks from line 1 or line 3 are added.
+
+Correct/remove the invalid line and confirm the remaining valid lines can then be added.
+
+PASS statement:
+V1.2 Invalid URL Protection = PASS
+
+STEP 9 — TXT IMPORT
+Create a disposable UTF-8 text file containing one URL per line, for example:
+
+https://alpha.example/path
+beta.example/path
+www.gamma.example/path
+
+Open the bulk-add dialog.
+Choose Import TXT...
+Select the disposable TXT file.
+Add the bookmarks.
+
+Required:
+- TXT content appears in the multiline input;
+- all valid lines are imported;
+- bare host/path lines receive https://;
+- order is preserved;
+- the operation is one Undo/Redo history item.
+
+PASS statement:
+V1.2 TXT Import = PASS
+
+STEP 10 — TXT INVALID-LINE CHECK
+Create another disposable TXT file containing at least one invalid line.
+
+Import it through Import TXT...
+
+Required:
+- invalid line numbers are reported;
+- no partial add occurs until the invalid content is corrected.
+
+PASS statement:
+V1.2 TXT Validation = PASS
+
+STEP 11 — SEARCH / INTERNAL DRAG REGRESSION
+With the disposable document still loaded:
+- search for one of the synthetic imported host names;
+- confirm the imported bookmark appears;
+- clear search;
+- drag one imported bookmark within the current folder;
+- optionally drag it into another disposable folder;
+- Undo and Redo the move.
+
+Required:
+- search, internal drag-and-drop, Undo/Redo and Dirty state still behave normally.
+
+PASS statement:
+V1.2 Existing Editing Regression = PASS
+
+STEP 12 — SAVE / REOPEN PERSISTENCE ON THE DISPOSABLE COPY
+Close every Chrome window and confirm no chrome.exe process remains.
+
+Save the disposable Bookmarks copy from the application.
+
+Required:
+- Safe Save succeeds;
+- an application-owned verified backup is created as before;
+- the document becomes Clean.
+
+Close the application.
+Reopen the reviewed V1.2 EXE.
+Drag the SAME disposable Bookmarks file into the main window again.
+
+Required:
+- the imported test bookmarks are still present;
+- the saved structure/order is correct;
+- no corruption/recovery warning appears.
+
+PASS statement:
+V1.2 Save Reopen = PASS
+
+STEP 13 — REAL BOOKMARKS READ-ONLY DROP
+For the final production-shape check:
+- keep an independent external backup of the real production Bookmarks file;
+- drag the real production file named Bookmarks into V1.2;
+- browse several folders;
+- perform a private local search if desired;
+- DO NOT make or save production edits during this step.
+
+Required:
+- the real library loads normally;
+- large-library browsing remains usable;
+- counts are plausible;
+- there is no corruption/recovery warning.
+
+PASS statement:
+V1.2 Real Bookmarks Read-Only Drop = PASS
+
+FINAL REQUIRED PASS SET
+Report these exact results:
+
+V1.2 External Bookmarks Drop = PASS
+V1.2 External Drop Rejection = PASS
+V1.2 Bulk Add Dialog = PASS
+V1.2 Manual Bulk URLs = PASS
+V1.2 Bulk Undo Redo = PASS
+V1.2 Invalid URL Protection = PASS
+V1.2 TXT Import = PASS
+V1.2 TXT Validation = PASS
+V1.2 Existing Editing Regression = PASS
+V1.2 Save Reopen = PASS
+V1.2 Real Bookmarks Read-Only Drop = PASS
+
+MERGE GATE
+Only after all eleven owner-acceptance lines are PASS:
+- approve merging PR #18 into main;
+- then prepare the version/release decision separately.
+
+Do not tag or publish V1.2 merely because CI is green. CI proves automated build/test/publish behavior; owner acceptance proves the actual Windows drag/drop and dialog interaction works correctly on the owner's machine.

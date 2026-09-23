@@ -4,9 +4,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Stable — V1.1.0**
+**Stable — V1.1.1**
 
-V1.1.0 builds on the V1.0 stable personal-use release with a complete Simplified Chinese / English interface, instant language switching with remembered preference, and a branded Windows application icon. The existing local bookmark-management scope and guarded Safe Save invariants remain unchanged. V1.1 automated Windows CI and owner UI acceptance are complete; the formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
+V1.1.1 is the current stable personal-use release. It keeps the complete Simplified Chinese / English interface, instant language switching with remembered preference, and all V1.0 Safe Save invariants, while refreshing the branded Windows application icon used by the EXE, main window, taskbar, and Alt+Tab. Automated Windows CI and owner visual acceptance are complete; the formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
 
 The current application supports:
 
@@ -496,6 +496,7 @@ The application still does not write automatically: production persistence occur
 - **V0.9 — Safe Chrome Write: completed** — Chromium-compatible checksums, deterministic writer, external-change detection, Chrome-process guard, verified backup, atomic replace, explicit Save UI, persistence safety/scale gates, disposable-profile compatibility, Windows 10 production owner acceptance, PR #9 merge, and post-merge verification complete
 - **V1.0 — Stable personal-use release: completed**
 - **V1.1 — Bilingual UI and branded Windows icon: completed**
+- **V1.1.1 — Branded Windows icon refresh: completed**
 
 ## Design and implementation documents
 

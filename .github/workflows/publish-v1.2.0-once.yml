@@ -58,6 +58,7 @@ jobs:
             throw "Could not determine release state. gh exit code: $releaseViewExitCode"
           }
           Write-Host "Release $env:RELEASE_TAG does not exist yet."
+          exit 0
 
       - name: Run full release readiness
         shell: pwsh

@@ -16,6 +16,7 @@
     <system:String x:Key="MenuCopy">_Copy</system:String>
     <system:String x:Key="MenuPaste">_Paste</system:String>
     <system:String x:Key="MenuAddBookmark">Add _Bookmark...</system:String>
+    <system:String x:Key="MenuAddBookmarksBatch">Add Bookmarks in _Bulk...</system:String>
     <system:String x:Key="MenuAddFolder">Add _Folder...</system:String>
     <system:String x:Key="MenuSortByName">Sort by _Name</system:String>
     <system:String x:Key="MenuRenameFolder">_Rename Folder...</system:String>
@@ -42,6 +43,7 @@
     <system:String x:Key="PanelContents">Contents</system:String>
 
     <system:String x:Key="ContextAddBookmark">Add Bookmark...</system:String>
+    <system:String x:Key="ContextAddBookmarksBatch">Add Bookmarks in Bulk...</system:String>
     <system:String x:Key="ContextAddFolder">Add Folder...</system:String>
     <system:String x:Key="ContextRenameFolder">Rename Folder...</system:String>
     <system:String x:Key="ContextMoveTo">Move to...</system:String>
@@ -107,6 +109,15 @@
     <system:String x:Key="CountBookmarkMany">{0:N0} bookmarks</system:String>
 
     <system:String x:Key="DialogAddBookmark">Add Bookmark</system:String>
+    <system:String x:Key="DialogBatchAddBookmarks">Add Bookmarks in Bulk</system:String>
+    <system:String x:Key="BatchImportInstructions">Enter or paste one URL per line. You can also import a .txt file. Addresses such as example.com or www.example.com will automatically use https://.</system:String>
+    <system:String x:Key="ButtonImportTxt">Import TXT...</system:String>
+    <system:String x:Key="ButtonAddBookmarks">Add Bookmarks</system:String>
+    <system:String x:Key="BatchImportTxtFilter">Text files (*.txt)|*.txt|All files (*.*)|*.*</system:String>
+    <system:String x:Key="BatchImportNoUrls">Enter at least one valid URL.</system:String>
+    <system:String x:Key="BatchImportInvalidLines">Invalid URL on line(s): {0}. Correct those lines before importing.</system:String>
+    <system:String x:Key="BatchImportTxtFailed">The TXT file could not be read: {0}</system:String>
+    <system:String x:Key="BatchImportFailed">The bookmarks could not be added: {0}</system:String>
     <system:String x:Key="DialogAddFolder">Add Folder</system:String>
     <system:String x:Key="DialogRenameFolder">Rename Folder</system:String>
     <system:String x:Key="DialogRenameBookmark">Rename Bookmark</system:String>
@@ -156,6 +167,7 @@
     <system:String x:Key="DeleteFolderPrompt">Delete folder &quot;{0}&quot; and its entire subtree?&#10;&#10;This includes {1} and {2}.&#10;&#10;The subtree will be removed from the loaded document.&#10;Use Save to write the change safely to the source Chrome Bookmarks file.</system:String>
 
     <system:String x:Key="HistoryAddBookmark">Add bookmark</system:String>
+    <system:String x:Key="HistoryAddBookmarks">Add {0:N0} bookmarks</system:String>
     <system:String x:Key="HistoryAddFolder">Add folder</system:String>
     <system:String x:Key="HistoryDeleteFolder">Delete folder</system:String>
     <system:String x:Key="HistoryDeleteBookmark">Delete bookmark</system:String>

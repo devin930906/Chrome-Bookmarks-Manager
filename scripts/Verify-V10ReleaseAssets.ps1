@@ -47,4 +47,4 @@ if ($actualHash -cne $expectedHash) {
     throw "Release EXE SHA256 does not match the checksum file."
 }
 
-Write-Host "V1.0 release asset contract verified."
+Write-Host "Release asset contract verified."

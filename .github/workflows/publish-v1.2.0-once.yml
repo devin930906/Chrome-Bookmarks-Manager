@@ -47,9 +47,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $PSNativeCommandUseErrorActionPreference = $false
           gh release view "$env:RELEASE_TAG" *> $null
-          if ($LASTEXITCODE -eq 0) {
+          $releaseViewExitCode = $LASTEXITCODE
+          if ($releaseViewExitCode -eq 0) {
             throw "Release $env:RELEASE_TAG already exists."
+          }
+          if ($releaseViewExitCode -ne 1) {
+            throw "Could not determine release state. gh exit code: $releaseViewExitCode"
           }
           Write-Host "Release $env:RELEASE_TAG does not exist yet."
 

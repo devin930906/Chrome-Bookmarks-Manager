@@ -6,9 +6,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Stable — V1.1.1**
+**Stable — V1.2.0**
 
-V1.1.1 is the current stable personal-use release. It keeps the complete Simplified Chinese / English interface, instant language switching with remembered preference, and all V1.0 Safe Save invariants, while refreshing the branded Windows application icon used by the EXE, main window, taskbar, and Alt+Tab. Automated Windows CI and owner visual acceptance are complete; the formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
+V1.2.0 is the current stable personal-use release. It keeps the complete Simplified Chinese / English interface, branded Windows icon, and all V1.0 Safe Save invariants, while adding direct drag-and-drop loading of Chrome's native `Bookmarks` file and bulk bookmark creation from multiline URL input or UTF-8 TXT files. Bulk add is available from the Edit menu, the left folder tree, and the right contents pane, with invalid-line blocking and single-operation Undo/Redo for each batch. Automated Windows CI and Windows owner acceptance are complete; the formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
 
 The current application supports:
 
@@ -17,6 +17,13 @@ The current application supports:
 - instant Simplified Chinese / English switching without restarting
 - remembered UI language preference stored separately from Chrome bookmark data
 - branded Windows EXE / window / taskbar application icon
+- direct drag-and-drop loading of a Chrome native file named `Bookmarks`
+- bulk bookmark add from multiline URL input
+- UTF-8 TXT import with one URL per line
+- automatic `https://` normalization for accepted bare host/path entries
+- batch validation that blocks the entire add when any line is invalid
+- one-step Undo/Redo for each bulk-add operation
+- bulk-add entry points in the Edit menu, left folder tree, and right contents pane
 - `bookmark_bar`, `other`, and `synced` roots
 - nested folders and URL nodes while preserving child order and parent links
 - exact bookmark and folder counts

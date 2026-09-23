@@ -276,6 +276,26 @@ V1.2 Existing Editing Regression = PASS
 V1.2 Save Reopen = PASS
 V1.2 Real Bookmarks Read-Only Drop = PASS
 
+OWNER ACCEPTANCE RESULT — COMPLETE
+Date: 2026-09-23
+Platform: Windows owner machine
+
+PASS:
+- V1.2 External Bookmarks Drop
+- V1.2 External Drop Rejection
+- V1.2 Bulk Add Dialog
+- V1.2 Manual Bulk URLs
+- V1.2 Right Pane Bulk Add
+- V1.2 Bulk Undo Redo
+- V1.2 Invalid URL Protection
+- V1.2 TXT Import
+- V1.2 TXT Validation
+- V1.2 Existing Editing Regression
+- V1.2 Save Reopen
+- V1.2 Real Bookmarks Read-Only Drop
+
+The V1.2 feature PR was merged only after all automated CI and owner-acceptance gates passed.
+
 MERGE GATE
 Only after all eleven owner-acceptance lines are PASS:
 - approve merging PR #18 into main;

@@ -33,7 +33,7 @@ Invoke-Checked -Name "Repository safety" -Command {
     pwsh -NoProfile -File scripts/Verify-RepositorySafety.ps1
 }
 
-Invoke-Checked -Name "V1.0 project version" -Command {
+Invoke-Checked -Name "Release project version" -Command {
     pwsh -NoProfile -File scripts/Verify-V10Version.ps1
 }
 
@@ -140,7 +140,7 @@ Invoke-Checked -Name "Full test suite" -Command {
     dotnet test ChromeBookmarksManager.slnx --configuration Release --no-build --logger "console;verbosity=normal"
 }
 
-Invoke-Checked -Name "V1.0 release measurements" -Command {
+Invoke-Checked -Name "Release measurements" -Command {
     pwsh -NoProfile -File scripts/Invoke-V10ReleaseMeasurements.ps1 -UrlCount $UrlCount -FolderCount $FolderCount -HistoryEditCount $HistoryEditCount
 }
 
@@ -156,20 +156,20 @@ Invoke-Checked -Name "Smoke test executable" -Command {
     pwsh -NoProfile -File scripts/SmokeTest-Windows.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe
 }
 
-Invoke-Checked -Name "Verify V1.0 EXE version" -Command {
+Invoke-Checked -Name "Verify release EXE version" -Command {
     pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe
 }
 
-Invoke-Checked -Name "Create V1.0 SHA256" -Command {
+Invoke-Checked -Name "Create release SHA256" -Command {
     pwsh -NoProfile -File scripts/New-V10ReleaseChecksum.ps1 -ExecutablePath artifacts/win-x64/ChromeBookmarksManager.exe
 }
 
-Invoke-Checked -Name "Verify V1.0 release assets" -Command {
+Invoke-Checked -Name "Verify release assets" -Command {
     pwsh -NoProfile -File scripts/Verify-V10ReleaseAssets.ps1 -ReleaseDirectory artifacts/win-x64
 }
 
 Write-Host ""
-Write-Host "V1.0 release readiness PASSED."
+Write-Host "Release readiness PASSED."
 Write-Host "UrlCount=$UrlCount"
 Write-Host "FolderCount=$FolderCount"
 Write-Host "HistoryEditCount=$HistoryEditCount"

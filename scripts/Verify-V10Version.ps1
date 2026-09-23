@@ -17,8 +17,8 @@ if ($version -notmatch '^\d+\.\d+\.\d+$') {
     throw "VersionPrefix must be semantic MAJOR.MINOR.PATCH, found '$version'."
 }
 
-if ($version -ne "1.1.1") {
-    throw "V1.1.1 contract expected VersionPrefix 1.1.1, found $version."
+if ($version -ne "1.2.0") {
+    throw "V1.2.0 contract expected VersionPrefix 1.2.0, found $version."
 }
 
 if ($ExpectedTag) {
@@ -43,4 +43,4 @@ if ($ExecutablePath) {
     }
 }
 
-Write-Host "V1.1.1 version contract verified: $version"
+Write-Host "V1.2.0 version contract verified: $version"

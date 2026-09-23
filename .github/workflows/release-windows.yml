@@ -27,7 +27,7 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag "${{ github.ref_name }}"
 
-      - name: Run V1.0 release readiness
+      - name: Run release readiness
         shell: pwsh
         run: pwsh -NoProfile -File scripts/Invoke-V10ReleaseReadiness.ps1
 

@@ -324,6 +324,10 @@
                                       Header="{DynamicResource ContextAddBookmarksBatch}"
                                       IsEnabled="{Binding CanAddBookmark}"
                                       Click="AddBookmarksBatch_Click" />
+                            <MenuItem x:Name="ContentAddFolderMenuItem"
+                                      Header="{DynamicResource ContextAddFolder}"
+                                      IsEnabled="{Binding CanAddFolder}"
+                                      Click="AddFolder_Click" />
                             <Separator />
                             <MenuItem x:Name="ContentRenameFolderMenuItem"
                                       Header="{DynamicResource ContextRenameFolder}"

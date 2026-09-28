@@ -20,7 +20,14 @@ const mainXamlPath = "src/ChromeBookmarksManager/MainWindow.xaml";
 const appXamlPath = "src/ChromeBookmarksManager/App.xaml";
 const projectPath = "src/ChromeBookmarksManager/ChromeBookmarksManager.csproj";
 
+const mainCodePath = "src/ChromeBookmarksManager/MainWindow.xaml.cs";
+const zhCnPath = "src/ChromeBookmarksManager/Localization/Strings.zh-CN.xaml";
+const enUsPath = "src/ChromeBookmarksManager/Localization/Strings.en-US.xaml";
+
 const mainXaml = fs.readFileSync(mainXamlPath, "utf8");
+const mainCode = fs.readFileSync(mainCodePath, "utf8");
+const zhCn = fs.readFileSync(zhCnPath, "utf8");
+const enUs = fs.readFileSync(enUsPath, "utf8");
 const appXaml = fs.readFileSync(appXamlPath, "utf8");
 const project = fs.readFileSync(projectPath, "utf8");
 
@@ -45,6 +52,34 @@ for (const token of [
   if (!mainXaml.includes(token)) {
     violations.push(`Missing runtime language switch hook: ${token}`);
   }
+}
+
+const addFolderClickCount =
+  (mainXaml.match(/Click="AddFolder_Click"/g) ?? []).length;
+
+if (addFolderClickCount < 3) {
+  violations.push(
+    "Add Folder must be available from the Edit menu, left folder tree context menu, and right content-pane context menu.");
+}
+
+if (!mainXaml.includes('x:Name="ContentAddFolderMenuItem"')) {
+  violations.push(
+    "The right content-pane context menu must expose Add Folder.");
+}
+
+if (!mainCode.includes('name: L("DefaultNewFolderName")')) {
+  violations.push(
+    "New-folder dialogs must start with the localized default folder name.");
+}
+
+if (!zhCn.includes('<system:String x:Key="DefaultNewFolderName">新建文件夹</system:String>')) {
+  violations.push(
+    "Simplified Chinese resources must define the default new-folder name.");
+}
+
+if (!enUs.includes('<system:String x:Key="DefaultNewFolderName">New folder</system:String>')) {
+  violations.push(
+    "English resources must define the default new-folder name.");
 }
 
 if (!appXaml.includes("Strings.zh-CN.xaml")) {

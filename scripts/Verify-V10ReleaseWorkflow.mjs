@@ -6,13 +6,18 @@ const yaml = fs.readFileSync(path, "utf8");
 const required = [
   "tags:",
   "v*.*.*",
+  "workflow_dispatch:",
+  "release_tag:",
   "contents: write",
+  "RELEASE_TAG",
   "Verify-V10Version.ps1",
   "Invoke-V10ReleaseReadiness.ps1",
   "Verify-V10ReleaseAssets.ps1",
   "ChromeBookmarksManager.exe.sha256",
-  "gh release create",
-  'docs/releases/${{ github.ref_name }}.md'
+  "gh @arguments",
+  'docs/releases/$env:RELEASE_TAG.md',
+  '"--target", "${{ github.sha }}"',
+  "--verify-tag"
 ];
 
 const forbidden = [

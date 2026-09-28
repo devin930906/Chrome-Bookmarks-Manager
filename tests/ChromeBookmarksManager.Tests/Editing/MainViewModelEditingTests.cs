@@ -201,7 +201,7 @@ public sealed class MainViewModelEditingTests
     }
 
     [Fact]
-    public async Task AddFolder_SuccessMarksDirtyAndSelectsNewFolder()
+    public async Task AddFolder_SuccessMarksDirtyAndKeepsCurrentFolderSelected()
     {
         var fixture = CreateFixture();
         var viewModel = CreateViewModel(fixture.Document);
@@ -212,9 +212,14 @@ public sealed class MainViewModelEditingTests
         Assert.Equal(DocumentState.LoadedDirty, viewModel.State);
         Assert.True(viewModel.IsDirty);
         Assert.Same(fixture.BookmarkBar, added.Parent);
-        Assert.Same(added, viewModel.SelectedFolder);
-        Assert.Equal("Added folder | 0 folders | 0 bookmarks", viewModel.SelectionSummaryText);
-        Assert.True(viewModel.CanRenameSelectedFolder);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.NotSame(added, viewModel.SelectedFolder);
+        Assert.Contains(
+            viewModel.CurrentItems,
+            item => ReferenceEquals(item.Node, added));
+        Assert.Equal(
+            "Bookmarks bar | 2 folders | 1 bookmark",
+            viewModel.SelectionSummaryText);
         Assert.Equal("3 URLs | 5 folders", viewModel.DocumentSummaryText);
     }
 

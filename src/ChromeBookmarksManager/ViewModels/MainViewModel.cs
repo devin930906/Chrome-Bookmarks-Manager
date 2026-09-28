@@ -1234,7 +1234,7 @@ public sealed class MainViewModel : ViewModelBase
                     parent,
                     insertionIndex));
             await RefreshProjectionsAfterEditAsync(
-                    preferredFolder: folder)
+                    preferredFolder: parent)
                 .ConfigureAwait(true);
 
             return folder;

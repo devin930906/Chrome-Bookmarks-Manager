@@ -6,9 +6,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Stable — V1.2.0**
+**Stable — V1.2.1**
 
-V1.2.0 is the current stable personal-use release. It keeps the complete Simplified Chinese / English interface, branded Windows icon, and all V1.0 Safe Save invariants, while adding direct drag-and-drop loading of Chrome's native `Bookmarks` file and bulk bookmark creation from multiline URL input or UTF-8 TXT files. Bulk add is available from the Edit menu, the left folder tree, and the right contents pane, with invalid-line blocking and single-operation Undo/Redo for each batch. Automated Windows CI and Windows owner acceptance are complete; the formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
+V1.2.1 is the current stable personal-use release. It keeps all V1.2.0 native `Bookmarks` drag-and-drop, bulk URL/TXT import, bilingual UI, and V1.0 Safe Save behavior, while improving folder-creation parity with Chrome: Add Folder is now available from the right contents pane as well as the Edit menu and left folder tree, and new-folder dialogs start with a localized default name (`New folder` / `新建文件夹`) selected for immediate overwrite. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
 
 The current application supports:
 
@@ -24,6 +24,8 @@ The current application supports:
 - batch validation that blocks the entire add when any line is invalid
 - one-step Undo/Redo for each bulk-add operation
 - bulk-add entry points in the Edit menu, left folder tree, and right contents pane
+- Add Folder entry points in the Edit menu, left folder tree, and right contents pane
+- localized Chrome-like default new-folder name (`New folder` / `新建文件夹`), preselected for immediate typing
 - `bookmark_bar`, `other`, and `synced` roots
 - nested folders and URL nodes while preserving child order and parent links
 - exact bookmark and folder counts
@@ -507,6 +509,7 @@ The application still does not write automatically: production persistence occur
 - **V1.1 — Bilingual UI and branded Windows icon: completed**
 - **V1.1.1 — Branded Windows icon refresh: completed**
 - **V1.2.0 — Native Bookmarks drag-and-drop + bulk URL/TXT import: completed** — strict external-drop filtering, multiline/TXT bulk add, invalid-line blocking, one-step batch Undo/Redo, left/right bulk-add entry points, automated CI, and Windows owner acceptance complete
+- **V1.2.1 — Folder creation parity and default naming: completed** — right-pane Add Folder entry point plus localized Chrome-like default new-folder naming
 
 ## Design and implementation documents
 

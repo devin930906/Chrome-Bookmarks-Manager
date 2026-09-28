@@ -119,6 +119,7 @@
     <system:String x:Key="BatchImportTxtFailed">无法读取 TXT 文件：{0}</system:String>
     <system:String x:Key="BatchImportFailed">无法添加这些书签：{0}</system:String>
     <system:String x:Key="DialogAddFolder">添加文件夹</system:String>
+    <system:String x:Key="DefaultNewFolderName">新建文件夹</system:String>
     <system:String x:Key="DialogRenameFolder">重命名文件夹</system:String>
     <system:String x:Key="DialogRenameBookmark">重命名书签</system:String>
     <system:String x:Key="DialogEditBookmarkUrl">编辑书签网址</system:String>

@@ -119,6 +119,7 @@
     <system:String x:Key="BatchImportTxtFailed">The TXT file could not be read: {0}</system:String>
     <system:String x:Key="BatchImportFailed">The bookmarks could not be added: {0}</system:String>
     <system:String x:Key="DialogAddFolder">Add Folder</system:String>
+    <system:String x:Key="DefaultNewFolderName">New folder</system:String>
     <system:String x:Key="DialogRenameFolder">Rename Folder</system:String>
     <system:String x:Key="DialogRenameBookmark">Rename Bookmark</system:String>
     <system:String x:Key="DialogEditBookmarkUrl">Edit Bookmark URL</system:String>

@@ -1436,7 +1436,7 @@ public partial class MainWindow : Window
 
         var dialog = CreateEditDialog(
             L("DialogAddFolder"),
-            name: string.Empty,
+            name: L("DefaultNewFolderName"),
             url: null,
             showName: true,
             showUrl: false,

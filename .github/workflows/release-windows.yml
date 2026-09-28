@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Semantic release tag, for example v1.2.1'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -13,7 +19,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout tagged source
+      - name: Checkout release source
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -23,9 +29,26 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Resolve release tag
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $tag = "${{ inputs.release_tag }}"
+          }
+          else {
+            $tag = "${{ github.ref_name }}"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            throw "Release tag could not be resolved."
+          }
+
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Release tag: $tag"
+
       - name: Validate tag and project version
         shell: pwsh
-        run: pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag "${{ github.ref_name }}"
+        run: pwsh -NoProfile -File scripts/Verify-V10Version.ps1 -ExpectedTag "$env:RELEASE_TAG"
 
       - name: Run release readiness
         shell: pwsh
@@ -40,9 +63,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" `
-            "artifacts/win-x64/ChromeBookmarksManager.exe" `
-            "artifacts/win-x64/ChromeBookmarksManager.exe.sha256" `
-            --title "Chrome Bookmarks Manager ${{ github.ref_name }}" `
-            --notes-file "docs/releases/${{ github.ref_name }}.md" `
-            --verify-tag
+          $arguments = @(
+            "release",
+            "create",
+            "$env:RELEASE_TAG",
+            "artifacts/win-x64/ChromeBookmarksManager.exe",
+            "artifacts/win-x64/ChromeBookmarksManager.exe.sha256",
+            "--title",
+            "Chrome Bookmarks Manager $env:RELEASE_TAG",
+            "--notes-file",
+            "docs/releases/$env:RELEASE_TAG.md"
+          )
+
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $arguments += @("--target", "${{ github.sha }}")
+          }
+          else {
+            $arguments += "--verify-tag"
+          }
+
+          gh @arguments

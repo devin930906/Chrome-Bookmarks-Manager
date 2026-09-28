@@ -73,7 +73,7 @@ public sealed class MainViewModelEditingHistoryTests
     }
 
     [Fact]
-    public async Task AddFolder_Undo_RemovesFolderAndFallsBackToSafeSelection()
+    public async Task AddFolder_Undo_RemovesFolderAndKeepsParentSelection()
     {
         var fixture = CreateFixture();
         var viewModel = CreateViewModel(fixture.Document);
@@ -82,7 +82,10 @@ public sealed class MainViewModelEditingHistoryTests
 
         var added = await viewModel.AddFolderAsync("Temporary folder");
 
-        Assert.Same(added, viewModel.SelectedFolder);
+        Assert.Same(fixture.BookmarkBar, viewModel.SelectedFolder);
+        Assert.Contains(
+            viewModel.CurrentItems,
+            item => ReferenceEquals(item.Node, added));
         Assert.Equal(beforeFolders + 1, fixture.Document.FolderCount);
 
         Assert.True(await viewModel.UndoAsync());

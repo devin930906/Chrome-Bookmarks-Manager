@@ -6,9 +6,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Stable — V1.2.1**
+**Stable — V1.2.2**
 
-V1.2.1 is the current stable personal-use release. It keeps all V1.2.0 native `Bookmarks` drag-and-drop, bulk URL/TXT import, bilingual UI, and V1.0 Safe Save behavior, while improving folder-creation parity with Chrome: Add Folder is now available from the right contents pane as well as the Edit menu and left folder tree, and new-folder dialogs start with a localized default name (`New folder` / `新建文件夹`) selected for immediate overwrite. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
+V1.2.2 is the current stable personal-use release. It keeps all V1.2.1 folder-creation improvements and changes the post-create navigation behavior: after a new child folder is created, the app now stays in the current parent folder instead of automatically entering the newly created folder. The new folder appears in the current contents list, while the existing Undo / Redo, Dirty-state tracking, Safe Save protections, bilingual UI, native `Bookmarks` drag-and-drop, and bulk URL/TXT import behavior remain unchanged. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
 
 The current application supports:
 
@@ -26,6 +26,7 @@ The current application supports:
 - bulk-add entry points in the Edit menu, left folder tree, and right contents pane
 - Add Folder entry points in the Edit menu, left folder tree, and right contents pane
 - localized Chrome-like default new-folder name (`New folder` / `新建文件夹`), preselected for immediate typing
+- creating a child folder keeps navigation in the current parent folder instead of automatically entering the new folder
 - `bookmark_bar`, `other`, and `synced` roots
 - nested folders and URL nodes while preserving child order and parent links
 - exact bookmark and folder counts
@@ -510,6 +511,7 @@ The application still does not write automatically: production persistence occur
 - **V1.1.1 — Branded Windows icon refresh: completed**
 - **V1.2.0 — Native Bookmarks drag-and-drop + bulk URL/TXT import: completed** — strict external-drop filtering, multiline/TXT bulk add, invalid-line blocking, one-step batch Undo/Redo, left/right bulk-add entry points, automated CI, and Windows owner acceptance complete
 - **V1.2.1 — Folder creation parity and default naming: completed** — right-pane Add Folder entry point plus localized Chrome-like default new-folder naming
+- **V1.2.2 — Stay in parent after folder creation: completed** — creating a child folder refreshes the current contents without automatically navigating into the new folder
 
 ## Design and implementation documents
 

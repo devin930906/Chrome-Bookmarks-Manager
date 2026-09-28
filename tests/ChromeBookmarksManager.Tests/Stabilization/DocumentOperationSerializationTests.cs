@@ -41,7 +41,9 @@ public sealed class DocumentOperationSerializationTests
 
         Assert.Equal("First queued folder", completed[0].Name);
         Assert.Equal("Second queued folder", completed[1].Name);
-        Assert.Same(completed[0], completed[1].Parent);
+        Assert.Same(document.Roots.BookmarkBar, completed[0].Parent);
+        Assert.Same(document.Roots.BookmarkBar, completed[1].Parent);
+        Assert.Same(document.Roots.BookmarkBar, viewModel.SelectedFolder);
     }
 
     private static BookmarkDocument CreateDocument()

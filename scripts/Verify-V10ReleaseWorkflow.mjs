@@ -6,8 +6,12 @@ const yaml = fs.readFileSync(path, "utf8");
 const required = [
   "tags:",
   "v*.*.*",
+  "branches:",
+  "main",
   "workflow_dispatch:",
   "release_tag:",
+  "release-publish: v",
+  "RELEASE_COMMIT_MESSAGE",
   "contents: write",
   "RELEASE_TAG",
   "Verify-V10Version.ps1",

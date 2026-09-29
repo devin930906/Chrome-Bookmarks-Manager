@@ -404,15 +404,26 @@ public sealed class BookmarkFileTransaction : IBookmarkFileTransaction
 
     private static bool StoredChecksumsMatch(
         BookmarkDocument document,
-        ChromeBookmarksChecksums computed) =>
-        string.Equals(
-            document.Checksum,
-            computed.Md5,
-            StringComparison.Ordinal) &&
-        string.Equals(
-            document.ChecksumSha256,
-            computed.Sha256,
-            StringComparison.Ordinal);
+        ChromeBookmarksChecksums computed)
+    {
+        if (!string.Equals(
+                document.Checksum,
+                computed.Md5,
+                StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        // Chrome's native Bookmarks files commonly store only the MD5
+        // checksum. Preserve that source shape instead of injecting a new
+        // checksum_sha256 property during every Save. If the source already
+        // carries checksum_sha256, it must still match exactly.
+        return document.ChecksumSha256 is null ||
+               string.Equals(
+                   document.ChecksumSha256,
+                   computed.Sha256,
+                   StringComparison.Ordinal);
+    }
 
     private static bool RootsEquivalent(
         BookmarkRoots expected,

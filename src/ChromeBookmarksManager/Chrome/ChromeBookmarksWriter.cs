@@ -1,5 +1,6 @@
-using System.IO;
 using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Text.Json;
 using ChromeBookmarksManager.Domain;
 
@@ -39,6 +40,11 @@ public sealed class ChromeBookmarksWriter : IChromeBookmarksWriter
             "meta_info"
         };
 
+    private static readonly UTF8Encoding StrictUtf8 =
+        new(
+            encoderShouldEmitUTF8Identifier: false,
+            throwOnInvalidBytes: true);
+
     public async Task<ChromeBookmarksChecksums> WriteAsync(
         BookmarkDocument document,
         Stream destination,
@@ -56,162 +62,591 @@ public sealed class ChromeBookmarksWriter : IChromeBookmarksWriter
         }
 
         ValidateDocument(document, cancellationToken);
+
         var checksums =
-            ChromeBookmarksChecksum.Compute(document, cancellationToken);
+            ChromeBookmarksChecksum.Compute(
+                document,
+                cancellationToken);
 
-        using var jsonWriter = new Utf8JsonWriter(
+        using var writer = new StreamWriter(
             destination,
-            new JsonWriterOptions
-            {
-                Indented = true,
-                SkipValidation = false
-            });
+            StrictUtf8,
+            bufferSize: 128 * 1024,
+            leaveOpen: true);
 
-        jsonWriter.WriteStartObject();
-
-        jsonWriter.WriteNumber("version", document.Version);
-        jsonWriter.WriteString("checksum", checksums.Md5);
-        jsonWriter.WriteString("checksum_sha256", checksums.Sha256);
-
-        jsonWriter.WritePropertyName("roots");
-        jsonWriter.WriteStartObject();
-
-        jsonWriter.WritePropertyName("bookmark_bar");
-        WriteNode(
-            jsonWriter,
-            document.Roots.BookmarkBar,
+        WriteDocument(
+            writer,
+            document,
+            checksums,
             cancellationToken);
 
-        jsonWriter.WritePropertyName("other");
-        WriteNode(
-            jsonWriter,
-            document.Roots.Other,
-            cancellationToken);
-
-        jsonWriter.WritePropertyName("synced");
-        WriteNode(
-            jsonWriter,
-            document.Roots.Synced,
-            cancellationToken);
-
-        WriteExtensionData(
-            jsonWriter,
-            document.Roots.ExtensionData,
-            RootContainerReservedProperties,
-            cancellationToken);
-        jsonWriter.WriteEndObject();
-
-        WriteExtensionData(
-            jsonWriter,
-            document.ExtensionData,
-            TopLevelReservedProperties,
-            cancellationToken);
-
-        jsonWriter.WriteEndObject();
-
-        await jsonWriter
+        await writer
             .FlushAsync(cancellationToken)
             .ConfigureAwait(false);
 
         return checksums;
     }
 
+    private static void WriteDocument(
+        TextWriter writer,
+        BookmarkDocument document,
+        ChromeBookmarksChecksums checksums,
+        CancellationToken cancellationToken)
+    {
+        writer.Write('{');
+        var first = true;
+
+        var propertyNames = new SortedSet<string>(
+            StringComparer.Ordinal)
+        {
+            "checksum",
+            "roots",
+            "version"
+        };
+
+        if (document.ChecksumSha256 is not null)
+        {
+            propertyNames.Add("checksum_sha256");
+        }
+
+        AddExtensionPropertyNames(
+            propertyNames,
+            document.ExtensionData,
+            TopLevelReservedProperties);
+
+        foreach (var propertyName in propertyNames)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            ChromeNativeJsonWriter.WritePropertyPrefix(
+                writer,
+                propertyName,
+                depth: 1,
+                ref first);
+
+            switch (propertyName)
+            {
+                case "checksum":
+                    ChromeNativeJsonWriter.WriteString(
+                        writer,
+                        checksums.Md5);
+                    break;
+
+                case "checksum_sha256":
+                    ChromeNativeJsonWriter.WriteString(
+                        writer,
+                        checksums.Sha256);
+                    break;
+
+                case "roots":
+                    WriteRoots(
+                        writer,
+                        document.Roots,
+                        depth: 1,
+                        cancellationToken);
+                    break;
+
+                case "version":
+                    writer.Write(
+                        document.Version.ToString(
+                            CultureInfo.InvariantCulture));
+                    break;
+
+                default:
+                    ChromeNativeJsonWriter.WriteJsonElement(
+                        writer,
+                        document.ExtensionData[propertyName],
+                        depth: 1,
+                        cancellationToken);
+                    break;
+            }
+        }
+
+        ChromeNativeJsonWriter.CloseObject(
+            writer,
+            depth: 0,
+            hasProperties: !first);
+
+        // Chromium's native Bookmarks file ends with CRLF.
+        writer.Write("\r\n");
+    }
+
+    private static void WriteRoots(
+        TextWriter writer,
+        BookmarkRoots roots,
+        int depth,
+        CancellationToken cancellationToken)
+    {
+        writer.Write('{');
+        var first = true;
+
+        var propertyNames = new SortedSet<string>(
+            StringComparer.Ordinal)
+        {
+            "bookmark_bar",
+            "other",
+            "synced"
+        };
+
+        AddExtensionPropertyNames(
+            propertyNames,
+            roots.ExtensionData,
+            RootContainerReservedProperties);
+
+        foreach (var propertyName in propertyNames)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            ChromeNativeJsonWriter.WritePropertyPrefix(
+                writer,
+                propertyName,
+                depth + 1,
+                ref first);
+
+            switch (propertyName)
+            {
+                case "bookmark_bar":
+                    WriteNode(
+                        writer,
+                        roots.BookmarkBar,
+                        depth + 1,
+                        cancellationToken);
+                    break;
+
+                case "other":
+                    WriteNode(
+                        writer,
+                        roots.Other,
+                        depth + 1,
+                        cancellationToken);
+                    break;
+
+                case "synced":
+                    WriteNode(
+                        writer,
+                        roots.Synced,
+                        depth + 1,
+                        cancellationToken);
+                    break;
+
+                default:
+                    ChromeNativeJsonWriter.WriteJsonElement(
+                        writer,
+                        roots.ExtensionData[propertyName],
+                        depth + 1,
+                        cancellationToken);
+                    break;
+            }
+        }
+
+        ChromeNativeJsonWriter.CloseObject(
+            writer,
+            depth,
+            hasProperties: !first);
+    }
+
     private static void WriteNode(
-        Utf8JsonWriter writer,
+        TextWriter writer,
         BookmarkNode node,
+        int depth,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        writer.WriteStartObject();
-        writer.WriteString("id", node.Id);
-        writer.WriteString("name", node.Name);
-        writer.WriteString("guid", node.Guid.ToString("D"));
+        writer.Write('{');
+        var first = true;
 
-        WriteOptionalString(
+        if (node.ExtensionData.Count == 0)
+        {
+            WriteKnownNodeProperties(
+                writer,
+                node,
+                depth,
+                ref first,
+                cancellationToken);
+        }
+        else
+        {
+            WriteMergedNodeProperties(
+                writer,
+                node,
+                depth,
+                ref first,
+                cancellationToken);
+        }
+
+        ChromeNativeJsonWriter.CloseObject(
+            writer,
+            depth,
+            hasProperties: !first);
+    }
+
+    private static void WriteKnownNodeProperties(
+        TextWriter writer,
+        BookmarkNode node,
+        int depth,
+        ref bool first,
+        CancellationToken cancellationToken)
+    {
+        if (node is BookmarkFolder folder)
+        {
+            WriteChildrenProperty(
+                writer,
+                folder,
+                depth,
+                ref first,
+                cancellationToken);
+        }
+
+        WriteOptionalStringProperty(
             writer,
             "date_added",
-            node.DateAddedRaw);
-        WriteOptionalString(
-            writer,
-            "date_modified",
-            node.DateModifiedRaw);
-        WriteOptionalString(
+            node.DateAddedRaw,
+            depth,
+            ref first);
+
+        WriteOptionalStringProperty(
             writer,
             "date_last_used",
-            node.DateLastUsedRaw);
+            node.DateLastUsedRaw,
+            depth,
+            ref first);
 
-        switch (node)
-        {
-            case BookmarkUrl bookmark:
-                writer.WriteString("type", "url");
-                writer.WriteString("url", bookmark.Url);
-                break;
+        WriteOptionalStringProperty(
+            writer,
+            "date_modified",
+            node.DateModifiedRaw,
+            depth,
+            ref first);
 
-            case BookmarkFolder folder:
-                writer.WriteString("type", "folder");
-                writer.WritePropertyName("children");
-                writer.WriteStartArray();
-                foreach (var child in folder.Children)
-                {
-                    WriteNode(writer, child, cancellationToken);
-                }
+        WriteStringProperty(
+            writer,
+            "guid",
+            node.Guid.ToString("D"),
+            depth,
+            ref first);
 
-                writer.WriteEndArray();
-                break;
-
-            default:
-                throw new InvalidOperationException(
-                    $"Unsupported bookmark node type {node.GetType().FullName}.");
-        }
+        WriteStringProperty(
+            writer,
+            "id",
+            node.Id,
+            depth,
+            ref first);
 
         if (node.MetaInfo is JsonElement metaInfo)
         {
-            EnsureWritableJsonElement(metaInfo, "meta_info");
-            writer.WritePropertyName("meta_info");
-            metaInfo.WriteTo(writer);
+            WriteJsonElementProperty(
+                writer,
+                "meta_info",
+                metaInfo,
+                depth,
+                ref first,
+                cancellationToken);
         }
 
-        WriteExtensionData(
+        WriteStringProperty(
             writer,
-            node.ExtensionData,
-            NodeReservedProperties,
-            cancellationToken);
+            "name",
+            node.Name,
+            depth,
+            ref first);
 
-        writer.WriteEndObject();
-    }
+        WriteStringProperty(
+            writer,
+            "type",
+            node is BookmarkFolder
+                ? "folder"
+                : "url",
+            depth,
+            ref first);
 
-    private static void WriteOptionalString(
-        Utf8JsonWriter writer,
-        string propertyName,
-        string? value)
-    {
-        if (value is not null)
+        if (node is BookmarkUrl bookmark)
         {
-            writer.WriteString(propertyName, value);
+            WriteStringProperty(
+                writer,
+                "url",
+                bookmark.Url,
+                depth,
+                ref first);
         }
     }
 
-    private static void WriteExtensionData(
-        Utf8JsonWriter writer,
-        IReadOnlyDictionary<string, JsonElement> extensionData,
-        HashSet<string> reservedProperties,
+    private static void WriteMergedNodeProperties(
+        TextWriter writer,
+        BookmarkNode node,
+        int depth,
+        ref bool first,
         CancellationToken cancellationToken)
     {
-        foreach (var pair in extensionData.OrderBy(
-                     pair => pair.Key,
-                     StringComparer.Ordinal))
+        var propertyNames =
+            new SortedSet<string>(StringComparer.Ordinal)
+            {
+                "guid",
+                "id",
+                "name",
+                "type"
+            };
+
+        if (node is BookmarkFolder)
+        {
+            propertyNames.Add("children");
+        }
+
+        if (node is BookmarkUrl)
+        {
+            propertyNames.Add("url");
+        }
+
+        if (node.DateAddedRaw is not null)
+        {
+            propertyNames.Add("date_added");
+        }
+
+        if (node.DateLastUsedRaw is not null)
+        {
+            propertyNames.Add("date_last_used");
+        }
+
+        if (node.DateModifiedRaw is not null)
+        {
+            propertyNames.Add("date_modified");
+        }
+
+        if (node.MetaInfo is not null)
+        {
+            propertyNames.Add("meta_info");
+        }
+
+        AddExtensionPropertyNames(
+            propertyNames,
+            node.ExtensionData,
+            NodeReservedProperties);
+
+        foreach (var propertyName in propertyNames)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (reservedProperties.Contains(pair.Key))
+            switch (propertyName)
             {
-                continue;
+                case "children":
+                    WriteChildrenProperty(
+                        writer,
+                        (BookmarkFolder)node,
+                        depth,
+                        ref first,
+                        cancellationToken);
+                    break;
+
+                case "date_added":
+                    WriteStringProperty(
+                        writer,
+                        propertyName,
+                        node.DateAddedRaw!,
+                        depth,
+                        ref first);
+                    break;
+
+                case "date_last_used":
+                    WriteStringProperty(
+                        writer,
+                        propertyName,
+                        node.DateLastUsedRaw!,
+                        depth,
+                        ref first);
+                    break;
+
+                case "date_modified":
+                    WriteStringProperty(
+                        writer,
+                        propertyName,
+                        node.DateModifiedRaw!,
+                        depth,
+                        ref first);
+                    break;
+
+                case "guid":
+                    WriteStringProperty(
+                        writer,
+                        propertyName,
+                        node.Guid.ToString("D"),
+                        depth,
+                        ref first);
+                    break;
+
+                case "id":
+                    WriteStringProperty(
+                        writer,
+                        propertyName,
+                        node.Id,
+                        depth,
+                        ref first);
+                    break;
+
+                case "meta_info":
+                    WriteJsonElementProperty(
+                        writer,
+                        propertyName,
+                        node.MetaInfo!.Value,
+                        depth,
+                        ref first,
+                        cancellationToken);
+                    break;
+
+                case "name":
+                    WriteStringProperty(
+                        writer,
+                        propertyName,
+                        node.Name,
+                        depth,
+                        ref first);
+                    break;
+
+                case "type":
+                    WriteStringProperty(
+                        writer,
+                        propertyName,
+                        node is BookmarkFolder
+                            ? "folder"
+                            : "url",
+                        depth,
+                        ref first);
+                    break;
+
+                case "url":
+                    WriteStringProperty(
+                        writer,
+                        propertyName,
+                        ((BookmarkUrl)node).Url,
+                        depth,
+                        ref first);
+                    break;
+
+                default:
+                    WriteJsonElementProperty(
+                        writer,
+                        propertyName,
+                        node.ExtensionData[propertyName],
+                        depth,
+                        ref first,
+                        cancellationToken);
+                    break;
+            }
+        }
+    }
+
+    private static void WriteChildrenProperty(
+        TextWriter writer,
+        BookmarkFolder folder,
+        int depth,
+        ref bool first,
+        CancellationToken cancellationToken)
+    {
+        ChromeNativeJsonWriter.WritePropertyPrefix(
+            writer,
+            "children",
+            depth + 1,
+            ref first);
+
+        writer.Write("[ ");
+
+        var firstChild = true;
+        foreach (var child in folder.Children)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!firstChild)
+            {
+                writer.Write(", ");
             }
 
-            EnsureWritableJsonElement(pair.Value, pair.Key);
-            writer.WritePropertyName(pair.Key);
-            pair.Value.WriteTo(writer);
+            firstChild = false;
+
+            // Chromium does not add an extra indentation level for the
+            // array itself. The child object starts directly after "[ ".
+            WriteNode(
+                writer,
+                child,
+                depth + 1,
+                cancellationToken);
+        }
+
+        writer.Write(" ]");
+    }
+
+    private static void WriteOptionalStringProperty(
+        TextWriter writer,
+        string propertyName,
+        string? value,
+        int depth,
+        ref bool first)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        WriteStringProperty(
+            writer,
+            propertyName,
+            value,
+            depth,
+            ref first);
+    }
+
+    private static void WriteStringProperty(
+        TextWriter writer,
+        string propertyName,
+        string value,
+        int depth,
+        ref bool first)
+    {
+        ChromeNativeJsonWriter.WritePropertyPrefix(
+            writer,
+            propertyName,
+            depth + 1,
+            ref first);
+
+        ChromeNativeJsonWriter.WriteString(
+            writer,
+            value);
+    }
+
+    private static void WriteJsonElementProperty(
+        TextWriter writer,
+        string propertyName,
+        JsonElement value,
+        int depth,
+        ref bool first,
+        CancellationToken cancellationToken)
+    {
+        EnsureWritableJsonElement(
+            value,
+            propertyName);
+
+        ChromeNativeJsonWriter.WritePropertyPrefix(
+            writer,
+            propertyName,
+            depth + 1,
+            ref first);
+
+        ChromeNativeJsonWriter.WriteJsonElement(
+            writer,
+            value,
+            depth + 1,
+            cancellationToken);
+    }
+
+    private static void AddExtensionPropertyNames(
+        SortedSet<string> destination,
+        IReadOnlyDictionary<string, JsonElement> extensionData,
+        HashSet<string> reservedProperties)
+    {
+        foreach (var pair in extensionData)
+        {
+            if (!reservedProperties.Contains(pair.Key))
+            {
+                destination.Add(pair.Key);
+            }
         }
     }
 

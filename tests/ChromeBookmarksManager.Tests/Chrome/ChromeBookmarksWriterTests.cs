@@ -72,6 +72,69 @@ public sealed class ChromeBookmarksWriterTests
     }
 
     [Fact]
+    public async Task WriteAsync_ChromeNativeShape_UsesChromiumFormattingAndPreservesMissingSha256()
+    {
+        var document = CreateNativeShapeDocument();
+        var expectedChecksums = ChromeBookmarksChecksum.Compute(document);
+        var writer = new ChromeBookmarksWriter();
+        await using var output = new MemoryStream();
+
+        await writer.WriteAsync(document, output);
+
+        var text = System.Text.Encoding.UTF8.GetString(output.ToArray());
+        var expected =
+            "{\r\n" +
+            $"   \"checksum\": \"{expectedChecksums.Md5}\",\r\n" +
+            "   \"roots\": {\r\n" +
+            "      \"bookmark_bar\": {\r\n" +
+            "         \"children\": [ {\r\n" +
+            "            \"date_added\": \"40\",\r\n" +
+            "            \"date_last_used\": \"0\",\r\n" +
+            "            \"guid\": \"44444444-4444-4444-8444-444444444444\",\r\n" +
+            "            \"id\": \"4\",\r\n" +
+            "            \"name\": \"中文\\u003C测试>\",\r\n" +
+            "            \"type\": \"url\",\r\n" +
+            "            \"url\": \"https://example.com/?q=中文\"\r\n" +
+            "         } ],\r\n" +
+            "         \"date_added\": \"10\",\r\n" +
+            "         \"date_last_used\": \"0\",\r\n" +
+            "         \"date_modified\": \"20\",\r\n" +
+            "         \"guid\": \"11111111-1111-4111-8111-111111111111\",\r\n" +
+            "         \"id\": \"1\",\r\n" +
+            "         \"name\": \"书签栏\",\r\n" +
+            "         \"type\": \"folder\"\r\n" +
+            "      },\r\n" +
+            "      \"other\": {\r\n" +
+            "         \"children\": [  ],\r\n" +
+            "         \"date_added\": \"11\",\r\n" +
+            "         \"date_last_used\": \"0\",\r\n" +
+            "         \"date_modified\": \"21\",\r\n" +
+            "         \"guid\": \"22222222-2222-4222-8222-222222222222\",\r\n" +
+            "         \"id\": \"2\",\r\n" +
+            "         \"name\": \"其他书签\",\r\n" +
+            "         \"type\": \"folder\"\r\n" +
+            "      },\r\n" +
+            "      \"synced\": {\r\n" +
+            "         \"children\": [  ],\r\n" +
+            "         \"date_added\": \"12\",\r\n" +
+            "         \"date_last_used\": \"0\",\r\n" +
+            "         \"date_modified\": \"22\",\r\n" +
+            "         \"guid\": \"33333333-3333-4333-8333-333333333333\",\r\n" +
+            "         \"id\": \"3\",\r\n" +
+            "         \"name\": \"移动设备书签\",\r\n" +
+            "         \"type\": \"folder\"\r\n" +
+            "      }\r\n" +
+            "   },\r\n" +
+            "   \"version\": 1\r\n" +
+            "}\r\n";
+
+        Assert.Equal(expected, text);
+        Assert.Contains("中文", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\\u4E2D", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"checksum_sha256\"", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task WriteAsync_CanceledToken_ThrowsBeforeCompletingOutput()
     {
         var reader = new ChromeBookmarksReader();
@@ -119,6 +182,68 @@ public sealed class ChromeBookmarksWriterTests
             .GetProperty("bookmark_bar")
             .GetProperty("id")
             .GetString());
+    }
+
+    private static BookmarkDocument CreateNativeShapeDocument()
+    {
+        var empty =
+            new Dictionary<string, JsonElement>(
+                StringComparer.Ordinal);
+
+        var child = new BookmarkUrl(
+            "4",
+            Guid.Parse("44444444-4444-4444-8444-444444444444"),
+            "中文<测试>",
+            "https://example.com/?q=中文",
+            "40",
+            null,
+            "0",
+            null,
+            empty);
+
+        var bookmarkBar = new BookmarkFolder(
+            "1",
+            Guid.Parse("11111111-1111-4111-8111-111111111111"),
+            "书签栏",
+            "10",
+            "20",
+            "0",
+            null,
+            empty,
+            new BookmarkNode[] { child });
+
+        var other = new BookmarkFolder(
+            "2",
+            Guid.Parse("22222222-2222-4222-8222-222222222222"),
+            "其他书签",
+            "11",
+            "21",
+            "0",
+            null,
+            empty,
+            Array.Empty<BookmarkNode>());
+
+        var synced = new BookmarkFolder(
+            "3",
+            Guid.Parse("33333333-3333-4333-8333-333333333333"),
+            "移动设备书签",
+            "12",
+            "22",
+            "0",
+            null,
+            empty,
+            Array.Empty<BookmarkNode>());
+
+        return new BookmarkDocument(
+            1,
+            checksum: null,
+            checksumSha256: null,
+            new BookmarkRoots(
+                bookmarkBar,
+                other,
+                synced,
+                empty),
+            empty);
     }
 
     private static BookmarkDocument CreateDocumentWithReservedExtensionCollisions()

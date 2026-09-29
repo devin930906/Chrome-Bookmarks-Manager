@@ -6,6 +6,7 @@ $ErrorActionPreference = "Stop"
 
 $sourceRoot = Join-Path $ProjectRoot "src/ChromeBookmarksManager"
 $writerPath = Join-Path $sourceRoot "Chrome/ChromeBookmarksWriter.cs"
+$nativeJsonWriterPath = Join-Path $sourceRoot "Chrome/ChromeNativeJsonWriter.cs"
 $fileSystemPath = Join-Path $sourceRoot "Infrastructure/Persistence/BookmarkFileSystem.cs"
 $transactionPath = Join-Path $sourceRoot "Infrastructure/Persistence/BookmarkFileTransaction.cs"
 $baselinePath = Join-Path $sourceRoot "Infrastructure/Persistence/BookmarkSourceBaselineService.cs"
@@ -16,6 +17,7 @@ $mainWindowPath = Join-Path $sourceRoot "MainWindow.xaml.cs"
 
 $required = @(
     $writerPath,
+    $nativeJsonWriterPath,
     $fileSystemPath,
     $transactionPath,
     $baselinePath,
@@ -58,6 +60,7 @@ function Forbid-Text {
 }
 
 $writer = Get-Content -LiteralPath $writerPath -Raw
+$nativeJsonWriter = Get-Content -LiteralPath $nativeJsonWriterPath -Raw
 $fileSystem = Get-Content -LiteralPath $fileSystemPath -Raw
 $transaction = Get-Content -LiteralPath $transactionPath -Raw
 $baseline = Get-Content -LiteralPath $baselinePath -Raw
@@ -67,10 +70,17 @@ $viewModel = Get-Content -LiteralPath $viewModelPath -Raw
 $mainWindow = Get-Content -LiteralPath $mainWindowPath -Raw
 
 # Serialization must remain stream-only and must not know the source path.
-Require-Text $writer 'Utf8JsonWriter' "ChromeBookmarksWriter must serialize through Utf8JsonWriter."
+Require-Text $writer 'StreamWriter' "ChromeBookmarksWriter must serialize through a buffered stream writer."
+Require-Text $writer 'ChromeNativeJsonWriter' "ChromeBookmarksWriter must use the Chromium-native JSON formatting layer."
 Require-Text $writer 'ChromeBookmarksChecksum.Compute' "Writer must regenerate Chrome checksums."
+Require-Text $nativeJsonWriter 'IndentSize = 3' "Native JSON writer must preserve Chromium three-space indentation."
+Require-Text $nativeJsonWriter 'writer.Write("\\u003C")' "Native JSON writer must preserve Chromium less-than escaping."
+Require-Text $nativeJsonWriter 'writer.Write("[ ")' "Native JSON writer must preserve Chromium inline array opening."
+Require-Text $nativeJsonWriter 'writer.Write(" ]")' "Native JSON writer must preserve Chromium inline array closing."
 Forbid-Text $writer 'File.' "ChromeBookmarksWriter must not perform direct filesystem operations."
 Forbid-Text $writer 'FileStream' "ChromeBookmarksWriter must remain stream-based."
+Forbid-Text $nativeJsonWriter 'File.' "ChromeNativeJsonWriter must not perform direct filesystem operations."
+Forbid-Text $nativeJsonWriter 'FileStream' "ChromeNativeJsonWriter must remain stream-based."
 
 # The filesystem boundary is the only production layer allowed to call File.Replace.
 Require-Text $fileSystem 'File.Replace(' "Persistence filesystem boundary must use File.Replace for atomic replacement."

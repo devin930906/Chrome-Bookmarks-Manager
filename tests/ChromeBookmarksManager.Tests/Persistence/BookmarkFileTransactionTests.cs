@@ -59,6 +59,52 @@ public sealed class BookmarkFileTransactionTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_Md5OnlyChromeSource_PreservesMissingSha256AndCompletesValidation()
+    {
+        var source = await CreateSourceAsync();
+        var text = await File.ReadAllTextAsync(source);
+        text = text
+            .Replace(
+                "  \"checksum_sha256\": \"synthetic-not-a-chrome-sha256\",\r\n",
+                string.Empty,
+                StringComparison.Ordinal)
+            .Replace(
+                "  \"checksum_sha256\": \"synthetic-not-a-chrome-sha256\",\n",
+                string.Empty,
+                StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "\"checksum_sha256\"",
+            text,
+            StringComparison.Ordinal);
+        await File.WriteAllTextAsync(source, text);
+
+        var reader = new ChromeBookmarksReader();
+        var document = await reader.ReadFileAsync(source);
+        Assert.Null(document.ChecksumSha256);
+
+        var baselineService = new BookmarkSourceBaselineService();
+        var baseline = await baselineService.CaptureAsync(source);
+        var transaction = new BookmarkFileTransaction(
+            new ChromeBookmarksWriter(),
+            reader,
+            baselineService,
+            new BookmarkFileSystem(),
+            TimeProvider.System);
+
+        await transaction.ExecuteAsync(document, baseline);
+
+        var saved = await reader.ReadFileAsync(source);
+        var expectedChecksums = ChromeBookmarksChecksum.Compute(saved);
+
+        Assert.Null(saved.ChecksumSha256);
+        Assert.Equal(expectedChecksums.Md5, saved.Checksum);
+        Assert.DoesNotContain(
+            "\"checksum_sha256\"",
+            await File.ReadAllTextAsync(source),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WhenWriterFails_LeavesSourceBytesUnchanged()
     {
         var source = await CreateSourceAsync();

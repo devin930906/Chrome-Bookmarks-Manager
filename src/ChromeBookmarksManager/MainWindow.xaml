@@ -320,6 +320,10 @@
                                       InputGestureText="Ctrl+V"
                                       IsEnabled="{Binding CanPasteClipboard}"
                                       Click="PasteClipboard_Click" />
+                            <MenuItem x:Name="ContentAddBookmarkMenuItem"
+                                      Header="{DynamicResource ContextAddBookmark}"
+                                      IsEnabled="{Binding CanAddBookmark}"
+                                      Click="AddBookmark_Click" />
                             <MenuItem x:Name="ContentAddBookmarksBatchMenuItem"
                                       Header="{DynamicResource ContextAddBookmarksBatch}"
                                       IsEnabled="{Binding CanAddBookmark}"

@@ -10,6 +10,7 @@ $fileSystemPath = Join-Path $sourceRoot "Infrastructure/Persistence/BookmarkFile
 $transactionPath = Join-Path $sourceRoot "Infrastructure/Persistence/BookmarkFileTransaction.cs"
 $baselinePath = Join-Path $sourceRoot "Infrastructure/Persistence/BookmarkSourceBaselineService.cs"
 $saveServicePath = Join-Path $sourceRoot "Application/Saving/ChromeBookmarksSaveService.cs"
+$sourceSafetyPolicyPath = Join-Path $sourceRoot "Application/Saving/ChromeBookmarksSourceSafetyPolicy.cs"
 $viewModelPath = Join-Path $sourceRoot "ViewModels/MainViewModel.cs"
 $mainWindowPath = Join-Path $sourceRoot "MainWindow.xaml.cs"
 
@@ -19,6 +20,7 @@ $required = @(
     $transactionPath,
     $baselinePath,
     $saveServicePath,
+    $sourceSafetyPolicyPath,
     $viewModelPath,
     $mainWindowPath
 )
@@ -60,6 +62,7 @@ $fileSystem = Get-Content -LiteralPath $fileSystemPath -Raw
 $transaction = Get-Content -LiteralPath $transactionPath -Raw
 $baseline = Get-Content -LiteralPath $baselinePath -Raw
 $saveService = Get-Content -LiteralPath $saveServicePath -Raw
+$sourceSafetyPolicy = Get-Content -LiteralPath $sourceSafetyPolicyPath -Raw
 $viewModel = Get-Content -LiteralPath $viewModelPath -Raw
 $mainWindow = Get-Content -LiteralPath $mainWindowPath -Raw
 
@@ -118,11 +121,21 @@ Require-Text $baseline 'SHA256' "Source baseline must hash source bytes with SHA
 Require-Text $baseline 'LastWriteTimeUtc' "Source baseline must track LastWriteTimeUtc."
 Require-Text $baseline 'Length' "Source baseline must track byte length."
 
-# Save orchestration must protect both the preflight and critical replacement edge.
-Require-Text $saveService 'EnsureChromeClosed();' "Save service must block saves while Chrome is running."
+# Save orchestration must protect live Chrome profile files without blocking
+# detached backup copies that Chrome does not own.
+Require-Text $saveService 'ChromeBookmarksSourceSafetyPolicy.RequiresChromeClosed' "Save service must classify whether the loaded source is a live Chrome profile Bookmarks file."
+Require-Text $saveService 'var requiresChromeClosed' "Save service must retain the path-aware Chrome-process guard decision."
+Require-Text $saveService 'if (requiresChromeClosed)' "Chrome process preflight must run only for live Chrome profile sources."
+Require-Text $saveService 'EnsureChromeClosed();' "Live Chrome profile sources must still block saves while Chrome is running."
+Require-Text $saveService 'static _ => Task.CompletedTask' "Detached Bookmarks copies must bypass the Chrome-process recheck while retaining the transaction guard callback."
 Require-Text $saveService 'VerifyUnchangedAsync' "Save service must verify the accepted source baseline before transaction."
-Require-Text $saveService 'CriticalChromeRecheckAsync' "Save service must provide a critical Chrome-process recheck."
+Require-Text $saveService 'CriticalChromeRecheckAsync' "Save service must provide a critical Chrome-process recheck for live sources."
 Require-Text $saveService 'SourceChangedExternally' "External source changes must map to a typed save failure."
+
+Require-Text $sourceSafetyPolicy 'Environment.SpecialFolder.LocalApplicationData' "Chrome source safety classification must anchor standard live profiles under LocalApplicationData."
+Require-Text $sourceSafetyPolicy '"Google", "Chrome", "User Data"' "Chrome stable User Data must be recognized as a live profile root."
+Require-Text $sourceSafetyPolicy 'segments.Length == 2' "Only direct Chrome profile Bookmarks files may trigger the global Chrome-running block."
+Require-Text $sourceSafetyPolicy '"Bookmarks"' "Source safety classification must require the native Bookmarks filename."
 
 # UI/ViewModel may orchestrate persistence but must not directly mutate files.
 foreach ($pair in @(

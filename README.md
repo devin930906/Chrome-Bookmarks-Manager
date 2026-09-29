@@ -6,9 +6,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Stable — V1.2.2**
+**Stable — V1.2.3**
 
-V1.2.2 is the current stable personal-use release. It keeps all V1.2.1 folder-creation improvements and changes the post-create navigation behavior: after a new child folder is created, the app now stays in the current parent folder instead of automatically entering the newly created folder. The new folder appears in the current contents list, while the existing Undo / Redo, Dirty-state tracking, Safe Save protections, bilingual UI, native `Bookmarks` drag-and-drop, and bulk URL/TXT import behavior remain unchanged. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
+V1.2.3 is the current stable personal-use release. It adds a single **Add Bookmark...** command to the right contents-pane context menu and fixes Safe Save for detached `Bookmarks` copies: a backup or working copy outside Chrome's live profile can now be saved while Chrome is running. The Chrome-running block is retained for standard live Chrome profile `Bookmarks` files, and the existing verified backup, stale-source detection, atomic replacement, Undo / Redo, Dirty-state tracking, bilingual UI, drag-and-drop loading, folder creation, and bulk URL/TXT import protections remain in place. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
 
 The current application supports:
 
@@ -24,6 +24,7 @@ The current application supports:
 - batch validation that blocks the entire add when any line is invalid
 - one-step Undo/Redo for each bulk-add operation
 - bulk-add entry points in the Edit menu, left folder tree, and right contents pane
+- a single Add Bookmark entry point in the right contents-pane context menu
 - Add Folder entry points in the Edit menu, left folder tree, and right contents pane
 - localized Chrome-like default new-folder name (`New folder` / `新建文件夹`), preselected for immediate typing
 - creating a child folder keeps navigation in the current parent folder instead of automatically entering the new folder
@@ -71,6 +72,7 @@ The current application supports:
 - named V0.7 DeleteBatchScale verification for a 10,000-bookmark batch, a 10,000-bookmark folder subtree, active-search rebuild, and 1,000 synthetic folders in normal CI
 - V0.7 production-source safety gate rejects file-write/write-back primitives and File.Delete
 - V0.5–V0.8 mutations remain in memory until the user explicitly invokes the V0.9 guarded Save path
+- detached `Bookmarks` copies outside standard live Chrome profile folders can be saved while Chrome is running; standard live Chrome profile files still require Chrome to be fully closed
 - V0.8 bounded 200-operation Undo/Redo history spans add, rename, URL edit, move/reorder, batch move, single/batch delete, and recursive folder delete
 - Undo/Redo preserves original node identity, exact mixed-child placement, document counts, and search/index coherence
 - Undoing all reachable changes back to the loaded baseline returns the document to clean state; a divergent new edit clears the redo branch

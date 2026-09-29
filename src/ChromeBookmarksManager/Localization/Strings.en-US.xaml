@@ -34,7 +34,7 @@
     <system:String x:Key="ToolbarSave">Save</system:String>
     <system:String x:Key="TooltipOpenBookmarks">Open a Chrome Bookmarks file for browsing and editing. Changes are written only when you explicitly choose Save.</system:String>
     <system:String x:Key="TooltipCancelLoad">Cancel the current Bookmarks load.</system:String>
-    <system:String x:Key="TooltipSave">Safely save to the loaded Chrome Bookmarks file. Chrome must be fully closed; a verified backup is created before replacement.</system:String>
+    <system:String x:Key="TooltipSave">Safely save the loaded Bookmarks file. Chrome must be fully closed only when saving a live Chrome profile Bookmarks file; detached copies can be saved while Chrome is running. A verified backup is created before replacement.</system:String>
     <system:String x:Key="TooltipSearch">Search bookmark names and URLs. Ctrl+F focuses search; Escape clears it.</system:String>
     <system:String x:Key="TooltipSearchScope">Choose whether to search all bookmarks or only the selected folder.</system:String>
     <system:String x:Key="SearchScopeAllBookmarks">All bookmarks</system:String>
@@ -211,7 +211,7 @@
     <system:String x:Key="ErrorImportNodes">The bookmark HTML file contains too many items.</system:String>
     <system:String x:Key="ErrorImportTooLarge">The bookmark HTML file is too large to import safely.</system:String>
     <system:String x:Key="ErrorImportInvalidTarget">The import destination is no longer part of the active document.</system:String>
-    <system:String x:Key="ErrorSaveChromeRunning">Chrome is still running. Fully close Chrome before saving.</system:String>
+    <system:String x:Key="ErrorSaveChromeRunning">This file is the Bookmarks file of a live Chrome profile and Chrome is still running. Fully close Chrome before saving this file.</system:String>
     <system:String x:Key="ErrorSaveSourceChanged">The source Bookmarks file changed outside this app. Reload it before saving.</system:String>
     <system:String x:Key="ErrorSaveSourceMissing">The source Bookmarks file can no longer be found.</system:String>
     <system:String x:Key="ErrorSaveAccessDenied">Windows denied access while saving the Bookmarks file.</system:String>

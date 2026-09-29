@@ -47,7 +47,14 @@ public sealed class ChromeBookmarksSaveService : IChromeBookmarksSaveService
             throw Canceled(new OperationCanceledException(cancellationToken));
         }
 
-        EnsureChromeClosed();
+        var requiresChromeClosed =
+            ChromeBookmarksSourceSafetyPolicy.RequiresChromeClosed(
+                sourceBaseline.FullPath);
+
+        if (requiresChromeClosed)
+        {
+            EnsureChromeClosed();
+        }
 
         try
         {
@@ -70,7 +77,9 @@ public sealed class ChromeBookmarksSaveService : IChromeBookmarksSaveService
                 .ExecuteAsync(
                     document,
                     sourceBaseline,
-                    CriticalChromeRecheckAsync,
+                    requiresChromeClosed
+                        ? CriticalChromeRecheckAsync
+                        : static _ => Task.CompletedTask,
                     cancellationToken)
                 .ConfigureAwait(false);
 

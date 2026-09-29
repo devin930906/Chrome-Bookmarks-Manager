@@ -6,9 +6,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Stable — V1.2.3**
+**Stable — V1.2.4**
 
-V1.2.3 is the current stable personal-use release. It adds a single **Add Bookmark...** command to the right contents-pane context menu and fixes Safe Save for detached `Bookmarks` copies: a backup or working copy outside Chrome's live profile can now be saved while Chrome is running. The Chrome-running block is retained for standard live Chrome profile `Bookmarks` files, and the existing verified backup, stale-source detection, atomic replacement, Undo / Redo, Dirty-state tracking, bilingual UI, drag-and-drop loading, folder creation, and bulk URL/TXT import protections remain in place. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
+V1.2.4 is the current stable personal-use release. It fixes a serious serializer regression that caused a Save to rewrite nearly the entire `Bookmarks` text representation and inflate large files by tens of megabytes. The writer now emits Chromium-native formatting (three-space indentation, CRLF, Chrome-style inline child arrays), keeps Chinese and other Unicode text as UTF-8 instead of converting it to `\\uXXXX`, preserves Chrome's native `<` escaping, restores Chrome-style property ordering, and no longer injects `checksum_sha256` into MD5-only source files. V1.2.3's right-pane **Add Bookmark...** command and detached-copy Save behavior are retained, together with verified backup, stale-source detection, atomic replacement, Undo / Redo, Dirty-state tracking, bilingual UI, drag-and-drop loading, folder creation, and bulk URL/TXT import protections. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
 
 The current application supports:
 
@@ -33,7 +33,8 @@ The current application supports:
 - exact bookmark and folder counts
 - raw Chrome timestamp strings
 - `meta_info` in object or legacy serialized-string form
-- Chromium-compatible `checksum` and `checksum_sha256` parsing plus regeneration during explicit Safe Save
+- Chromium-compatible `checksum` parsing and regeneration during explicit Safe Save; `checksum_sha256` is regenerated only when the loaded source already contains it
+- Chromium-native `Bookmarks` serialization that preserves UTF-8 Unicode text, Chrome property ordering, three-space indentation, CRLF, and Chrome-style child-array formatting
 - retention of unsupported/unknown JSON properties in memory
 - typed validation failures for malformed or structurally unsafe data
 - asynchronous file loading and cancellation

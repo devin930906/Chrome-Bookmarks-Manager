@@ -34,7 +34,7 @@
     <system:String x:Key="ToolbarSave">保存</system:String>
     <system:String x:Key="TooltipOpenBookmarks">打开 Chrome Bookmarks 文件进行浏览和编辑。只有明确点击“保存”时才会写入更改。</system:String>
     <system:String x:Key="TooltipCancelLoad">取消当前书签文件的加载。</system:String>
-    <system:String x:Key="TooltipSave">安全保存到当前加载的 Chrome Bookmarks 文件。保存前必须完全关闭 Chrome；替换前会创建并验证备份。</system:String>
+    <system:String x:Key="TooltipSave">安全保存到当前加载的 Bookmarks 文件。只有直接保存 Chrome 实际配置文件中的 Bookmarks 时才要求完全关闭 Chrome；独立副本可在 Chrome 运行时保存。替换前会创建并验证备份。</system:String>
     <system:String x:Key="TooltipSearch">搜索书签名称和网址。Ctrl+F 聚焦搜索框；Escape 清空搜索。</system:String>
     <system:String x:Key="TooltipSearchScope">选择搜索全部书签，或仅搜索当前文件夹。</system:String>
     <system:String x:Key="SearchScopeAllBookmarks">全部书签</system:String>
@@ -211,7 +211,7 @@
     <system:String x:Key="ErrorImportNodes">书签 HTML 文件包含的项目过多。</system:String>
     <system:String x:Key="ErrorImportTooLarge">书签 HTML 文件过大，无法安全导入。</system:String>
     <system:String x:Key="ErrorImportInvalidTarget">导入目标已不属于当前文档。</system:String>
-    <system:String x:Key="ErrorSaveChromeRunning">Chrome 仍在运行。请完全关闭 Chrome 后再保存。</system:String>
+    <system:String x:Key="ErrorSaveChromeRunning">当前文件位于 Chrome 正在使用的实际配置文件中，Chrome 仍在运行。请完全关闭 Chrome 后再保存这个文件。</system:String>
     <system:String x:Key="ErrorSaveSourceChanged">Book​​marks 源文件已被其他程序修改，请重新加载后再保存。</system:String>
     <system:String x:Key="ErrorSaveSourceMissing">找不到原始 Bookmarks 文件。</system:String>
     <system:String x:Key="ErrorSaveAccessDenied">Windows 拒绝了保存 Bookmarks 文件所需的访问权限。</system:String>

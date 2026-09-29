@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace ChromeBookmarksManager.Application.Saving;
 
 internal static class ChromeBookmarksSourceSafetyPolicy

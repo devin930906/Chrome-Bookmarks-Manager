@@ -63,9 +63,18 @@ public sealed class BookmarkFileTransactionTests : IDisposable
     {
         var source = await CreateSourceAsync();
         var text = await File.ReadAllTextAsync(source);
-        text = text.Replace(
-            "  \"checksum_sha256\": \"synthetic-not-a-chrome-sha256\",\n",
-            string.Empty,
+        text = text
+            .Replace(
+                "  \"checksum_sha256\": \"synthetic-not-a-chrome-sha256\",\r\n",
+                string.Empty,
+                StringComparison.Ordinal)
+            .Replace(
+                "  \"checksum_sha256\": \"synthetic-not-a-chrome-sha256\",\n",
+                string.Empty,
+                StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "\"checksum_sha256\"",
+            text,
             StringComparison.Ordinal);
         await File.WriteAllTextAsync(source, text);
 

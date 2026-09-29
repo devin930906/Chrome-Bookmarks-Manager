@@ -8,7 +8,7 @@ namespace ChromeBookmarksManager.Tests.Saving;
 public sealed class ChromeBookmarksSaveServiceTests
 {
     [Fact]
-    public async Task SaveAsync_ChromeRunning_BlocksBeforeBaselineOrTransaction()
+    public async Task SaveAsync_ChromeRunning_LiveChromeSource_BlocksBeforeBaselineOrTransaction()
     {
         var process = new SequenceProcessDetector(true);
         var baseline = new RecordingBaselineService();
@@ -18,12 +18,32 @@ public sealed class ChromeBookmarksSaveServiceTests
         var error = await Assert.ThrowsAsync<ChromeBookmarksSaveException>(
             () => service.SaveAsync(
                 CreateDocument(),
-                CreateBaseline()));
+                CreateLiveChromeBaseline()));
 
         Assert.Equal(ChromeBookmarksSaveError.ChromeRunning, error.Error);
         Assert.Equal(1, process.CallCount);
         Assert.Equal(0, baseline.VerifyCount);
         Assert.Equal(0, transaction.ExecuteCount);
+    }
+
+    [Fact]
+    public async Task SaveAsync_ChromeRunning_DetachedCopy_SavesWithoutProcessCheck()
+    {
+        var process = new SequenceProcessDetector(true);
+        var baseline = new RecordingBaselineService();
+        var transaction = new RecordingTransaction();
+        var service = new ChromeBookmarksSaveService(process, baseline, transaction);
+
+        var result = await service.SaveAsync(
+            CreateDocument(),
+            CreateBaseline());
+
+        Assert.NotNull(result);
+        Assert.Equal(0, process.CallCount);
+        Assert.Equal(2, baseline.VerifyCount);
+        Assert.Equal(1, transaction.ExecuteCount);
+        Assert.True(transaction.CriticalGuardInvoked);
+        Assert.True(transaction.ReplacementSimulated);
     }
 
     [Fact]
@@ -36,7 +56,7 @@ public sealed class ChromeBookmarksSaveServiceTests
             new RecordingTransaction());
 
         var error = await Assert.ThrowsAsync<ChromeBookmarksSaveException>(
-            () => service.SaveAsync(CreateDocument(), CreateBaseline()));
+            () => service.SaveAsync(CreateDocument(), CreateLiveChromeBaseline()));
 
         Assert.Equal(ChromeBookmarksSaveError.ProcessCheckFailed, error.Error);
     }
@@ -68,7 +88,7 @@ public sealed class ChromeBookmarksSaveServiceTests
     [Fact]
     public async Task SaveAsync_Success_RechecksChromeAtCriticalReplaceBoundary()
     {
-        var expected = CreateBaseline();
+        var expected = CreateLiveChromeBaseline();
         var final = expected with
         {
             Sha256 = new string('b', 64),
@@ -120,7 +140,7 @@ public sealed class ChromeBookmarksSaveServiceTests
         var error = await Assert.ThrowsAsync<ChromeBookmarksSaveException>(
             () => service.SaveAsync(
                 CreateDocument(),
-                CreateBaseline()));
+                CreateLiveChromeBaseline()));
 
         Assert.Equal(ChromeBookmarksSaveError.ChromeRunning, error.Error);
         Assert.Equal(2, process.CallCount);
@@ -228,6 +248,43 @@ public sealed class ChromeBookmarksSaveServiceTests
     }
 
     [Theory]
+    [InlineData(
+        @"C:\Users\Owner\AppData\Local",
+        @"C:\Users\Owner\AppData\Local\Google\Chrome\User Data\Default\Bookmarks",
+        true)]
+    [InlineData(
+        @"C:\Users\Owner\AppData\Local",
+        @"C:\Users\Owner\AppData\Local\Google\Chrome\User Data\Profile 12\Bookmarks",
+        true)]
+    [InlineData(
+        @"C:\Users\Owner\AppData\Local",
+        @"C:\Users\Owner\AppData\Local\Google\Chrome Beta\User Data\Default\Bookmarks",
+        true)]
+    [InlineData(
+        @"C:\Users\Owner\AppData\Local",
+        @"E:\Backups\Chrome\Bookmarks",
+        false)]
+    [InlineData(
+        @"C:\Users\Owner\AppData\Local",
+        @"C:\Users\Owner\AppData\Local\Google\Chrome\User Data\Default\Bookmarks.bak",
+        false)]
+    [InlineData(
+        @"C:\Users\Owner\AppData\Local",
+        @"C:\Users\Owner\AppData\Local\Google\Chrome\User Data\Archive\Default\Bookmarks",
+        false)]
+    public void SourceSafetyPolicy_OnlyGuardsLiveChromeProfileBookmarks(
+        string localApplicationData,
+        string sourcePath,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            ChromeBookmarksSourceSafetyPolicy.RequiresChromeClosed(
+                sourcePath,
+                localApplicationData));
+    }
+
+    [Theory]
     [InlineData(ChromeBookmarksSaveError.BackupCreationFailed, false)]
     [InlineData(ChromeBookmarksSaveError.BackupVerificationFailed, false)]
     [InlineData(ChromeBookmarksSaveError.SourceChangedExternally, false)]
@@ -245,13 +302,32 @@ public sealed class ChromeBookmarksSaveServiceTests
         Assert.Equal(expected, exception.HasVerifiedRecoveryBackup);
     }
 
-    private static BookmarkSourceBaseline CreateBaseline() =>
+    private static BookmarkSourceBaseline CreateBaseline(
+        string? fullPath = null) =>
         new(
             Path.GetFullPath(
+                fullPath ??
                 Path.Combine(Path.GetTempPath(), "synthetic", "Bookmarks")),
             new string('a', 64),
             100,
             new DateTime(2026, 9, 20, 12, 0, 0, DateTimeKind.Utc));
+
+    private static BookmarkSourceBaseline CreateLiveChromeBaseline()
+    {
+        var localApplicationData = Environment.GetFolderPath(
+            Environment.SpecialFolder.LocalApplicationData);
+
+        Assert.False(string.IsNullOrWhiteSpace(localApplicationData));
+
+        return CreateBaseline(
+            Path.Combine(
+                localApplicationData,
+                "Google",
+                "Chrome",
+                "User Data",
+                "Default",
+                "Bookmarks"));
+    }
 
     private static BookmarkDocument CreateDocument(int version = 1)
     {

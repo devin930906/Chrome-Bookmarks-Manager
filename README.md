@@ -6,9 +6,9 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Stable — V1.2.4**
+**Stable — V1.2.5**
 
-V1.2.4 is the current stable personal-use release. It fixes a serious serializer regression that caused a Save to rewrite nearly the entire `Bookmarks` text representation and inflate large files by tens of megabytes. The writer now emits Chromium-native formatting (three-space indentation, CRLF, Chrome-style inline child arrays), keeps Chinese and other Unicode text as UTF-8 instead of converting it to `\\uXXXX`, preserves Chrome's native `<` escaping, restores Chrome-style property ordering, and no longer injects `checksum_sha256` into MD5-only source files. V1.2.3's right-pane **Add Bookmark...** command and detached-copy Save behavior are retained, together with verified backup, stale-source detection, atomic replacement, Undo / Redo, Dirty-state tracking, bilingual UI, drag-and-drop loading, folder creation, and bulk URL/TXT import protections. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
+V1.2.5 is the current stable personal-use release. It fixes the clipped/incomplete branded icon in the Windows taskbar by rebuilding the multi-resolution ICO with complete 16/24/32/48/64/128px frames and adding image-integrity checks to CI. The taskbar icon has also been visually confirmed by the project owner on Windows. It retains V1.2.4's Chromium-native `Bookmarks` serialization, Unicode preservation, MD5-only checksum behavior and Safe Save protections, plus all previous bookmark-management features. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
 
 The current application supports:
 

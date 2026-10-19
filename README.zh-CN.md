@@ -8,9 +8,9 @@ Chrome Bookmarks Manager 是一款面向 Windows 的桌面书签管理工具，�
 
 ## 当前版本
 
-**稳定版 — V1.2.4**
+**稳定版 — V1.2.5**
 
-V1.2.4 是当前稳定的个人使用版本。本版本修复一个严重的保存序列化问题：旧保存器会把几乎整份 `Bookmarks` 文本重新排版，并把大量中文 / Unicode 转成 `\\uXXXX`，导致大型书签文件无意义增加几十 MB，同时在 Beyond Compare 中看起来几乎整份文件都不同。现在保存器改为输出 Chrome / Chromium 原生风格：三空格缩进、CRLF、Chrome 风格子节点数组、原生 UTF-8 中文、Chrome 原有的 `<` 转义方式与字段顺序；若原文件本来没有 `checksum_sha256`，保存时也不会再强行新增。V1.2.3 已加入的右侧“添加书签...”以及独立 `Bookmarks` 副本在 Chrome 运行时可保存的行为全部保留，原有已验证备份、源文件变更检测、原子替换、Undo / Redo、Dirty 状态、中英双语、拖放打开、添加文件夹与批量网址 / TXT 导入机制保持不变。
+V1.2.5 是当前稳定的个人使用版本。本版本修复 Windows 任务栏蓝色书签图标显示不完整的问题，重建 16 / 24 / 32 / 48 / 64 / 128 px 多分辨率图标，并加入更严格的 ICO / PNG 完整性自动检查。项目维护者已在 Windows 任务栏上实际确认图标完整显示。本版本保留 V1.2.4 的 Chrome / Chromium 原生 `Bookmarks` 序列化、UTF-8 中文处理、MD5-only 校验字段行为与 Safe Save 安全保护，同时保留此前所有书签管理功能。正式 Release 仍只提供 `ChromeBookmarksManager.exe` 和 `ChromeBookmarksManager.exe.sha256`。
 
 当前版本包括：
 

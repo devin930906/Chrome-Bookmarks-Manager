@@ -131,7 +131,10 @@ public sealed class WorkspaceRuntimeTests
                 Assert.True(themeButton.IsEnabled);
                 Assert.False(searchBox.IsEnabled);
                 var details = Assert.IsType<Border>(window.FindName("DetailsPanel"));
-                Assert.Equal(width < 1080 ? Visibility.Collapsed : Visibility.Visible, details.Visibility);
+                // Windows may constrain the native window to the CI desktop's
+                // work area. Responsive behavior follows its actual DIP width.
+                Assert.True(window.ActualWidth >= window.MinWidth);
+                Assert.Equal(window.ActualWidth < 1080 ? Visibility.Collapsed : Visibility.Visible, details.Visibility);
                 var tree = Assert.IsType<TreeView>(window.FindName("FolderTree"));
                 var list = Assert.IsType<ListView>(window.FindName("BookmarksList"));
                 Assert.True(VirtualizingPanel.GetIsVirtualizing(tree));

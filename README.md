@@ -6,15 +6,13 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
-**Development branch: Night Workspace UI / dual theme**
+**Stable — V1.3.0**
 
-This branch introduces a folder sidebar, central bookmark list and collapsible details panel while retaining editing, search, drag and drop, import/export, undo/redo and safe-save flows. Narrow windows collapse details automatically; the View menu can reopen them.
+V1.3.0 introduces the Night Workspace UI: a folder sidebar, central bookmark list and collapsible details panel. Narrow windows collapse details automatically; the View menu can reopen them.
 
-Use the toolbar mode button or View → Light Mode / Dark Mode / Appearance to change the theme immediately. Theme and language preferences persist independently. Switching preserves search, selection and unsaved edits. Native file pickers follow Windows styling. This local development build has not been published to GitHub Releases.
+Use the toolbar mode button or View → Light Mode / Dark Mode / Appearance to switch immediately. Theme and language preferences persist independently, and switching preserves search, selection and unsaved edits. Application dialogs follow the active theme; native file pickers follow Windows styling.
 
-**Stable — V1.2.5**
-
-V1.2.5 is the current stable personal-use release. It fixes the clipped/incomplete branded icon in the Windows taskbar by rebuilding the multi-resolution ICO with complete 16/24/32/48/64/128px frames and adding image-integrity checks to CI. The taskbar icon has also been visually confirmed by the project owner on Windows. It retains V1.2.4's Chromium-native `Bookmarks` serialization, Unicode preservation, MD5-only checksum behavior and Safe Save protections, plus all previous bookmark-management features. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.
+This release retains existing bookmark-management features, Safe Save, verified backup and source-conflict protection, and the complete application icon fix from V1.2.5. The official Release provides persistent `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256` downloads instead of relying on one-day Actions artifacts.
 
 The current application supports:
 
@@ -521,6 +519,7 @@ The application still does not write automatically: production persistence occur
 - **V1.2.0 — Native Bookmarks drag-and-drop + bulk URL/TXT import: completed** — strict external-drop filtering, multiline/TXT bulk add, invalid-line blocking, one-step batch Undo/Redo, left/right bulk-add entry points, automated CI, and Windows owner acceptance complete
 - **V1.2.1 — Folder creation parity and default naming: completed** — right-pane Add Folder entry point plus localized Chrome-like default new-folder naming
 - **V1.2.2 — Stay in parent after folder creation: completed** — creating a child folder refreshes the current contents without automatically navigating into the new folder
+- **V1.3.0 — Night Workspace and dual themes: stable** — redesigned three-column UI, collapsible details, themed dialogs and persistent Light / Dark switching; original bookmark operations and Safe Save retained, with official EXE and SHA256 release downloads
 
 ## Design and implementation documents
 

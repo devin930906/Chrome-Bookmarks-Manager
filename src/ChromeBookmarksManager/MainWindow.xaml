@@ -2,20 +2,18 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:search="clr-namespace:ChromeBookmarksManager.Application.Search"
-        Title="{Binding ApplicationTitle}"
-        Icon="Assets/ChromeBookmarksManager.ico"
-        Width="1180"
-        Height="760"
-        MinWidth="900"
-        MinHeight="560"
-        WindowStartupLocation="CenterScreen"
-        PreviewKeyDown="Window_PreviewKeyDown"
-        Closing="Window_Closing"
-        AllowDrop="True"
-        DragOver="Window_DragOver"
-        Drop="Window_Drop">
-    <DockPanel>
-        <Menu DockPanel.Dock="Top">
+        Title="{Binding ApplicationTitle}" Icon="Assets/ChromeBookmarksManager.ico"
+        Style="{StaticResource WorkspaceWindowStyle}"
+        Width="1180" Height="760" MinWidth="900" MinHeight="560"
+        WindowStartupLocation="CenterScreen" PreviewKeyDown="Window_PreviewKeyDown"
+        Closing="Window_Closing" AllowDrop="True" DragOver="Window_DragOver" Drop="Window_Drop">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolVisibility" />
+        <Style x:Key="QuietLabel" TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" /><Setter Property="FontSize" Value="11" /></Style>
+    </Window.Resources>
+    <Grid Background="{DynamicResource AppBackgroundBrush}">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <Menu Grid.Row="0" Padding="8,3" Background="{DynamicResource SidebarBackgroundBrush}">
             <MenuItem Header="{DynamicResource MenuFile}">
                 <MenuItem Header="{DynamicResource MenuOpenBookmarks}"
                           IsEnabled="{Binding CanOpenBookmarks}"
@@ -93,6 +91,13 @@
                           IsEnabled="{Binding CanDeleteSelectedContentItems}"
                           Click="DeleteSelectedContentItems_Click" />
             </MenuItem>
+            <MenuItem Header="{DynamicResource MenuView}">
+                <MenuItem x:Name="LightModeMenuItem" Header="{DynamicResource ThemeLight}" IsCheckable="True" Click="LightMode_Click" />
+                <MenuItem x:Name="DarkModeMenuItem" Header="{DynamicResource ThemeDark}" IsCheckable="True" Click="DarkMode_Click" />
+                <Separator />
+                <MenuItem Header="{DynamicResource MenuAppearance}" Click="ShowAppearance_Click" />
+                <MenuItem Header="{DynamicResource MenuDetails}" Click="ToggleDetails_Click" />
+            </MenuItem>
             <MenuItem Header="{DynamicResource MenuLanguage}">
                 <MenuItem x:Name="SimplifiedChineseMenuItem"
                           Header="{DynamicResource LanguageSimplifiedChinese}"
@@ -104,120 +109,20 @@
                           Click="SwitchToEnglish_Click" />
             </MenuItem>
         </Menu>
-
-        <Border DockPanel.Dock="Top"
-                Padding="10,8"
-                BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
-                BorderThickness="0,0,0,1">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="320" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <Button Grid.Column="0"
-                        Content="{DynamicResource ToolbarOpenBookmarks}"
-                        Padding="16,6"
-                        IsEnabled="{Binding CanOpenBookmarks}"
-                        Click="OpenBookmarks_Click"
-                        ToolTip="{DynamicResource TooltipOpenBookmarks}" />
-
-                <Button Grid.Column="1"
-                        Margin="8,0,0,0"
-                        Content="{DynamicResource ToolbarCancel}"
-                        Padding="16,6"
-                        IsEnabled="{Binding CanCancelLoad}"
-                        Click="CancelLoad_Click"
-                        ToolTip="{DynamicResource TooltipCancelLoad}" />
-
-                <Button Grid.Column="2"
-                        Margin="8,0,0,0"
-                        Content="{DynamicResource ToolbarUndo}"
-                        Padding="12,6"
-                        IsEnabled="{Binding CanUndo}"
-                        Click="Undo_Click"
-                        ToolTip="{Binding UndoDescription}" />
-
-                <Button Grid.Column="3"
-                        Margin="8,0,0,0"
-                        Content="{DynamicResource ToolbarRedo}"
-                        Padding="12,6"
-                        IsEnabled="{Binding CanRedo}"
-                        Click="Redo_Click"
-                        ToolTip="{Binding RedoDescription}" />
-
-                <Button Grid.Column="4"
-                        Margin="8,0,8,0"
-                        Content="{DynamicResource ToolbarSave}"
-                        Padding="16,6"
-                        IsEnabled="{Binding CanSave}"
-                        Click="Save_Click"
-                        ToolTip="{DynamicResource TooltipSave}" />
-
-                <TextBox x:Name="SearchBox"
-                         Grid.Column="5"
-                         Margin="12,0,0,0"
-                         Height="30"
-                         VerticalContentAlignment="Center"
-                         IsEnabled="{Binding CanSearchDocument}"
-                         Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{DynamicResource TooltipSearch}" />
-
-                <ComboBox Grid.Column="6"
-                          Margin="8,0,0,0"
-                          MinWidth="130"
-                          Height="30"
-                          VerticalContentAlignment="Center"
-                          IsEnabled="{Binding CanSearchDocument}"
-                          SelectedValue="{Binding SearchScope, Mode=TwoWay}"
-                          SelectedValuePath="Tag"
-                          ToolTip="{DynamicResource TooltipSearchScope}">
-                    <ComboBoxItem Content="{DynamicResource SearchScopeAllBookmarks}"
-                                  Tag="{x:Static search:BookmarkSearchScope.AllBookmarks}" />
-                    <ComboBoxItem Content="{DynamicResource SearchScopeCurrentFolder}"
-                                  Tag="{x:Static search:BookmarkSearchScope.CurrentFolder}" />
-                </ComboBox>
-            </Grid>
-        </Border>
-
-        <StatusBar DockPanel.Dock="Bottom">
-            <StatusBarItem>
-                <TextBlock Text="{Binding StatusText}" />
-            </StatusBarItem>
-            <Separator />
-            <StatusBarItem>
-                <TextBlock Text="{Binding SearchSummaryText}" />
-            </StatusBarItem>
-            <Separator />
-            <StatusBarItem>
-                <TextBlock Text="{Binding DocumentSummaryText}" />
-            </StatusBarItem>
-            <Separator />
-            <StatusBarItem>
-                <TextBlock Text="{Binding SelectionSummaryText}" />
-            </StatusBarItem>
-            <Separator />
-            <StatusBarItem HorizontalContentAlignment="Stretch">
-                <TextBlock Text="{Binding SourcePath}"
-                           TextTrimming="CharacterEllipsis"
-                           ToolTip="{Binding SourcePath}" />
-            </StatusBarItem>
-        </StatusBar>
-
-        <Grid>
+        <Grid Grid.Row="1" x:Name="WorkspaceGrid">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" MinWidth="220" />
+                <ColumnDefinition Width="210" MinWidth="170" MaxWidth="330" />
                 <ColumnDefinition Width="5" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="350" />
+                <ColumnDefinition x:Name="DetailsSplitterColumn" Width="5" />
+                <ColumnDefinition x:Name="DetailsColumn" Width="225" />
             </Grid.ColumnDefinitions>
-
-            <GroupBox Grid.Column="0" Header="{DynamicResource PanelFolders}" Margin="8">
-                <TreeView x:Name="FolderTree"
+            <Border Background="{DynamicResource SidebarBackgroundBrush}" Padding="12,16,10,10">
+                <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <TextBlock Text="{DynamicResource WorkspaceBrand}" FontWeight="SemiBold" FontSize="18" Margin="8,0,0,18" />
+                    <Button Grid.Row="1" Content="{DynamicResource ToolbarOpenBookmarks}" Click="OpenBookmarks_Click" IsEnabled="{Binding CanOpenBookmarks}" ToolTip="{DynamicResource TooltipOpenBookmarks}" HorizontalAlignment="Stretch" Margin="0,0,0,18" />
+                    <GroupBox Grid.Row="2" Header="{DynamicResource PanelFolders}" Padding="0" BorderThickness="0">
+                        <TreeView x:Name="FolderTree"
                           ItemsSource="{Binding FolderRoots}"
                           IsEnabled="{Binding CanBrowseDocument}"
                           SelectedItemChanged="FolderTree_SelectedItemChanged"
@@ -259,11 +164,11 @@
                     </TreeView.ContextMenu>
                     <TreeView.ItemTemplate>
                         <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                            <TextBlock Text="{Binding Name}" />
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="▱" Margin="0,0,7,0" Foreground="{DynamicResource WarningBrush}" /><TextBlock Text="{Binding Name}" ToolTip="{Binding Name}" TextTrimming="CharacterEllipsis" /></StackPanel>
                         </HierarchicalDataTemplate>
                     </TreeView.ItemTemplate>
                     <TreeView.ItemContainerStyle>
-                        <Style TargetType="{x:Type TreeViewItem}">
+                        <Style TargetType="{x:Type TreeViewItem}" BasedOn="{StaticResource WorkspaceTreeItemStyle}">
                             <Setter Property="IsExpanded"
                                     Value="{Binding IsExpanded, Mode=TwoWay}" />
                             <Setter Property="IsSelected"
@@ -271,14 +176,48 @@
                         </Style>
                     </TreeView.ItemContainerStyle>
                 </TreeView>
-            </GroupBox>
-
-            <GridSplitter Grid.Column="1"
-                          Width="5"
-                          HorizontalAlignment="Stretch" />
-
-            <GroupBox Grid.Column="2" Header="{DynamicResource PanelContents}" Margin="8">
-                <ListView x:Name="BookmarksList"
+                    </GroupBox>
+                    <Border Grid.Row="3" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="7,12,4,0" Margin="0,10,0,0">
+                        <StackPanel><TextBlock Text="{Binding Workspace.SourceFileName, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourcePath}" /><TextBlock Text="{Binding SourcePath}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourcePath}" Margin="0,5,0,0" /></StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Width="5" Background="{DynamicResource BorderBrush}" />
+            <Grid Grid.Column="2" Margin="16,0">
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <Border Padding="0,14,0,12" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="112" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBox x:Name="SearchBox" Grid.Column="0" MinWidth="75" Margin="0,0,8,0" Height="34" VerticalContentAlignment="Center" IsEnabled="{Binding CanSearchDocument}" Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTip="{DynamicResource TooltipSearch}" />
+                        <ComboBox Grid.Column="1" Height="34" Margin="0,0,8,0" VerticalContentAlignment="Center" IsEnabled="{Binding CanSearchDocument}" SelectedValue="{Binding SearchScope, Mode=TwoWay}" SelectedValuePath="Tag" ToolTip="{DynamicResource TooltipSearchScope}">
+                            <ComboBoxItem Content="{DynamicResource SearchScopeAllBookmarks}" Tag="{x:Static search:BookmarkSearchScope.AllBookmarks}" />
+                            <ComboBoxItem Content="{DynamicResource SearchScopeCurrentFolder}" Tag="{x:Static search:BookmarkSearchScope.CurrentFolder}" />
+                        </ComboBox>
+                        <Button Grid.Column="2" x:Name="ThemeToggleButton" Content="{DynamicResource ThemeToggle}" Click="ToggleTheme_Click" ToolTip="{Binding Workspace.ThemeDescription, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,0,8,0" Padding="10,6" />
+                        <Button Grid.Column="3" Content="{DynamicResource ToolbarSave}" IsEnabled="{Binding CanSave}" Click="Save_Click" ToolTip="{DynamicResource TooltipSave}" Style="{StaticResource PrimaryButtonStyle}" Padding="12,6" />
+                    </Grid>
+                </Border>
+                <Grid Grid.Row="1" Margin="2,19,0,15"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <StackPanel><TextBlock Text="{Binding Workspace.FolderPath, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip="{Binding Workspace.FolderPath, RelativeSource={RelativeSource AncestorType=Window}}" /><TextBlock Text="{Binding Workspace.FolderTitle, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="24" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Workspace.FolderTitle, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,5,0,5" /><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Workspace.DisplayedSummary, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource QuietLabel}" /><TextBlock Text="{DynamicResource WorkspaceUnsaved}" Foreground="{DynamicResource WarningBrush}" Margin="12,0,0,0" Visibility="{Binding IsDirty, Converter={StaticResource BoolVisibility}}" /></StackPanel></StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+                        <Button Content="{DynamicResource ToolbarUndo}" IsEnabled="{Binding CanUndo}" Click="Undo_Click" ToolTip="{Binding UndoDescription}" Style="{StaticResource QuietButtonStyle}" Padding="6,4" MinWidth="46" Margin="0,0,5,0" />
+                        <Button Content="{DynamicResource ToolbarRedo}" IsEnabled="{Binding CanRedo}" Click="Redo_Click" ToolTip="{Binding RedoDescription}" Style="{StaticResource QuietButtonStyle}" Padding="6,4" MinWidth="46" Margin="0,0,5,0" />
+                        <Button Content="{DynamicResource WorkspaceAdd}" Click="ShowAddMenu_Click" IsEnabled="{Binding CanAddBookmark}" Style="{StaticResource PrimaryButtonStyle}"><Button.ContextMenu><ContextMenu><MenuItem Header="{DynamicResource MenuAddBookmark}" IsEnabled="{Binding CanAddBookmark}" Click="AddBookmark_Click" /><MenuItem Header="{DynamicResource MenuAddBookmarksBatch}" IsEnabled="{Binding CanAddBookmark}" Click="AddBookmarksBatch_Click" /><MenuItem Header="{DynamicResource MenuAddFolder}" IsEnabled="{Binding CanAddFolder}" Click="AddFolder_Click" /></ContextMenu></Button.ContextMenu></Button>
+                        <Button Content="{DynamicResource WorkspaceDetails}" Click="ToggleDetails_Click" Visibility="{Binding Workspace.IsDetailsClosed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}" Margin="5,0,0,0" />
+                    </StackPanel>
+                </Grid>
+                <Border x:Name="BulkActionsBar" Grid.Row="2" Background="{DynamicResource SelectionBrush}" CornerRadius="6" Padding="9,7" Margin="0,0,0,10" Visibility="{Binding Workspace.HasMultipleSelection, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}">
+                    <DockPanel><TextBlock Text="{Binding Workspace.SelectedSummary, RelativeSource={RelativeSource AncestorType=Window}}" VerticalAlignment="Center" FontSize="11" /><StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="{DynamicResource ContextCut}" IsEnabled="{Binding CanCutSelectedContentItems}" Click="CutSelectedContentItems_Click" Style="{StaticResource QuietButtonStyle}" />
+                        <Button Content="{DynamicResource ContextCopy}" IsEnabled="{Binding CanCopySelectedContentItems}" Click="CopySelectedContentItems_Click" Style="{StaticResource QuietButtonStyle}" />
+                        <Button Content="{DynamicResource WorkspaceMove}" IsEnabled="{Binding CanMoveSelectedContentItems}" Click="MoveSelectedContentItems_Click" Style="{StaticResource QuietButtonStyle}" />
+                        <Button Content="{DynamicResource WorkspaceDelete}" IsEnabled="{Binding CanDeleteSelectedContentItems}" Click="DeleteSelectedContentItems_Click" Style="{StaticResource DangerButtonStyle}" />
+                        <Button Content="×" Click="ClearSelection_Click" Style="{StaticResource IconButtonStyle}" ToolTip="{DynamicResource WorkspaceClearSelection}" />
+                    </StackPanel></DockPanel>
+                </Border>
+                <GroupBox Grid.Row="3" Header="{DynamicResource PanelContents}" BorderThickness="0" Padding="0">
+                    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                        <DockPanel Margin="0,0,0,9"><Button Content="{DynamicResource MenuSortByName}" IsEnabled="{Binding CanSortSelectedFolder}" Click="SortSelectedFolder_Click" Style="{StaticResource QuietButtonStyle}" HorizontalAlignment="Left" /><TextBlock Text="{Binding SearchSummaryText}" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" /></DockPanel>
+                        <Grid Grid.Row="1"><ListView x:Name="BookmarksList" ItemContainerStyle="{StaticResource WorkspaceListItemStyle}"
                           ItemsSource="{Binding DisplayedItems}"
                           SelectionChanged="BookmarksList_SelectionChanged"
                           MouseDoubleClick="BookmarksList_MouseDoubleClick"
@@ -382,21 +321,22 @@
                         </ContextMenu>
                     </ListView.ContextMenu>
                     <ListView.View>
-                        <GridView>
-                            <GridViewColumn Header="{DynamicResource ColumnName}"
-                                            Width="320">
+                        <GridView AllowsColumnReorder="False">
+                            <GridViewColumn Width="30"><GridViewColumn.CellTemplate><DataTemplate><CheckBox Focusable="False" IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}, Mode=TwoWay}" ToolTip="{DynamicResource WorkspaceSelectItem}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+                            <GridViewColumn x:Name="ContentNameColumn" Header="{DynamicResource ColumnName}"
+                                            Width="250">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock x:Name="FolderGlyph"
-                                                       Text="📁"
-                                                       Margin="0,0,6,0"
+                                                       Text="▱" Foreground="{DynamicResource WarningBrush}"
+                                                       Margin="0,0,10,0"
                                                        Visibility="Collapsed" />
                                             <TextBlock x:Name="BookmarkGlyph"
-                                                       Text="🔖"
+                                                       Text="↗" Foreground="{DynamicResource AccentBrush}"
                                                        Margin="0,0,6,0"
                                                        Visibility="Collapsed" />
-                                            <TextBlock Text="{Binding Name}" />
+                                            <TextBlock Text="{Binding Name}" ToolTip="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                         <DataTemplate.Triggers>
                                             <DataTrigger Binding="{Binding IsFolder}"
@@ -415,13 +355,62 @@
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
-                            <GridViewColumn Header="{DynamicResource ColumnUrl}"
-                                            Width="520"
-                                            DisplayMemberBinding="{Binding Url}" />
+                            <GridViewColumn x:Name="ContentUrlColumn" Header="{DynamicResource ColumnUrl}"
+                                            Width="310"
+                                            ><GridViewColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Url}" ToolTip="{Binding Url}" Foreground="{DynamicResource SecondaryTextBrush}" TextTrimming="CharacterEllipsis" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
                         </GridView>
                     </ListView.View>
                 </ListView>
-            </GroupBox>
+                            <Border Background="{DynamicResource AppBackgroundBrush}" Visibility="{Binding Workspace.IsEmptyDocument, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="18"><TextBlock Text="⌑" FontSize="38" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" /><TextBlock Text="{DynamicResource WorkspaceEmptyTitle}" FontSize="19" FontWeight="SemiBold" TextAlignment="Center" Margin="0,14,0,8" /><TextBlock Text="{DynamicResource WorkspaceEmptyBody}" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="340" /><Button Content="{DynamicResource ToolbarOpenBookmarks}" Click="OpenBookmarks_Click" IsEnabled="{Binding CanOpenBookmarks}" HorizontalAlignment="Center" Style="{StaticResource PrimaryButtonStyle}" Margin="0,20,0,0" /></StackPanel></Border>
+                            <Border Background="{DynamicResource AppBackgroundBrush}" Visibility="{Binding Workspace.IsLoading, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="{DynamicResource StatusReading}" FontSize="18" Margin="0,0,0,16" /><ProgressBar IsIndeterminate="True" Width="220" Height="4" /><Button Content="{DynamicResource WorkspaceCancelLoad}" IsEnabled="{Binding CanCancelLoad}" Click="CancelLoad_Click" HorizontalAlignment="Center" Margin="0,18,0,0" /></StackPanel></Border>
+                            <TextBlock Text="{Binding Workspace.EmptyListMessage, RelativeSource={RelativeSource AncestorType=Window}}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Visibility="{Binding Workspace.HasEmptyList, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}" />
+                        </Grid>
+                    </Grid>
+                </GroupBox>
+            </Grid>
+            <GridSplitter x:Name="DetailsSplitter" Grid.Column="3" HorizontalAlignment="Stretch" Width="5" Background="{DynamicResource BorderBrush}" />
+            <Border x:Name="DetailsPanel" Grid.Column="4" Background="{DynamicResource SidebarBackgroundBrush}" Padding="16,17,14,12">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"><StackPanel>
+                    <DockPanel><Button DockPanel.Dock="Right" Content="×" Click="ToggleDetails_Click" Style="{StaticResource IconButtonStyle}" ToolTip="{DynamicResource WorkspaceCloseDetails}" /><TextBlock Text="{DynamicResource WorkspaceSelectedItem}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center" /></DockPanel>
+                    <Border Width="44" Height="44" Background="{DynamicResource SelectionBrush}" CornerRadius="10" HorizontalAlignment="Left" Margin="0,23,0,15"><TextBlock Text="{Binding Workspace.DetailGlyph, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{DynamicResource AccentBrush}" FontSize="23" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+                    <TextBlock Text="{Binding Workspace.DetailTitle, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Workspace.DetailUrl, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,9,0,0" />
+                    <TextBlock Text="{DynamicResource WorkspaceLocation}" Style="{StaticResource QuietLabel}" Margin="0,22,0,6" />
+                    <TextBlock Text="{Binding Workspace.DetailPath, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" TextWrapping="Wrap" />
+                    <TextBlock Text="{DynamicResource WorkspaceItemActions}" Style="{StaticResource QuietLabel}" Margin="0,22,0,8" />
+                    <WrapPanel>
+                        <Button Content="{DynamicResource WorkspaceOpen}" IsEnabled="{Binding CanOpenSelectedContentItem}" Click="OpenContentBookmark_Click" Margin="0,0,5,6" />
+                        <Button Content="{DynamicResource WorkspaceRename}" IsEnabled="{Binding Workspace.CanRenameDetail, RelativeSource={RelativeSource AncestorType=Window}}" Click="RenameDetail_Click" Margin="0,0,5,6" />
+                        <Button Content="{DynamicResource WorkspaceEditUrl}" IsEnabled="{Binding CanEditSelectedBookmarkUrl}" Click="EditUrl_Click" Margin="0,0,5,6" />
+                        <Button Content="{DynamicResource WorkspaceMove}" IsEnabled="{Binding CanMoveSelectedContentItems}" Click="MoveSelectedContentItems_Click" Margin="0,0,5,6" />
+                        <Button Content="{DynamicResource WorkspaceDelete}" IsEnabled="{Binding CanDeleteSelectedContentItems}" Click="DeleteSelectedContentItems_Click" Style="{StaticResource DangerButtonStyle}" Margin="0,0,5,6" />
+                    </WrapPanel>
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Margin="0,20,0,0" Padding="0,14,0,0"><StackPanel><TextBlock Text="{DynamicResource WorkspaceSafeSave}" Foreground="{DynamicResource SuccessBrush}" FontSize="11" /><TextBlock Text="{DynamicResource WorkspaceSafeSaveNote}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" /></StackPanel></Border>
+                </StackPanel></ScrollViewer>
+            </Border>
         </Grid>
-    </DockPanel>
+        <StatusBar Grid.Row="2" Padding="10,3" FontSize="10" Background="{DynamicResource SidebarBackgroundBrush}">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusText}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding SearchSummaryText}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding DocumentSummaryText}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding SelectionSummaryText}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem HorizontalContentAlignment="Stretch">
+                <TextBlock Text="{Binding SourcePath}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding SourcePath}" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
 </Window>

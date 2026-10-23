@@ -1,6 +1,7 @@
 <Window x:Class="ChromeBookmarksManager.DiscardChangesDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource WorkspaceWindowStyle}"
         Title="{DynamicResource DiscardTitle}"
         Width="440"
         SizeToContent="Height"

@@ -1,6 +1,7 @@
 <Window x:Class="ChromeBookmarksManager.BatchBookmarkImportDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource WorkspaceWindowStyle}"
         Title="{DynamicResource DialogBatchAddBookmarks}"
         Width="700"
         Height="520"
@@ -42,7 +43,7 @@
                        Grid.Column="1"
                        Margin="12,3,0,0"
                        TextWrapping="Wrap"
-                       Foreground="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" />
+                       Foreground="{DynamicResource DangerBrush}" />
         </Grid>
 
         <StackPanel Grid.Row="3"

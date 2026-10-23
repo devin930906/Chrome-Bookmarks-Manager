@@ -1,6 +1,7 @@
 <Window x:Class="ChromeBookmarksManager.BookmarkEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource WorkspaceWindowStyle}"
         Width="500"
         SizeToContent="Height"
         MinHeight="180"
@@ -49,7 +50,7 @@
                    Margin="70,0,0,12"
                    MinHeight="18"
                    TextWrapping="Wrap"
-                   Foreground="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" />
+                   Foreground="{DynamicResource DangerBrush}" />
 
         <StackPanel Grid.Row="3"
                     Orientation="Horizontal"

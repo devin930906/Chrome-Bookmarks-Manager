@@ -34,10 +34,15 @@ public partial class MainWindow : Window
     private ListViewItem? _bookmarkDropIndicatorItem;
     private TreeViewItem? _folderDropIndicatorItem;
     private bool _allowClose;
-    private readonly UserSettingsStore _userSettingsStore = new();
+    private readonly UserSettingsStore _userSettingsStore;
 
-    public MainWindow()
+    public MainWindow() : this(new UserSettingsStore())
     {
+    }
+
+    internal MainWindow(UserSettingsStore settingsStore)
+    {
+        _userSettingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
         InitializeComponent();
 
         var reader = new ChromeBookmarksReader();
@@ -66,6 +71,7 @@ public partial class MainWindow : Window
             TimeSpan.FromMilliseconds(250));
 
         UpdateLanguageMenuChecks();
+        InitializeWorkspace();
     }
 
     private static string L(string key) =>
@@ -89,9 +95,18 @@ public partial class MainWindow : Window
     private void SwitchLanguage(string languageCode)
     {
         LocalizationService.SetLanguage(languageCode);
-        _userSettingsStore.SaveLanguage(languageCode);
+        try
+        {
+            _userSettingsStore.SaveLanguage(languageCode);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            AppMessageDialog.Show(this, L("SettingsSaveFailed"), L("MenuLanguage"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         UpdateLanguageMenuChecks();
         ViewModel.RefreshLocalizedText();
+        Workspace.Refresh();
     }
 
     private void UpdateLanguageMenuChecks()
@@ -164,15 +179,12 @@ public partial class MainWindow : Window
     private Task<SaveDiscardCancel> PromptDirtyDocumentAsync(
         string actionResourceKey)
     {
-        var result = MessageBox.Show(
+        var result = AppMessageDialog.ShowSaveChanges(
             this,
             LF(
                 "DirtyPrompt",
                 L(actionResourceKey)),
-            L("TitleUnsavedChanges"),
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Warning,
-            MessageBoxResult.Cancel);
+            L("TitleUnsavedChanges"));
 
         return Task.FromResult(result switch
         {
@@ -195,7 +207,7 @@ public partial class MainWindow : Window
                 ? $"\n\n{LF("VerifiedRecoveryBackup", exception.BackupPath)}"
                 : string.Empty;
 
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 LocalizationService.LocalizeExceptionMessage(exception) + recovery,
                 L("TitleSaveFailed"),
@@ -205,7 +217,7 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 L("SaveCanceledBeforeCritical"),
                 L("TitleSaveCanceled"),
@@ -215,7 +227,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 LF("SaveFailedUnexpected", exception.Message),
                 L("TitleSaveFailed"),
@@ -316,7 +328,7 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 L("ImportCanceled"),
                 L("TitleImportBookmarks"),
@@ -325,7 +337,7 @@ public partial class MainWindow : Window
         }
         catch (BookmarkHtmlImportException exception)
         {
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 LocalizationService.LocalizeExceptionMessage(exception),
                 L("TitleImportBookmarks"),
@@ -334,7 +346,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 LF("ImportFailed", exception.Message),
                 L("TitleImportBookmarks"),
@@ -373,7 +385,7 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 L("ExportCanceled"),
                 L("TitleExportBookmarks"),
@@ -382,7 +394,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 LF("ExportFailed", exception.Message),
                 L("TitleExportBookmarks"),
@@ -503,6 +515,14 @@ public partial class MainWindow : Window
         object sender,
         MouseButtonEventArgs e)
     {
+        // A checkbox changes selection through its existing container binding;
+        // it must not also start an internal drag operation.
+        if (FindVisualParent<CheckBox>(e.OriginalSource as DependencyObject) is not null)
+        {
+            ResetBookmarkDragSource();
+            return;
+        }
+
         var item = FindVisualParent<ListViewItem>(
             e.OriginalSource as DependencyObject);
 
@@ -1140,7 +1160,7 @@ public partial class MainWindow : Window
         }
         catch (ExternalUrlLaunchException exception)
         {
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 LocalizationService.LocalizeExceptionMessage(exception),
                 L("TitleOpenBookmark"),
@@ -1236,7 +1256,7 @@ public partial class MainWindow : Window
 
     private void ShowClipboardError(Exception exception)
     {
-        MessageBox.Show(
+        AppMessageDialog.Show(
             this,
             LocalizationService.LocalizeExceptionMessage(exception),
             L("TitleClipboardOperation"),
@@ -1418,7 +1438,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 LF("BatchImportFailed", exception.Message),
                 L("DialogBatchAddBookmarks"),
@@ -1767,7 +1787,7 @@ public partial class MainWindow : Window
 
     private void ShowEditError(BookmarkEditException exception)
     {
-        MessageBox.Show(
+        AppMessageDialog.Show(
             this,
             LocalizationService.LocalizeExceptionMessage(exception),
             L("TitleBookmarkEditing"),
@@ -1777,7 +1797,7 @@ public partial class MainWindow : Window
 
     private void ShowMoveError(BookmarkMoveException exception)
     {
-        MessageBox.Show(
+        AppMessageDialog.Show(
             this,
             LocalizationService.LocalizeExceptionMessage(exception),
             L("TitleMoveBookmarkItem"),
@@ -1787,7 +1807,7 @@ public partial class MainWindow : Window
 
     private void ShowDeleteError(BookmarkDeleteException exception)
     {
-        MessageBox.Show(
+        AppMessageDialog.Show(
             this,
             LocalizationService.LocalizeExceptionMessage(exception),
             L("TitleDeleteBookmarkItem"),
@@ -1932,7 +1952,7 @@ public partial class MainWindow : Window
         string title,
         string message)
     {
-        return MessageBox.Show(
+        return AppMessageDialog.Show(
                 this,
                 message,
                 title,
@@ -2328,7 +2348,7 @@ public partial class MainWindow : Window
     {
         ClearBookmarkDropIndicator();
 
-        item.BorderBrush = SystemColors.HighlightBrush;
+        item.SetResourceReference(Control.BorderBrushProperty, "AccentBrush");
         item.BorderThickness = placement switch
         {
             DropPlacement.Before => new Thickness(0, 2, 0, 0),
@@ -2357,7 +2377,7 @@ public partial class MainWindow : Window
     {
         ClearFolderDropIndicator();
 
-        item.BorderBrush = SystemColors.HighlightBrush;
+        item.SetResourceReference(Control.BorderBrushProperty, "AccentBrush");
         item.BorderThickness = placement switch
         {
             DropPlacement.Before => new Thickness(0, 2, 0, 0),

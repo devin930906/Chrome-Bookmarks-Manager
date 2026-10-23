@@ -46,7 +46,7 @@ public partial class BatchBookmarkImportDialog : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(
+            AppMessageDialog.Show(
                 this,
                 LocalizationService.Format(
                     "BatchImportTxtFailed",

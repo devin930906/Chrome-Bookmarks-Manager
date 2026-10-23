@@ -6,6 +6,12 @@ Chrome Bookmarks Manager is a Windows desktop application for managing very larg
 
 ## Project status
 
+**Development branch: Night Workspace UI / dual theme**
+
+This branch introduces a folder sidebar, central bookmark list and collapsible details panel while retaining editing, search, drag and drop, import/export, undo/redo and safe-save flows. Narrow windows collapse details automatically; the View menu can reopen them.
+
+Use the toolbar mode button or View → Light Mode / Dark Mode / Appearance to change the theme immediately. Theme and language preferences persist independently. Switching preserves search, selection and unsaved edits. Native file pickers follow Windows styling. This local development build has not been published to GitHub Releases.
+
 **Stable — V1.2.5**
 
 V1.2.5 is the current stable personal-use release. It fixes the clipped/incomplete branded icon in the Windows taskbar by rebuilding the multi-resolution ICO with complete 16/24/32/48/64/128px frames and adding image-integrity checks to CI. The taskbar icon has also been visually confirmed by the project owner on Windows. It retains V1.2.4's Chromium-native `Bookmarks` serialization, Unicode preservation, MD5-only checksum behavior and Safe Save protections, plus all previous bookmark-management features. The formal tagged release contains only `ChromeBookmarksManager.exe` and `ChromeBookmarksManager.exe.sha256`.

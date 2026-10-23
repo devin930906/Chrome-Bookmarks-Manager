@@ -34,6 +34,9 @@ public sealed class WorkspaceRuntimeTests
                 var row = Assert.IsType<ListViewItem>(list.ItemContainerGenerator.ContainerFromIndex(0));
                 Assert.True(row.ActualHeight >= 36, $"Row height was {row.ActualHeight}");
                 Assert.NotNull(row.Template.FindName("RowChrome", row));
+                var verticalBar = FindVisual<System.Windows.Controls.Primitives.ScrollBar>(list, bar => bar.Orientation == Orientation.Vertical && bar.IsVisible);
+                Assert.NotNull(verticalBar);
+                Assert.True(verticalBar.ActualHeight > 100, $"Vertical scrollbar height was {verticalBar.ActualHeight}");
                 var label = FindVisual<TextBlock>(button);
                 Assert.NotNull(label);
                 Assert.Equal(ColorOf("AccentForegroundBrush"), Assert.IsType<SolidColorBrush>(label.Foreground).Color);
@@ -43,13 +46,13 @@ public sealed class WorkspaceRuntimeTests
         });
     }
 
-    private static T? FindVisual<T>(DependencyObject parent) where T : DependencyObject
+    private static T? FindVisual<T>(DependencyObject parent, Func<T, bool>? predicate = null) where T : DependencyObject
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
         {
             var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is T result) return result;
-            if (FindVisual<T>(child) is { } nested) return nested;
+            if (child is T result && (predicate is null || predicate(result))) return result;
+            if (FindVisual<T>(child, predicate) is { } nested) return nested;
         }
         return null;
     }
